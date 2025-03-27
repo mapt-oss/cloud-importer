@@ -1,6 +1,8 @@
-package constants
+package params
 
-import "github.com/spf13/pflag"
+import (
+	"github.com/spf13/pflag"
+)
 
 const (
 	BackedURL         string = "backed-url"
@@ -19,3 +21,10 @@ func AddCommonFlags(fs *pflag.FlagSet) {
 	fs.Bool(Debug, false, DebugDesc)
 	fs.Uint(DebugLevel, DebugLevelDefault, DebugLevelDesc)
 }
+
+// func AddRequiredFlag(fs *pflag.FlagSet, c *cobra.Command, flag, flagDesc *string) {
+// 	fs.StringP(*flag, "", "", *flagDesc)
+// 	if err := c.MarkFlagRequired(*flag); err != nil {
+// 		logging.Errorf("error setting flag %s as required", *flag)
+// 	}
+// }

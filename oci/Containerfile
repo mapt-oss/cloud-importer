@@ -1,5 +1,5 @@
 # Moved to Fedora 41 and install go tools until ubi9 go tools support go 1.23
-FROM quay.io/fedora/fedora@sha256:77326d310d7df97020509f2015525d2e1c30761929d30f16e8462892d69112ad as builder
+FROM quay.io/fedora/fedora@sha256:e99eaeb7ad0008cb6278b38e8fdfb2715b6391e52a9fa88474f289410bf6ae67 as builder
 RUN dnf install -y make go
 
 ARG TARGETARCH
@@ -18,8 +18,7 @@ RUN GOARCH=${TARGETARCH} make build \
     && curl -L ${PULUMI_URL} -o pulumicli.tar.gz \
     && tar -xzvf pulumicli.tar.gz 
 
-# ubi 9.5-1732804088
-FROM registry.access.redhat.com/ubi9/ubi:9.5-1739751568
+FROM quay.io/fedora/fedora@sha256:e99eaeb7ad0008cb6278b38e8fdfb2715b6391e52a9fa88474f289410bf6ae67 
 ARG TARGETARCH
 LABEL org.opencontainers.image.authors="Redhat Developer"
 
@@ -42,7 +41,8 @@ ARG PULUMI_AWS_NATIVE_VERSION=v1.25.0
 ENV PULUMI_HOME "/opt/cloud-importer/run" 
 WORKDIR ${PULUMI_HOME}
 
-RUN mkdir -p /opt/cloud-importer/run \
+RUN dnf install -y python3 python3-pip zstd qemu-img \
+    && mkdir -p /opt/cloud-importer/run \
     && chmod -R 0777 /opt/cloud-importer/run \
     && if [ "$TARGETARCH" = "arm64" ]; then export ARCH_N=aarch64; fi \
     && export AWS_CLI_URL="https://awscli.amazonaws.com/awscli-exe-linux-${ARCH_N}-${AWS_CLI_VERSION}.zip" \

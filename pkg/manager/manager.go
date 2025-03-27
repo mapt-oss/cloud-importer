@@ -6,11 +6,12 @@ import (
 )
 
 const (
-	stackImportRHELAIImage string = "importrhelai"
-	stackShareImage        string = "shareimage"
+	stackRHELAI         string = "rhelai"
+	stackOpenshiftLocal string = "openshiftloca"
+	stackShare          string = "share"
 )
 
-func ImportRHELAI(ctx *context.ContextArgs,
+func RHELAI(ctx *context.ContextArgs,
 	rawImageFilepath string,
 	amiName string,
 	provider Provider) error {
@@ -21,7 +22,7 @@ func ImportRHELAI(ctx *context.ContextArgs,
 	if err != nil {
 		return err
 	}
-	importFunc, err := p.ImportRHELAI(rawImageFilepath, amiName)
+	importFunc, err := p.RHELAI(rawImageFilepath, amiName)
 	if err != nil {
 		return err
 	}
@@ -29,7 +30,41 @@ func ImportRHELAI(ctx *context.ContextArgs,
 	stack := providerAPI.Stack{
 		// TODO add random ID
 		ProjectName: context.ProjectName(),
-		StackName:   stackImportRHELAIImage,
+		StackName:   stackRHELAI,
+		BackedURL:   context.BackedURL(),
+		DeployFunc:  importFunc}
+	_, err = upStack(stack)
+	if err != nil {
+		return err
+	}
+	// err = manageImageImportResults(stackResult, context.Output())
+	// if err != nil {
+	// 	return nil
+	// }
+	// Current exec create temporary resources to enable the import
+	// we delete it as they are only temporary
+	return destroyStack(stack)
+}
+
+func OpenshiftLocal(ctx *context.ContextArgs,
+	bundleURL string, shasumURL string, arch string,
+	provider Provider) error {
+	// Initialize context
+	context.Init(ctx)
+	// Get provider
+	p, err := getProvider(provider)
+	if err != nil {
+		return err
+	}
+	importFunc, err := p.OpenshiftLocal(bundleURL, shasumURL, arch)
+	if err != nil {
+		return err
+	}
+	// Create a stack based on the import function and create it
+	stack := providerAPI.Stack{
+		// TODO add random ID
+		ProjectName: context.ProjectName(),
+		StackName:   stackOpenshiftLocal,
 		BackedURL:   context.BackedURL(),
 		DeployFunc:  importFunc}
 	_, err = upStack(stack)
@@ -55,7 +90,7 @@ func ShareImage(ctx *context.ContextArgs,
 	if err != nil {
 		return err
 	}
-	shareFunc, err := p.ShareImage(imageID, targetAccountID)
+	shareFunc, err := p.Share(imageID, targetAccountID)
 	if err != nil {
 		return err
 	}
@@ -63,7 +98,7 @@ func ShareImage(ctx *context.ContextArgs,
 	stack := providerAPI.Stack{
 		// TODO add random ID
 		ProjectName: context.ProjectName(),
-		StackName:   stackShareImage,
+		StackName:   stackShare,
 		BackedURL:   context.BackedURL(),
 		DeployFunc:  shareFunc}
 	_, err = upStack(stack)

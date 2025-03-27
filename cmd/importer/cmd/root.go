@@ -6,9 +6,10 @@ import (
 	"os"
 	"strings"
 
+	openshiftlocal "github.com/devtools-qe-incubator/cloud-importer/cmd/importer/cmd/openshift-local"
 	"github.com/devtools-qe-incubator/cloud-importer/cmd/importer/cmd/rhelai"
 	"github.com/devtools-qe-incubator/cloud-importer/cmd/importer/cmd/share"
-	params "github.com/devtools-qe-incubator/cloud-importer/cmd/importer/constants"
+	params "github.com/devtools-qe-incubator/cloud-importer/cmd/importer/params"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -58,6 +59,7 @@ func init() {
 	rootCmd.PersistentFlags().AddFlagSet(flagSet)
 	// Subcommands
 	rootCmd.AddCommand(
+		openshiftlocal.GetCmd(),
 		rhelai.GetCmd(),
 		share.GetCmd(),
 	)
