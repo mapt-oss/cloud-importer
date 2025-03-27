@@ -10,7 +10,7 @@ type shareRequest struct {
 	targetAccountID string
 }
 
-func (a *Provider) ShareImage(imageID string, targetAccountID string) (pulumi.RunFunc, error) {
+func (a *aws) Share(imageID string, targetAccountID string) (pulumi.RunFunc, error) {
 	r := shareRequest{
 		imageID,
 		targetAccountID}

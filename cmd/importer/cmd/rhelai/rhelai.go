@@ -1,7 +1,7 @@
 package rhelai
 
 import (
-	params "github.com/devtools-qe-incubator/cloud-importer/cmd/importer/constants"
+	params "github.com/devtools-qe-incubator/cloud-importer/cmd/importer/params"
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager"
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
 	"github.com/spf13/cobra"
@@ -45,7 +45,7 @@ func aws() *cobra.Command {
 			if err := viper.BindPFlags(cmd.Flags()); err != nil {
 				return err
 			}
-			if err := manager.ImportRHELAI(
+			if err := manager.RHELAI(
 				&context.ContextArgs{
 					BackedURL:  viper.GetString(params.BackedURL),
 					Output:     viper.GetString(params.Output),

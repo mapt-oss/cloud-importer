@@ -57,13 +57,15 @@ $(GOPATH)/bin/golangci-lint:
 lint: $(GOPATH)/bin/golangci-lint
 	$(GOPATH)/bin/golangci-lint run
 
-# Build the container image
-.PHONY: oci-build
-oci-build: 
-	${CONTAINER_MANAGER} build -t ${IMG} -f oci/Containerfile .
+# Build for amd64 architecture only
+.PHONY: oci-build-amd64
+oci-build-amd64: clean
+	# Build the container image for amd64
+	${CONTAINER_MANAGER} build --platform linux/amd64 --manifest $(IMG)-amd64 -f oci/Containerfile .
 
-# Push the container image
-.PHONY: oci-push
-container-push:
-	${CONTAINER_MANAGER} push ${IMG}
-	
+# Build for arm64 architecture only
+.PHONY: oci-build-arm64
+oci-build-arm64: clean
+	# Build the container image for arm64
+	${CONTAINER_MANAGER} build --platform linux/arm64 --manifest $(IMG)-arm64 -f oci/Containerfile .
+

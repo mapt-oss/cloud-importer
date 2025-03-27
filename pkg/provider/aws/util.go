@@ -13,46 +13,13 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-type importRequest struct {
-	rawImageFilePath string
-	amiName          string
-}
-
-func (a *Provider) ImportRHELAI(rawImageFilePath, amiName string) (pulumi.RunFunc, error) {
-	r := importRequest{
-		rawImageFilePath,
-		amiName}
-	return r.runFunc, nil
-}
-
-func (r importRequest) runFunc(ctx *pulumi.Context) error {
-	id := randomID()
-	_, err := bucketEphemeral(ctx, id)
-	if err != nil {
-		return err
-	}
-	ro, _, err := createVMIEmportExportRole(ctx, id)
-	if err != nil {
-		return err
-	}
-	u, err := uploadDisk(ctx, r.rawImageFilePath, id, []pulumi.Resource{ro})
-	if err != nil {
-		return err
-	}
-	_, err = registerAMI(ctx, r.amiName, id, ro, []pulumi.Resource{u})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // This function creates a temporary bucket to upload the disk image to be imported
 // It returns the bucket resource, the generated bucket name and error if any
-func bucketEphemeral(ctx *pulumi.Context, bucketName string) (*s3.Bucket, error) {
+func bucketEphemeral(ctx *pulumi.Context, bucketName *string) (*s3.Bucket, error) {
 	return s3.NewBucket(ctx,
 		"s3EphemeralBucket",
 		&s3.BucketArgs{
-			BucketName: pulumi.String(bucketName),
+			BucketName: pulumi.String(*bucketName),
 			// https://aws.amazon.com/blogs/aws/heads-up-amazon-s3-security-changes-are-coming-in-april-of-2023/
 			OwnershipControls: s3.BucketOwnershipControlsArgs{
 				Rules: s3.BucketOwnershipControlsRuleArray{
@@ -67,19 +34,20 @@ func bucketEphemeral(ctx *pulumi.Context, bucketName string) (*s3.Bucket, error)
 }
 
 // // random name for temporary assets required for importing the image
-func randomID() string {
+func randomID() *string {
 	b := make([]byte, 4)
 	_, _ = rand.Read(b)
-	return fmt.Sprintf("cloud-importer-%x", b)
+	id := fmt.Sprintf("cloud-importer-%x", b)
+	return &id
 }
 
 // https://docs.aws.amazon.com/vm-import/latest/userguide/required-permissions.html
 func createVMIEmportExportRole(ctx *pulumi.Context,
-	roleName string) (*iam.Role, pulumi.Resource, error) {
+	roleName *string) (*iam.Role, pulumi.Resource, error) {
 	role, err := iam.NewRole(ctx,
 		"role",
 		&iam.RoleArgs{
-			RoleName:                 pulumi.String(roleName),
+			RoleName:                 pulumi.String(*roleName),
 			AssumeRolePolicyDocument: pulumi.Any(trustPolicyContent()),
 		})
 	if err != nil {
@@ -90,23 +58,23 @@ func createVMIEmportExportRole(ctx *pulumi.Context,
 		&iam.RolePolicyArgs{
 			RoleName: role.ID(),
 			PolicyDocument: pulumi.Any(
-				rolePolicyContent(roleName)),
+				rolePolicyContent(*roleName)),
 		})
 	return role, rolePolicyAttachment, err
 }
 
-func uploadDisk(ctx *pulumi.Context, rawImageFilePath, bucketName string,
+func uploadDisk(ctx *pulumi.Context, rawImageFilePath, bucketName *string,
 	dependecies []pulumi.Resource) (pulumi.Resource, error) {
 	// aws s3 cp %s s3://%s/disk.raw
 	uploadCommand :=
 		fmt.Sprintf(
 			"aws s3 cp %s s3://%s/disk.raw --only-show-error",
-			rawImageFilePath,
-			bucketName)
+			*rawImageFilePath,
+			*bucketName)
 	deleteCommand :=
 		fmt.Sprintf(
 			"aws s3 rm s3://%s/disk.raw --only-show-error",
-			bucketName)
+			*bucketName)
 
 	return local.NewCommand(ctx,
 		"upload",
@@ -124,16 +92,17 @@ func uploadDisk(ctx *pulumi.Context, rawImageFilePath, bucketName string,
 
 // from an image as a raw on a s3 bucket this function will import it as a snapshot
 // and the register the snapshot as an AMI
-func registerAMI(ctx *pulumi.Context, amiName string,
-	bucketName string, vmieRole *iam.Role,
+func registerAMI(ctx *pulumi.Context, amiName *string, arch *string,
+	bucketName *string, vmieRole *iam.Role,
 	dependsOn []pulumi.Resource) (*ec2.Ami, error) {
 	snapshot, err := ebs.NewSnapshotImport(ctx,
 		"snapshot",
 		&ebs.SnapshotImportArgs{
+			Description: pulumi.String(*amiName),
 			DiskContainer: &ebs.SnapshotImportDiskContainerArgs{
 				Format: pulumi.String("RAW"),
 				UserBucket: &ebs.SnapshotImportDiskContainerUserBucketArgs{
-					S3Bucket: pulumi.String(bucketName),
+					S3Bucket: pulumi.String(*bucketName),
 					S3Key:    pulumi.String("disk.raw"),
 				},
 			},
@@ -157,10 +126,11 @@ func registerAMI(ctx *pulumi.Context, amiName string,
 					VolumeSize: pulumi.Int(1000),
 				},
 			},
-			Name:               pulumi.String(amiName),
-			Description:        pulumi.String(amiName),
+			Name:               pulumi.String(*amiName),
+			Description:        pulumi.String(*amiName),
 			RootDeviceName:     pulumi.String("/dev/xvda"),
 			VirtualizationType: pulumi.String("hvm"),
+			Architecture:       pulumi.String(*arch),
 			// Required by c6a instances
 			EnaSupport: pulumi.Bool(true),
 		},

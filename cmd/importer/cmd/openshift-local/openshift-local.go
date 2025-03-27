@@ -1,4 +1,4 @@
-package share
+package openshiftlocal
 
 import (
 	params "github.com/devtools-qe-incubator/cloud-importer/cmd/importer/params"
@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	cmd     = "share"
-	cmdDesc = "share images"
+	cmd     = "openshift-local"
+	cmdDesc = "openshift local import"
 )
 
 func GetCmd() *cobra.Command {
@@ -30,11 +30,13 @@ func GetCmd() *cobra.Command {
 }
 
 var (
-	awsCMD                   = "aws"
-	paramImageID             = "image-id"
-	paramImageIDDesc         = "image id to be shared"
-	paramTargetAccountID     = "account-id"
-	paramTargetAccountIDDesc = "target account id"
+	awsCMD             = "aws"
+	paramBundleURL     = "bundle-url"
+	paramBundleURLDesc = "accessible url to get the bundle"
+	paramShasumURL     = "shasum-url"
+	paramShasumURLDesc = "accessible url to get the shasum file to check bundle"
+	paramArch          = "arch"
+	paramArchDesc      = "architecture for the machine. Allowed x86_64 or arm64"
 )
 
 func aws() *cobra.Command {
@@ -45,14 +47,16 @@ func aws() *cobra.Command {
 			if err := viper.BindPFlags(cmd.Flags()); err != nil {
 				return err
 			}
-			if err := manager.ShareImage(
+			if err := manager.OpenshiftLocal(
 				&context.ContextArgs{
 					BackedURL:  viper.GetString(params.BackedURL),
+					Output:     viper.GetString(params.Output),
 					Debug:      viper.IsSet(params.Debug),
 					DebugLevel: viper.GetUint(params.DebugLevel),
 				},
-				viper.GetString(paramImageID),
-				viper.GetString(paramTargetAccountID),
+				viper.GetString(paramBundleURL),
+				viper.GetString(paramShasumURL),
+				viper.GetString(paramArch),
 				manager.AWS); err != nil {
 				return err
 			}
@@ -60,8 +64,10 @@ func aws() *cobra.Command {
 		},
 	}
 	flagSet := pflag.NewFlagSet(awsCMD, pflag.ExitOnError)
-	flagSet.StringP(paramImageID, "", "", paramImageIDDesc)
-	flagSet.StringP(paramTargetAccountID, "", "", paramTargetAccountIDDesc)
+	flagSet.StringP(params.Output, "", "", params.OutputDesc)
+	flagSet.StringP(paramBundleURL, "", "", paramBundleURLDesc)
+	flagSet.StringP(paramShasumURL, "", "", paramShasumURLDesc)
+	flagSet.StringP(paramArch, "", "", paramArchDesc)
 	c.PersistentFlags().AddFlagSet(flagSet)
 	return c
 }
