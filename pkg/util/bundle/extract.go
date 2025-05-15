@@ -2,7 +2,7 @@ package bundle
 
 import (
 	_ "embed"
-	"fmt"
+	"os"
 
 	// "github.com/crc/crc-cloud/pkg/util"
 	// "github.com/crc/crc-cloud/pkg/util/command"
@@ -27,12 +27,15 @@ func Extract(ctx *pulumi.Context, bundleURL, shasumURL string) (*local.Command, 
 	if err != nil {
 		return nil, err
 	}
+	if err := os.Chmod(*scriptfileName, 0777); err != nil {
+		return nil, err
+	}
 	execScriptENVS := map[string]string{
 		"BUNDLE_DOWNLOAD_URL":     bundleURL,
 		"SHASUMFILE_DOWNLOAD_URL": shasumURL}
 	return local.NewCommand(ctx, "execExtractScript",
 		&local.CommandArgs{
-			Create:      pulumi.String(fmt.Sprintf(". %s", *scriptfileName)),
+			Create:      pulumi.String(*scriptfileName),
 			Environment: pulumi.ToStringMap(execScriptENVS),
 		},
 		pulumi.Timeouts(&pulumi.CustomTimeouts{
