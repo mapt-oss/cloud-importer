@@ -69,3 +69,27 @@ oci-build-arm64: clean
 	# Build the container image for arm64
 	${CONTAINER_MANAGER} build --platform linux/arm64 --manifest $(IMG)-arm64 -f oci/Containerfile .
 
+CLOUD_IMPORTER_SAVE ?= cloud-importer
+# Save images for amd64 architecture only
+.PHONY: oci-save-amd64
+oci-save-amd64:
+	${CONTAINER_MANAGER} save -m -o $(CLOUD_IMPORTER_SAVE)-amd64.tar $(IMG)-amd64
+
+# Save images for arm64 architecture only
+.PHONY: oci-save-arm64
+oci-save-arm64:
+	${CONTAINER_MANAGER} save -m -o $(CLOUD_IMPORTER_SAVE)-arm64.tar $(IMG)-arm64
+
+oci-load:
+	${CONTAINER_MANAGER} load -i $(CLOUD_IMPORTER_SAVE)-arm64/$(MAPT_SAVE)-arm64.tar 
+	${CONTAINER_MANAGER} load -i $(CLOUD_IMPORTER_SAVE)-amd64/$(MAPT_SAVE)-amd64.tar 
+
+# Push the docker image
+.PHONY: oci-push
+oci-push:
+	${CONTAINER_MANAGER} push $(IMG)-arm64
+	${CONTAINER_MANAGER} push $(IMG)-amd64
+	${CONTAINER_MANAGER} manifest create $(IMG)
+	${CONTAINER_MANAGER} manifest add $(IMG) docker://$(IMG)-arm64
+	${CONTAINER_MANAGER} manifest add $(IMG) docker://$(IMG)-amd64
+	${CONTAINER_MANAGER} manifest push --all $(IMG)
