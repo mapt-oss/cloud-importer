@@ -1,7 +1,7 @@
-VERSION ?= 0.0.1
+VERSION ?= 1.0.0-dev
 CONTAINER_MANAGER ?= podman
 # Image URL to use all building/pushing image targets
-IMG ?= quay.io/devtools-qe-incubator/cloud-importer:v${VERSION}
+IMG ?= quay.io/mapt-oss/cloud-importer:v${VERSION}
 
 # Go and compilation related variables
 GOPATH ?= $(shell go env GOPATH)
@@ -83,8 +83,8 @@ oci-save-arm64:
 	${CONTAINER_MANAGER} save -m -o $(CLOUD_IMPORTER_SAVE)-arm64.tar $(IMG)-arm64
 
 oci-load:
-	${CONTAINER_MANAGER} load -i $(CLOUD_IMPORTER_SAVE)-arm64/$(MAPT_SAVE)-arm64.tar 
-	${CONTAINER_MANAGER} load -i $(CLOUD_IMPORTER_SAVE)-amd64/$(MAPT_SAVE)-amd64.tar 
+	${CONTAINER_MANAGER} load -i $(CLOUD_IMPORTER_SAVE)-arm64/$(CLOUD_IMPORTER_SAVE)-arm64.tar 
+	${CONTAINER_MANAGER} load -i $(CLOUD_IMPORTER_SAVE)-amd64/$(CLOUD_IMPORTER_SAVE)-amd64.tar 
 
 # Push the docker image
 .PHONY: oci-push
