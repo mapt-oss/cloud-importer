@@ -8,7 +8,7 @@ to the account which run the tool. In order to allow to use the image from a dif
 
 ## RHEL AI
 
-In order to test RHEL AI on AWS we need to import the image according to [RHEL AI installation guide](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux_ai/1.4/html/installing/installing_on_aws) this tool will run those steps for us. Alhough previously the raw image should be donwloaded by an authenticated user to agree with EULA License.
+In order to test RHEL AI on AWS we need to import the image according to [RHEL AI installation guide](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux_ai/1.5/html/installing/installing_on_aws) this tool will run those steps for us. Alhough previously the raw image should be donwloaded by an authenticated user to agree with EULA License.
 
 To run the tool we can use the OCI container:
 
@@ -18,10 +18,10 @@ podman run --rm --name import-rhelai -d \
     -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
     -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
     -e AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} \
-    quay.io/devtools-qe-incubator/cloud-importer:v0.0.1 rhelai aws \
+    ghcr.io/mapt-oss/cloud-importer:latest rhelai aws \
         --backed-url "file:///workspace" \
-        --raw-image-path "/workspace/rhel-ai-nvidia-aws-1.3.2-1736778584-x86_64.raw" \
-        --ami-name "rhel-ai-nvidia-aws-1.3.2" \
+        --raw-image-path "/workspace/rhel-ai-nvidia-aws-1.5-1747399384-x86_64.raw" \
+        --ami-name "rhel-ai-nvidia-aws-1.5.0" \
         --debug \
         --debug-level 9
 
@@ -42,7 +42,7 @@ podman run --rm --name import-openshift-local -d \
     -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
     -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
     -e AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} \
-    quay.io/devtools-qe-incubator/cloud-importer:v0.0.1 openshift-local aws \
+    qghcr.io/mapt-oss/cloud-importer:latest openshift-local aws \
         --backed-url "file:///workspace" \
         --bundle-url ${BUNDLE_URL} \
         --shasum-url ${SHASUM_URL} \
