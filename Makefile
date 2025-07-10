@@ -10,6 +10,8 @@ SOURCE_DIRS = cmd pkg
 # https://golang.org/cmd/link/
 LDFLAGS := $(VERSION_VARIABLES) ${GO_EXTRA_LDFLAGS}
 GCFLAGS := all=-N -l
+GOOS := $(shell go env GOOS)
+GOARCH := $(shell go env GOARCH)
 
 # Add default target
 .PHONY: default
@@ -31,9 +33,9 @@ install: $(SOURCES)
 	go install -ldflags="$(LDFLAGS)" $(GO_EXTRA_BUILDFLAGS) ./cmd/importer
 
 $(BUILD_DIR)/cloud-importer: $(SOURCES)
-	GOOS=linux GOARCH=amd64 go build -gcflags="$(GCFLAGS)" -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/cloud-importer $(GO_EXTRA_BUILDFLAGS) ./cmd/importer
+	GOOS="$(GOOS)" GOARCH="$(GOARCH)" go build -gcflags="$(GCFLAGS)" -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/cloud-importer $(GO_EXTRA_BUILDFLAGS) ./cmd/importer
 
-.PHONY: build 
+.PHONY: build
 build: clean $(BUILD_DIR)/cloud-importer
 
 .PHONY: test
