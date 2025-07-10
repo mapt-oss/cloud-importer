@@ -1,6 +1,4 @@
-# Moved to Fedora 41 and install go tools until ubi9 go tools support go 1.23
-FROM quay.io/fedora/fedora@sha256:e99eaeb7ad0008cb6278b38e8fdfb2715b6391e52a9fa88474f289410bf6ae67 as builder
-RUN dnf install -y make go
+FROM registry.access.redhat.com/ubi9/go-toolset@sha256:381fb72f087a07432520fa93364f66b5981557f1dd708f3c4692d6d0a76299b3 as builder
 
 ARG TARGETARCH
 USER root
@@ -18,14 +16,16 @@ RUN GOARCH=${TARGETARCH} make build \
     && curl -L ${PULUMI_URL} -o pulumicli.tar.gz \
     && tar -xzvf pulumicli.tar.gz 
 
-FROM quay.io/fedora/fedora@sha256:e99eaeb7ad0008cb6278b38e8fdfb2715b6391e52a9fa88474f289410bf6ae67 
+FROM registry.access.redhat.com/ubi9/ubi@sha256:c73e2517941b384059eba8ea4b6ac68dad39a0a2cf0e65c753c778c87c87c321
+
 ARG TARGETARCH
+
 LABEL org.opencontainers.image.authors="Redhat Developer"
 
 COPY --from=builder /workspace/out/cloud-importer /workspace/pulumi/pulumi /usr/local/bin/
 COPY --from=builder /workspace/oci/.aws/config /root/.aws/config
 
-ENV PULUMI_CONFIG_PASSPHRASE "passphrase" 
+ENV PULUMI_CONFIG_PASSPHRASE "passphrase"
 
 ENV AWS_CLI_VERSION=2.16.7 \
     ARCH_N=x86_64
@@ -38,7 +38,7 @@ ARG PULUMI_COMMAND_VERSION=v1.0.2
 # renovate: datasource=github-releases depName=pulumi/pulumi-aws-native
 ARG PULUMI_AWS_NATIVE_VERSION=v1.25.0
 
-ENV PULUMI_HOME "/opt/cloud-importer/run" 
+ENV PULUMI_HOME "/opt/cloud-importer/run"
 WORKDIR ${PULUMI_HOME}
 
 RUN dnf install -y python3 python3-pip zstd qemu-img \
@@ -56,7 +56,9 @@ RUN dnf install -y python3 python3-pip zstd qemu-img \
     && pulumi plugin install resource aws ${PULUMI_AWS_VERSION} \
     && pulumi plugin install resource command ${PULUMI_COMMAND_VERSION} \
     && pulumi plugin install resource aws-native ${PULUMI_AWS_NATIVE_VERSION} 
-    
+
+USER 1001
+
 ENTRYPOINT ["cloud-importer"]
 CMD ["-h"]
 
