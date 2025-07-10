@@ -56,6 +56,9 @@ jobs:
           make oci-save-${{ env.ARCH_TYPE }}
       - name: Build and Push image for Release
         if: github.event_name == 'push'
+        env:
+          IMG: ghcr.io/mapt-oss/cloud-importer:latest
+        shell: bash
         run: |
           make oci-build-${{ env.ARCH_TYPE }}
           make oci-save-${{ env.ARCH_TYPE }}
@@ -107,7 +110,7 @@ jobs:
       - name: Push image for Release
         if: github.event_name == 'push'
         env:
-          IMG: ghcr.io/mapt-oss/cloud-importer:main-${{ github.sha }}-${{ github.event.number }}
+          IMG: ghcr.io/mapt-oss/cloud-importer:latest
         shell: bash
         run: |
           make oci-load
