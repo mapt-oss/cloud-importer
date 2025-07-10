@@ -49,7 +49,7 @@ jobs:
       - name: Build image for PR
         if: github.event_name == 'pull_request'
         env:
-          IMG: ghcr.io/devtools-qe-incubator/cloud-importer:pr-${{ github.event.number }}
+          IMG: ghcr.io/mapt-oss/cloud-importer:pr-${{ github.event.number }}
         shell: bash
         run: |
           make oci-build-${{ env.ARCH_TYPE }}
@@ -76,7 +76,7 @@ jobs:
           pattern: cloud-importer-*
       - name: copy both artifacts into single directory
         env:
-          IMG: ghcr.io/devtools-qe-incubator/cloud-importer:pr-${{ github.event.number }}
+          IMG: ghcr.io/mapt-oss/cloud-importer:pr-${{ github.event.number }}
         run: echo ${IMG} > cloud-importer-image
       - name: Upload combined mapt artifacts for PR
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -97,15 +97,18 @@ jobs:
         with:
           pattern: cloud-importer-*
 
-      - name: Log in quay.io
+      - name: Log in ghcr.io
         uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_IO_USERNAME }}
-          password: ${{ secrets.QUAY_IO_PASSWORD }}
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push image for Release
         if: github.event_name == 'push'
+        env:
+          IMG: ghcr.io/mapt-oss/cloud-importer:main-${{ github.sha }}-${{ github.event.number }}
+        shell: bash
         run: |
           make oci-load
           make oci-push
