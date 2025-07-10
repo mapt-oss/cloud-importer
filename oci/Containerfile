@@ -16,7 +16,7 @@ RUN GOARCH=${TARGETARCH} make build \
     && curl -L ${PULUMI_URL} -o pulumicli.tar.gz \
     && tar -xzvf pulumicli.tar.gz 
 
-FROM registry.access.redhat.com/ubi9/ubi@sha256:c73e2517941b384059eba8ea4b6ac68dad39a0a2cf0e65c753c778c87c87c321
+FROM quay.io/almalinuxorg/9-base@sha256:c35e3093d92f1de18091b0beafc54e32671d80f8873e9fa5770a3de865a01073
 
 ARG TARGETARCH
 
