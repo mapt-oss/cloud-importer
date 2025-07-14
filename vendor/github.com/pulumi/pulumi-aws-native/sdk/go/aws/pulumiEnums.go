@@ -11,6 +11,8 @@ const (
 	RegionAfSouth1 = Region("af-south-1")
 	// Asia Pacific (Hong Kong)
 	RegionApEast1 = Region("ap-east-1")
+	// Asia Pacific (Taipei)
+	RegionApEast2 = Region("ap-east-2")
 	// Asia Pacific (Tokyo)
 	RegionApNortheast1 = Region("ap-northeast-1")
 	// Asia Pacific (Seoul)
@@ -59,6 +61,8 @@ const (
 	RegionEuWest2 = Region("eu-west-2")
 	// Europe (Paris)
 	RegionEuWest3 = Region("eu-west-3")
+	// EU (Germany)
+	RegionEuscDeEast1 = Region("eusc-de-east-1")
 	// Israel (Tel Aviv)
 	RegionIlCentral1 = Region("il-central-1")
 	// Middle East (UAE)
@@ -83,6 +87,10 @@ const (
 	RegionUsIsoWest1 = Region("us-iso-west-1")
 	// US ISOB East (Ohio)
 	RegionUsIsobEast1 = Region("us-isob-east-1")
+	// US ISOF EAST
+	RegionUsIsofEast1 = Region("us-isof-east-1")
+	// US ISOF SOUTH
+	RegionUsIsofSouth1 = Region("us-isof-south-1")
 	// US West (N. California)
 	RegionUsWest1 = Region("us-west-1")
 	// US West (Oregon)

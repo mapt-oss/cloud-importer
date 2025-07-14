@@ -1,5 +1,100 @@
-CHANGELOG
-=========
+# CHANGELOG
+
+## 0.14.3
+
+### Improvements
+
+- `esc run` expects environment to be passed before `--`
+  [#545](https://github.com/pulumi/esc/pull/546)
+- `esc env set` uses a more readable YAML format when setting a key in an empty map
+  [#548](https://github.com/pulumi/esc/pull/548)
+
+### Bug Fixes
+
+- Fix `esc version`
+ [#541](https://github.com/pulumi/esc/pull/541)
+
+## 0.13.2
+
+### Bug Fixes
+
+- handle nil in MakeSecret
+ [#518](https://github.com/pulumi/esc/pull/518)
+
+## 0.13.1
+
+### Improvements
+
+- Updated to go 1.23
+
+### Bug Fixes
+
+- cmd/esc/cli/env.go: Modified the writeYAMLEnvironmentDiagnostics function to instantiate hcl.NewDiagnosticTextWriter with a width of 0 initially, and then conditionally reinstantiate it with the specified width if it is greater than 0, addressing gosec G115. [#494](https://github.com/pulumi/esc/pull/494)
+- No longer error when decrypting invalid secrets outside of values top-level key
+  [#491](https://github.com/pulumi/esc/pull/491)
+- Make CLI prefer environment variable `PULUMI_BACKEND_URL` over account backend URL
+  [#477](https://github.com/pulumi/esc/pull/477)
+- Adding cascading secrets into `NewSecret` method
+  [#488](https://github.com/pulumi/esc/pull/488)
+
+## 0.13.0
+
+### Improvements
+
+- Add `--string` flag to `env set` to treat the given value as a string.
+  [#467](https://github.com/pulumi/esc/pull/467)
+- Add proper return code to list environments when organization doesn't exist
+  [#484](https://github.com/pulumi/esc/pull/484)
+
+### Breaking changes
+
+- It is now a syntax error to call a builtin function incorrectly.
+  [449](https://github.com/pulumi/esc/pull/449)
+
+## 0.12.0
+
+### Improvements
+
+- Fix diagnostic messages when updating environment with invalid definition
+  [#422](https://github.com/pulumi/esc/pull/422)
+- Introduce support for rotating static credentials via `fn::rotate` providers [432](https://github.com/pulumi/esc/pull/432)
+- Add the `rotate` CLI command
+  [#433](https://github.com/pulumi/esc/pull/433)
+- Add ability to pass specific paths to rotate with the `rotate` CLI command
+  [#440](https://github.com/pulumi/esc/pull/440)
+- Introduce inline environment reference syntax
+  [#443](https://github.com/pulumi/esc/pull/443)
+- Introduce rotateOnly inputs
+  [#444](https://github.com/pulumi/esc/pull/444)
+- Release rotate environment CLI command
+  [#459](https://github.com/pulumi/esc/pull/459)
+
+## 0.11.1
+
+### Improvements
+
+- Add `--definition` flag to `esc env get` to output definition
+  [#416](https://github.com/pulumi/esc/pull/416)
+
+## 0.11.0
+
+### Improvements
+
+- Improve evaluation performance and memory footprint.
+  [#392](https://github.com/pulumi/esc/pull/392)
+
+- Improve login error message when credentials file is missing or invalid.
+  [#404](https://github.com/pulumi/esc/pull/404)
+
+### Bug Fixes
+
+- Fix panic when object keys are not strings.
+  [#406](https://github.com/pulumi/esc/pull/406)
+
+### Breaking changes
+
+- `schema`: `ObjectBuilder.Properties` and `Record` now take a `MapBuilder` in order to avoid copies.
+  [#392](https://github.com/pulumi/esc/pull/392)
 
 ## 0.10.0
 
@@ -25,7 +120,6 @@ CHANGELOG
 
 - Add project filter flag to env ls command.
   [#382](https://github.com/pulumi/esc/pull/382)
-
 
 ### Bug Fixes
 

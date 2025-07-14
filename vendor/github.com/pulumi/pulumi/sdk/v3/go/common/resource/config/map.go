@@ -308,17 +308,18 @@ func adjustObjectValue(v Value) (object, error) {
 		return v.unmarshalObject()
 	}
 
-	if v.typ == TypeString {
+	switch v.typ {
+	case TypeString:
 		return newObject(v.value), nil
-	} else if v.typ == TypeInt {
+	case TypeInt:
 		i, err := strconv.Atoi(v.value)
 		if err != nil {
 			return object{}, err
 		}
 		return newObject(int64(i)), nil
-	} else if v.typ == TypeBool {
+	case TypeBool:
 		return newObject(v.value == "true"), nil
-	} else if v.typ == TypeFloat {
+	case TypeFloat:
 		f, err := strconv.ParseFloat(v.value, 64)
 		if err != nil {
 			return object{}, err
@@ -327,9 +328,10 @@ func adjustObjectValue(v Value) (object, error) {
 	}
 
 	// If "false" or "true", return the boolean value.
-	if v.value == "false" {
+	switch v.value {
+	case "false":
 		return newObject(false), nil
-	} else if v.value == "true" {
+	case "true":
 		return newObject(true), nil
 	}
 
@@ -341,8 +343,11 @@ func adjustObjectValue(v Value) (object, error) {
 	}
 
 	// If it's convertible to an int, return the int.
-	if i, err := strconv.Atoi(v.value); err == nil {
-		return newObject(int64(i)), nil
+	if i, err := strconv.ParseInt(v.value, 10, 64); err == nil {
+		return newObject(i), nil
+	}
+	if i, err := strconv.ParseUint(v.value, 10, 64); err == nil {
+		return newObject(i), nil
 	}
 
 	// Otherwise, just return the string value.

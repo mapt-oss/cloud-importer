@@ -1,4 +1,4 @@
-// Copyright 2016-2021, Pulumi Corporation.
+// Copyright 2016-2025, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -52,40 +52,89 @@ type ProviderHandshakeRequest struct {
 	// that the engine has been asked to attach to an existing running provider instance via a host/port number), this
 	// field will be empty.
 	ProgramDirectory *string
+
+	// If true the engine will send URN, Name, Type and ID to the provider as part of the configuration.
+	ConfigureWithUrn bool
+
+	// If true the engine supports views and can send an address of the resource status service that
+	// can be used to create or update view resources.
+	SupportsViews bool
+
+	// If true the engine supports letting the provider mark resource states as requiring refresh before update.
+	SupportsRefreshBeforeUpdate bool
 }
 
 // The type of responses sent as part of a Handshake call.
-type ProviderHandshakeResponse struct{}
+type ProviderHandshakeResponse struct {
+	// True if and only if the provider supports secrets. If true, the caller should pass secrets as strongly typed
+	// values to the provider.
+	AcceptSecrets bool
 
+	// True if and only if the provider supports strongly typed resources. If true, the caller should pass resources as
+	// strongly typed values to the provider.
+	AcceptResources bool
+
+	// True if and only if the provider supports output values as inputs. If true, the engine should pass output values
+	// to the provider where possible.
+	AcceptOutputs bool
+
+	// True if the provider accepts and respects autonaming configuration that the engine provides on behalf of the
+	// user.
+	SupportsAutonamingConfiguration bool
+}
+
+// ParameterizeParameters can either be of concrete type ParameterizeArgs or ParameterizeValue, for when parameterizing
+// a provider from either the command line or from within a Pulumi program, respectively.
 type ParameterizeParameters interface {
 	isParameterizeParameters()
 }
 
 type (
+	// ParameterizeArgs is used when parameterizing a provider from command line arguments.
 	ParameterizeArgs struct {
+		// The arguments passed on the command line following the provider name.
 		Args []string
 	}
 
+	// ParameterizeValue is used when parameterizing a provider from within a Pulumi program.
 	ParameterizeValue struct {
-		Name    string
+		// The name of the parameterization.
+		Name string
+		// The version of the parameterization.
 		Version semver.Version
-		Value   []byte
+		// The binary parameterization value as returned from a previous parameterization call.
+		// This can be any data the provider needs to parameterize itself - such as the data needed to turn resource
+		// requests into API calls.
+		Value []byte
 	}
 )
 
-func (*ParameterizeArgs) isParameterizeParameters()  {}
+// isParameterizeParameters is a no-op method that marks ParameterizeArgs as implementing ParameterizeParameters.
+func (*ParameterizeArgs) isParameterizeParameters() {}
+
+// isParameterizeParameters is a no-op method that marks ParameterizeValue as implementing ParameterizeParameters.
 func (*ParameterizeValue) isParameterizeParameters() {}
 
+// The type of requests sent as part of a Parameterize call.
 type ParameterizeRequest struct {
+	// The parameters to use when parameterizing the provider instance.
 	Parameters ParameterizeParameters
 }
 
+// The type of responses sent as part of a Parameterize call.
 type ParameterizeResponse struct {
-	Name    string
+	// The name of the parameterization. This must be unique in the context of a program.
+	// If the request parameter was a ParameterizeValue, then this field must match the input name.
+	Name string
+	// The version of the parameterization. This is required to be set by the provider. It does not have to match the
+	// version of the provider itself, but can be used however the provider sees fit. If the request parameter was a
+	// ParameterizeValue, then this field must match the input version.
 	Version semver.Version
 }
 
+// GetSchemaResponse is the response to a GetSchema call.
 type GetSchemaResponse struct {
+	// The bytes of the JSON serialized Pulumi schema for generating the provider's SDK.
 	Schema []byte
 }
 
@@ -114,6 +163,21 @@ type DiffConfigRequest struct {
 type DiffConfigResponse = DiffResult
 
 type ConfigureRequest struct {
+	// The URN of the provider being configured. N.B. This will be null if configure_with_urn was false in
+	// Handshake.
+	URN *resource.URN
+	// The name of the provider being configured. This must match the name specified by the `urn` field, and
+	// is passed so that providers do not have to implement URN parsing in order to extract the name of the
+	// provider.  N.B. This will be null if configure_with_urn was false in Handshake.
+	Name *string
+	// The type of the provider being configured. This must match the type specified by the `urn` field, and
+	// is passed so that providers do not have to implement URN parsing in order to extract the type of the
+	// provider. N.B. This will be null if configure_with_urn was false in Handshake.
+	Type *tokens.Type
+	// The ID of the provider being configured. N.B. This will be null if configure_with_urn was false in
+	// Handshake.
+	ID *resource.ID
+	// A map of input properties for the provider.
 	Inputs resource.PropertyMap
 }
 
@@ -180,12 +244,18 @@ type CreateRequest struct {
 	Properties resource.PropertyMap
 	Timeout    float64
 	Preview    bool
+	// The gRPC address of the ResourceStatus service which can be used to create view resources.
+	ResourceStatusAddress string
+	// The ResourceStatus service token to pass when calling methods on the service.
+	ResourceStatusToken string
 }
 
 type CreateResponse struct {
 	ID         resource.ID
 	Properties resource.PropertyMap
 	Status     resource.Status
+	// Indicates that this resource should always be refreshed prior to updates.
+	RefreshBeforeUpdate bool
 }
 
 type ReadRequest struct {
@@ -194,6 +264,13 @@ type ReadRequest struct {
 	Type          tokens.Type
 	ID            resource.ID
 	Inputs, State resource.PropertyMap
+	// The gRPC address of the ResourceStatus service which can be used to read view resources.
+	ResourceStatusAddress string
+	// The ResourceStatus service token to pass when calling methods on the service.
+	ResourceStatusToken string
+	// The old views for the resource being read. These will only be populated when the Read call is being made as part
+	// of a refresh operation.
+	OldViews []View
 }
 
 type ReadResponse struct {
@@ -210,11 +287,19 @@ type UpdateRequest struct {
 	Timeout                          float64
 	IgnoreChanges                    []string
 	Preview                          bool
+	// The gRPC address of the ResourceStatus service which can be used to update view resources.
+	ResourceStatusAddress string
+	// The ResourceStatus service token to pass when calling methods on the service.
+	ResourceStatusToken string
+	// The old views for the resource being updated.
+	OldViews []View
 }
 
 type UpdateResponse struct {
 	Properties resource.PropertyMap
 	Status     resource.Status
+	// Indicates that this resource should always be refreshed prior to updates.
+	RefreshBeforeUpdate bool
 }
 
 type DeleteRequest struct {
@@ -224,6 +309,12 @@ type DeleteRequest struct {
 	ID              resource.ID
 	Inputs, Outputs resource.PropertyMap
 	Timeout         float64
+	// The gRPC address of the ResourceStatus service which can be used to delete view resources.
+	ResourceStatusAddress string
+	// The ResourceStatus service token to pass when calling methods on the service.
+	ResourceStatusToken string
+	// The old views of the resource being deleted.
+	OldViews []View
 }
 
 type DeleteResponse struct {
@@ -249,16 +340,6 @@ type InvokeRequest struct {
 type InvokeResponse struct {
 	Properties resource.PropertyMap
 	Failures   []CheckFailure
-}
-
-type StreamInvokeRequest struct {
-	Tok    tokens.ModuleMember
-	Args   resource.PropertyMap
-	OnNext func(resource.PropertyMap) error
-}
-
-type StreamInvokeResponse struct {
-	Failures []CheckFailure
 }
 
 type CallRequest struct {
@@ -315,9 +396,9 @@ type Provider interface {
 
 	// Handshake is the first call made by the engine to a provider. It is used to pass the engine's address to the
 	// provider so that it may establish its own connections back, and to establish protocol configuration that will be
-	// used to communicate between the two parties. Providers that support Handshake implicitly support the set of
-	// feature flags previously handled by Configure prior to Handshake's introduction, such as secrets and resource
-	// references.
+	// used to communicate between the two parties. Providers that support Handshake should return a response consistent
+	// with those returned in response to Configure calls where there is overlap due to the use of Configure prior to
+	// Handshake's introduction.
 	Handshake(context.Context, ProviderHandshakeRequest) (*ProviderHandshakeResponse, error)
 
 	// Parameterize adds a sub-package to this provider instance.
@@ -354,9 +435,6 @@ type Provider interface {
 
 	// Invoke dynamically executes a built-in function in the provider.
 	Invoke(context.Context, InvokeRequest) (InvokeResponse, error)
-	// StreamInvoke dynamically executes a built-in function in the provider, which returns a stream
-	// of responses.
-	StreamInvoke(context.Context, StreamInvokeRequest) (StreamInvokeResponse, error)
 	// Call dynamically executes a method in the provider associated with a component resource.
 	Call(context.Context, CallRequest) (CallResponse, error)
 
@@ -667,6 +745,8 @@ type ReadResult struct {
 	// Outputs contains the new outputs/state for the resource, if any. If this field is nil, the resource does not
 	// exist.
 	Outputs resource.PropertyMap
+	// Indicates that this resource should always be refreshed prior to updates.
+	RefreshBeforeUpdate bool
 }
 
 // ConstructInfo contains all of the information required to register resources as part of a call to Construct.
@@ -689,7 +769,7 @@ type ConstructOptions struct {
 	Dependencies []resource.URN
 
 	// Protect is true if the component is protected.
-	Protect bool
+	Protect *bool
 
 	// Providers is a map from package name to provider reference.
 	Providers map[string]string
@@ -710,7 +790,7 @@ type ConstructOptions struct {
 
 	// DeleteBeforeReplace specifies that replacements of this resource
 	// should delete the old resource before creating the new resource.
-	DeleteBeforeReplace bool
+	DeleteBeforeReplace *bool
 
 	// IgnoreChanges lists properties that should be ignored
 	// when determining whether the resource should has changed.
@@ -722,7 +802,7 @@ type ConstructOptions struct {
 
 	// RetainOnDelete is true if deletion of the resource should not
 	// delete the resource in the provider.
-	RetainOnDelete bool
+	RetainOnDelete *bool
 }
 
 // CustomTimeouts overrides default timeouts for resource operations.
@@ -762,9 +842,32 @@ type CallOptions struct {
 // CallResult is the result of a call to Call.
 type CallResult struct {
 	// The returned values, if the call was successful.
+	// In the case of a scalar/non-map result, a single key with any name can be used to return the
+	// value.
 	Return resource.PropertyMap
 	// A map from return value keys to the dependencies of the return value.
 	ReturnDependencies map[resource.PropertyKey][]resource.URN
 	// The failures if any arguments didn't pass verification.
 	Failures []CheckFailure
+}
+
+// View represents the state of a view resource.
+type View struct {
+	// The type of the view resource.
+	Type tokens.Type
+
+	// The name of the view resource.
+	Name string
+
+	// An optional type of the parent view resource.
+	ParentType tokens.Type
+
+	// An optional name of the parent view resource.
+	ParentName string
+
+	// The view resource's inputs.
+	Inputs resource.PropertyMap
+
+	// The view resource's outputs.
+	Outputs resource.PropertyMap
 }

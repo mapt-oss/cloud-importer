@@ -355,6 +355,13 @@ type ResourceV3 struct {
 	SourcePosition string `json:"sourcePosition,omitempty" yaml:"sourcePosition,omitempty"`
 	// IgnoreChanges is a list of properties to ignore changes for.
 	IgnoreChanges []string `json:"ignoreChanges,omitempty" yaml:"ignoreChanges,omitempty"`
+	// ReplaceOnChanges is a list of properties that if changed trigger a replace.
+	ReplaceOnChanges []string `json:"replaceOnChanges,omitempty" yaml:"replaceOnChanges,omitempty"`
+	// TODO[pulumi/pulumi#19705]: RefreshBeforeUpdate and ViewOf to be moved to ResourceV4.
+	// RefreshBeforeUpdate indicates that this resource should always be refreshed prior to updates.
+	RefreshBeforeUpdate bool `json:"refreshBeforeUpdate,omitempty" yaml:"replaceOnChanges,omitempty"`
+	// ViewOf is a reference to the resource that this resource is a view of.
+	ViewOf resource.URN `json:"viewOf,omitempty" yaml:"viewOf,omitempty"`
 }
 
 // ManifestV1 captures meta-information about this checkpoint file, such as versions of binaries, etc.
@@ -412,13 +419,6 @@ const (
 	ProjectDescriptionTag StackTagName = "pulumi:description"
 	// ProjectTemplateTag is a tag that represents the template that was used to create a project.
 	ProjectTemplateTag StackTagName = "pulumi:template"
-	// GitHubOwnerNameTag is a tag that represents the name of the owner on GitHub that this stack
-	// may be associated with (inferred by the CLI based on git remote info).
-	// TODO [pulumi/pulumi-service#2306] Once the UI is updated, we would no longer need the GitHub specific keys.
-	GitHubOwnerNameTag StackTagName = "gitHub:owner"
-	// GitHubRepositoryNameTag is a tag that represents the name of a repository on GitHub that this stack
-	// may be associated with (inferred by the CLI based on git remote info).
-	GitHubRepositoryNameTag StackTagName = "gitHub:repo"
 	// VCSOwnerNameTag is a tag that represents the name of the owner on the cloud VCS that this stack
 	// may be associated with (inferred by the CLI based on git remote info).
 	VCSOwnerNameTag StackTagName = "vcs:owner"
@@ -441,6 +441,11 @@ const (
 
 // Stack describes a Stack running on a Pulumi Cloud.
 type Stack struct {
+	// ID is the logical ID of the stack.
+	//
+	// For maintainers of the Pulumi service:
+	// ID corresponds to the Program ID, not the Stack ID inside the Pulumi service.
+	ID          string       `json:"id"`
 	OrgName     string       `json:"orgName"`
 	ProjectName string       `json:"projectName"`
 	StackName   tokens.QName `json:"stackName"`
@@ -449,7 +454,25 @@ type Stack struct {
 	ActiveUpdate     string                  `json:"activeUpdate"`
 	Tags             map[StackTagName]string `json:"tags,omitempty"`
 
+	// Optional cloud-persisted stack configuration.
+	// If set, then the stack's configuration is loaded from the cloud and not a file on disk.
+	Config *StackConfig `json:"config,omitempty"`
+
 	Version int `json:"version"`
+}
+
+// StackConfig describes the configuration of a stack from Pulumi Cloud.
+type StackConfig struct {
+	// Reference to ESC environment to use as stack configuration.
+	Environment string `json:"environment"`
+	// SecretsProvider is this stack's secrets provider.
+	SecretsProvider string `json:"secretsProvider,omitempty"`
+	// EncryptedKey is the KMS-encrypted ciphertext for the data key used for secrets encryption.
+	// Only used for cloud-based secrets providers.
+	EncryptedKey string `json:"encryptedKey,omitempty"`
+	// EncryptionSalt is this stack's base64 encoded encryption salt. Only used for
+	// passphrase-based secrets providers.
+	EncryptionSalt string `json:"encryptionSalt,omitempty"`
 }
 
 // OperationStatus describes the state of an operation being performed on a Pulumi stack.

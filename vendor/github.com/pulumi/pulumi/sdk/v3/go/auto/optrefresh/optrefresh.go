@@ -59,6 +59,27 @@ func Target(urns []string) Option {
 	})
 }
 
+// TargetDependents allows updating of dependent targets discovered but not specified in the Target list
+func TargetDependents() Option {
+	return optionFunc(func(opts *Options) {
+		opts.TargetDependents = true
+	})
+}
+
+// Exclude specifies an exclusive list of resource URNs to ignore
+func Exclude(urns []string) Option {
+	return optionFunc(func(opts *Options) {
+		opts.Exclude = urns
+	})
+}
+
+// ExcludeDependents allows ignoring of dependent targets discovered but not specified in the Exclude list
+func ExcludeDependents() Option {
+	return optionFunc(func(opts *Options) {
+		opts.ExcludeDependents = true
+	})
+}
+
 // ProgressStreams allows specifying one or more io.Writers to redirect incremental refresh stdout
 func ProgressStreams(writers ...io.Writer) Option {
 	return optionFunc(func(opts *Options) {
@@ -122,10 +143,24 @@ func SuppressOutputs() Option {
 	})
 }
 
+// Display operation as a rich diff showing the overall change.
+func Diff() Option {
+	return optionFunc(func(o *Options) {
+		o.Diff = true
+	})
+}
+
 // ConfigFile specifies a file to use for configuration values rather than detecting the file name
 func ConfigFile(path string) Option {
 	return optionFunc(func(opts *Options) {
 		opts.ConfigFile = path
+	})
+}
+
+// RunProgram runs the program in the workspace to perform the refresh.
+func RunProgram(f bool) Option {
+	return optionFunc(func(opts *Options) {
+		opts.RunProgram = &f
 	})
 }
 
@@ -149,6 +184,12 @@ type Options struct {
 	ClearPendingCreates bool
 	// Specify an exclusive of resource URNs to refresh
 	Target []string
+	// Allows updating of dependent targets discovered but not specified in the Target list
+	TargetDependents bool
+	// Specify an exclusive of resource URNs to ignore
+	Exclude []string
+	// Allows ignoring of dependent targets discovered but not specified in the Exclude list
+	ExcludeDependents bool
 	// ProgressStreams allows specifying one or more io.Writers to redirect incremental refresh stdout
 	ProgressStreams []io.Writer
 	// ErrorProgressStreams allows specifying one or more io.Writers to redirect incremental refresh stderr
@@ -169,6 +210,10 @@ type Options struct {
 	SuppressOutputs bool
 	// Run using the configuration values in the specified file rather than detecting the file name
 	ConfigFile string
+	// When set, display operation as a rich diff showing the overall change
+	Diff bool
+	// When set to true, run the program in the workspace to perform the refresh.
+	RunProgram *bool
 }
 
 type optionFunc func(*Options)
