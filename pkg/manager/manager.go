@@ -1,6 +1,8 @@
 package manager
 
 import (
+	"fmt"
+
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
 	providerAPI "github.com/devtools-qe-incubator/cloud-importer/pkg/manager/provider/api"
 )
@@ -9,6 +11,10 @@ const (
 	stackRHELAI         string = "rhelai"
 	stackOpenshiftLocal string = "openshiftloca"
 	stackShare          string = "share"
+	stackReplicate      string = "replicate"
+
+	// aws provider pulumi env
+	CONFIG_AWS_REGION string = "aws:region"
 )
 
 func RHELAI(ctx *context.ContextArgs,
@@ -101,6 +107,42 @@ func ShareImage(ctx *context.ContextArgs,
 		StackName:   stackShare,
 		BackedURL:   context.BackedURL(),
 		DeployFunc:  shareFunc}
+	_, err = upStack(stack)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func ReplicateImage(ctx *context.ContextArgs,
+	imageID, targetRegion string,
+	provider Provider) error {
+	// Initialize context
+	context.Init(ctx)
+	fmt.Println("Conext initialized")
+	// Get provider
+	p, err := getProvider(provider)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Got provider")
+	replicateFunc, err := p.Replicate(imageID, targetRegion)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Got replicateFunc", replicateFunc)
+	// Create a stack based on the import function and create it
+	stack := providerAPI.Stack{
+		// TODO add random ID
+		ProjectName: context.ProjectName(),
+		StackName:   stackReplicate,
+		BackedURL:   context.BackedURL(),
+		ProviderCredentials: p.GetProviderCredentials(
+			map[string]string{CONFIG_AWS_REGION: targetRegion}),
+		DeployFunc: replicateFunc}
+
 	_, err = upStack(stack)
 	if err != nil {
 		return err

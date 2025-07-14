@@ -25,9 +25,9 @@ const _ = grpc.SupportPackageIsVersion7
 type ResourceProviderClient interface {
 	// `Handshake` is the first call made by the engine to a provider. It is used to pass the engine's address to the
 	// provider so that it may establish its own connections back, and to establish protocol configuration that will be
-	// used to communicate between the two parties. Providers that support `Handshake` implicitly support the set of
-	// feature flags previously handled by `Configure` prior to `Handshake`'s introduction, such as secrets and resource
-	// references.
+	// used to communicate between the two parties. Providers that support `Handshake` should return responses
+	// consistent with those returned in response to [](pulumirpc.ResourceProvider.Configure) calls where there is
+	// overlap due to the use of `Configure` prior to `Handshake`'s introduction.
 	Handshake(ctx context.Context, in *ProviderHandshakeRequest, opts ...grpc.CallOption) (*ProviderHandshakeResponse, error)
 	// `Parameterize` is the primary means of supporting [parameterized providers](parameterized-providers), which allow
 	// a caller to change a provider's behavior ahead of its [configuration](pulumirpc.ResourceProvider.Configure) and
@@ -119,9 +119,6 @@ type ResourceProviderClient interface {
 	Configure(ctx context.Context, in *ConfigureRequest, opts ...grpc.CallOption) (*ConfigureResponse, error)
 	// Invoke dynamically executes a built-in function in the provider.
 	Invoke(ctx context.Context, in *InvokeRequest, opts ...grpc.CallOption) (*InvokeResponse, error)
-	// StreamInvoke dynamically executes a built-in function in the provider, which returns a stream
-	// of responses.
-	StreamInvoke(ctx context.Context, in *InvokeRequest, opts ...grpc.CallOption) (ResourceProvider_StreamInvokeClient, error)
 	// Call dynamically executes a method in the provider associated with a component resource.
 	Call(ctx context.Context, in *CallRequest, opts ...grpc.CallOption) (*CallResponse, error)
 	// `Check` validates a set of input properties against a given resource type. A `Check` call returns either a set of
@@ -187,12 +184,33 @@ type ResourceProviderClient interface {
 	GetPluginInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*PluginInfo, error)
 	// Attach sends the engine address to an already running plugin.
 	Attach(ctx context.Context, in *PluginAttach, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// GetMapping fetches the mapping for this resource provider, if any. A provider should return an empty
-	// response (not an error) if it doesn't have a mapping for the given key.
+	// `GetMapping` returns mappings designed to aid in [converting programs and state from other
+	// ecosystems](converters). It accepts a "conversion key", which effectively corresponds to a source language, such
+	// as `terraform`, and a *source provider name*, which is the name of the provider *in the source language*. Given
+	// these, it returns source-specific mapping data for the provider requested. As an example, the Pulumi AWS
+	// provider, which is bridged from the Terraform AWS provider and thus capable of mapping names between the two,
+	// might respond to a call with key `terraform` and source provider name `aws` with mapping data for transforming
+	// (among other things) Terraform AWS names such as `aws_s3_bucket` into Pulumi AWS types such as
+	// `aws:s3/bucket:Bucket`. If a provider only supports a single source provider, or has some sensible default, it
+	// may respond also to a call in which the source provider name is empty (`""`), which will be made when the engine
+	// does not have sufficient knowledge to work out which provider offers a specific mapping.
+	//
+	// In general, it is expected that providers implemented by bridging an equivalent provider from another ecosystem
+	// (such as bridged Terraform providers built atop the `pulumi-terraform-bridge`, for instance) implement
+	// `GetMapping` to support conversion from that ecosystem into Pulumi using the same logic that underpins the
+	// bridging itself.
 	GetMapping(ctx context.Context, in *GetMappingRequest, opts ...grpc.CallOption) (*GetMappingResponse, error)
-	// GetMappings is an optional method that returns what mappings (if any) a provider supports. If a provider does not
-	// implement this method the engine falls back to the old behaviour of just calling GetMapping without a name.
-	// If this method is implemented than the engine will then call GetMapping only with the names returned from this method.
+	// `GetMappings` is an optional method designed to aid in [converting programs and state from other
+	// ecosystems](converters). `GetMappings` accepts a "conversion key". This corresponds to a source language, for
+	// which we want to retrieve mappings for names etc. from that source language into Pulumi. An example key might
+	// therefore be `terraform` in the event that we wish to map e.g. Terraform resource names to Pulumi resource types.
+	// Given a key, `GetMappings` returns a list of *source provider names* for which calls to `GetMapping` will return
+	// mappings. So, continuing the Terraform example, the Pulumi AWS provider, which is bridged from the Terraform AWS
+	// provider and thus capable of mapping names between the two, might return the list `["aws"]` in response to a call
+	// with key `terraform`.
+	//
+	// If a provider does not implement `GetMappings`, the engine will fall back to calling `GetMapping` blindly without
+	// a source provider name (that is, with the value `""`).
 	GetMappings(ctx context.Context, in *GetMappingsRequest, opts ...grpc.CallOption) (*GetMappingsResponse, error)
 }
 
@@ -265,38 +283,6 @@ func (c *resourceProviderClient) Invoke(ctx context.Context, in *InvokeRequest, 
 		return nil, err
 	}
 	return out, nil
-}
-
-func (c *resourceProviderClient) StreamInvoke(ctx context.Context, in *InvokeRequest, opts ...grpc.CallOption) (ResourceProvider_StreamInvokeClient, error) {
-	stream, err := c.cc.NewStream(ctx, &ResourceProvider_ServiceDesc.Streams[0], "/pulumirpc.ResourceProvider/StreamInvoke", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &resourceProviderStreamInvokeClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type ResourceProvider_StreamInvokeClient interface {
-	Recv() (*InvokeResponse, error)
-	grpc.ClientStream
-}
-
-type resourceProviderStreamInvokeClient struct {
-	grpc.ClientStream
-}
-
-func (x *resourceProviderStreamInvokeClient) Recv() (*InvokeResponse, error) {
-	m := new(InvokeResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
 }
 
 func (c *resourceProviderClient) Call(ctx context.Context, in *CallRequest, opts ...grpc.CallOption) (*CallResponse, error) {
@@ -422,9 +408,9 @@ func (c *resourceProviderClient) GetMappings(ctx context.Context, in *GetMapping
 type ResourceProviderServer interface {
 	// `Handshake` is the first call made by the engine to a provider. It is used to pass the engine's address to the
 	// provider so that it may establish its own connections back, and to establish protocol configuration that will be
-	// used to communicate between the two parties. Providers that support `Handshake` implicitly support the set of
-	// feature flags previously handled by `Configure` prior to `Handshake`'s introduction, such as secrets and resource
-	// references.
+	// used to communicate between the two parties. Providers that support `Handshake` should return responses
+	// consistent with those returned in response to [](pulumirpc.ResourceProvider.Configure) calls where there is
+	// overlap due to the use of `Configure` prior to `Handshake`'s introduction.
 	Handshake(context.Context, *ProviderHandshakeRequest) (*ProviderHandshakeResponse, error)
 	// `Parameterize` is the primary means of supporting [parameterized providers](parameterized-providers), which allow
 	// a caller to change a provider's behavior ahead of its [configuration](pulumirpc.ResourceProvider.Configure) and
@@ -516,9 +502,6 @@ type ResourceProviderServer interface {
 	Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error)
 	// Invoke dynamically executes a built-in function in the provider.
 	Invoke(context.Context, *InvokeRequest) (*InvokeResponse, error)
-	// StreamInvoke dynamically executes a built-in function in the provider, which returns a stream
-	// of responses.
-	StreamInvoke(*InvokeRequest, ResourceProvider_StreamInvokeServer) error
 	// Call dynamically executes a method in the provider associated with a component resource.
 	Call(context.Context, *CallRequest) (*CallResponse, error)
 	// `Check` validates a set of input properties against a given resource type. A `Check` call returns either a set of
@@ -584,12 +567,33 @@ type ResourceProviderServer interface {
 	GetPluginInfo(context.Context, *emptypb.Empty) (*PluginInfo, error)
 	// Attach sends the engine address to an already running plugin.
 	Attach(context.Context, *PluginAttach) (*emptypb.Empty, error)
-	// GetMapping fetches the mapping for this resource provider, if any. A provider should return an empty
-	// response (not an error) if it doesn't have a mapping for the given key.
+	// `GetMapping` returns mappings designed to aid in [converting programs and state from other
+	// ecosystems](converters). It accepts a "conversion key", which effectively corresponds to a source language, such
+	// as `terraform`, and a *source provider name*, which is the name of the provider *in the source language*. Given
+	// these, it returns source-specific mapping data for the provider requested. As an example, the Pulumi AWS
+	// provider, which is bridged from the Terraform AWS provider and thus capable of mapping names between the two,
+	// might respond to a call with key `terraform` and source provider name `aws` with mapping data for transforming
+	// (among other things) Terraform AWS names such as `aws_s3_bucket` into Pulumi AWS types such as
+	// `aws:s3/bucket:Bucket`. If a provider only supports a single source provider, or has some sensible default, it
+	// may respond also to a call in which the source provider name is empty (`""`), which will be made when the engine
+	// does not have sufficient knowledge to work out which provider offers a specific mapping.
+	//
+	// In general, it is expected that providers implemented by bridging an equivalent provider from another ecosystem
+	// (such as bridged Terraform providers built atop the `pulumi-terraform-bridge`, for instance) implement
+	// `GetMapping` to support conversion from that ecosystem into Pulumi using the same logic that underpins the
+	// bridging itself.
 	GetMapping(context.Context, *GetMappingRequest) (*GetMappingResponse, error)
-	// GetMappings is an optional method that returns what mappings (if any) a provider supports. If a provider does not
-	// implement this method the engine falls back to the old behaviour of just calling GetMapping without a name.
-	// If this method is implemented than the engine will then call GetMapping only with the names returned from this method.
+	// `GetMappings` is an optional method designed to aid in [converting programs and state from other
+	// ecosystems](converters). `GetMappings` accepts a "conversion key". This corresponds to a source language, for
+	// which we want to retrieve mappings for names etc. from that source language into Pulumi. An example key might
+	// therefore be `terraform` in the event that we wish to map e.g. Terraform resource names to Pulumi resource types.
+	// Given a key, `GetMappings` returns a list of *source provider names* for which calls to `GetMapping` will return
+	// mappings. So, continuing the Terraform example, the Pulumi AWS provider, which is bridged from the Terraform AWS
+	// provider and thus capable of mapping names between the two, might return the list `["aws"]` in response to a call
+	// with key `terraform`.
+	//
+	// If a provider does not implement `GetMappings`, the engine will fall back to calling `GetMapping` blindly without
+	// a source provider name (that is, with the value `""`).
 	GetMappings(context.Context, *GetMappingsRequest) (*GetMappingsResponse, error)
 	mustEmbedUnimplementedResourceProviderServer()
 }
@@ -618,9 +622,6 @@ func (UnimplementedResourceProviderServer) Configure(context.Context, *Configure
 }
 func (UnimplementedResourceProviderServer) Invoke(context.Context, *InvokeRequest) (*InvokeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Invoke not implemented")
-}
-func (UnimplementedResourceProviderServer) StreamInvoke(*InvokeRequest, ResourceProvider_StreamInvokeServer) error {
-	return status.Errorf(codes.Unimplemented, "method StreamInvoke not implemented")
 }
 func (UnimplementedResourceProviderServer) Call(context.Context, *CallRequest) (*CallResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Call not implemented")
@@ -798,27 +799,6 @@ func _ResourceProvider_Invoke_Handler(srv interface{}, ctx context.Context, dec 
 		return srv.(ResourceProviderServer).Invoke(ctx, req.(*InvokeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
-}
-
-func _ResourceProvider_StreamInvoke_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(InvokeRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(ResourceProviderServer).StreamInvoke(m, &resourceProviderStreamInvokeServer{stream})
-}
-
-type ResourceProvider_StreamInvokeServer interface {
-	Send(*InvokeResponse) error
-	grpc.ServerStream
-}
-
-type resourceProviderStreamInvokeServer struct {
-	grpc.ServerStream
-}
-
-func (x *resourceProviderStreamInvokeServer) Send(m *InvokeResponse) error {
-	return x.ServerStream.SendMsg(m)
 }
 
 func _ResourceProvider_Call_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1143,12 +1123,6 @@ var ResourceProvider_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ResourceProvider_GetMappings_Handler,
 		},
 	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "StreamInvoke",
-			Handler:       _ResourceProvider_StreamInvoke_Handler,
-			ServerStreams: true,
-		},
-	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "pulumi/provider.proto",
 }

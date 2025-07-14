@@ -14,6 +14,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
+	"github.com/redhat-developer/mapt/pkg/manager/credentials"
 )
 
 type ManagerOptions struct {
@@ -123,6 +124,10 @@ func getOpts(target providerAPI.Stack) []auto.LocalWorkspaceOption {
 }
 
 func postStack(ctx context.Context, target providerAPI.Stack, stack *auto.Stack) (err error) {
+	// Set credentials
+	if err = credentials.SetProviderCredentials(ctx, stack, target.ProviderCredentials); err != nil {
+		return
+	}
 	_, err = stack.Refresh(ctx)
 	return
 }
