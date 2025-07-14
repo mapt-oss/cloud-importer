@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -53,6 +52,11 @@ import (
 	pulumirpc "github.com/pulumi/pulumi/sdk/v3/proto/go"
 )
 
+// TODO[pulumi/pulumi#19620]: Remove this temporary envvar when we no longer want to provide a way to disable it.
+// Temporary feature flag to disable support for refresh before update.
+var supportsRefreshBeforeUpdate bool = !cmdutil.IsTruthy(
+	os.Getenv("PULUMI_DISABLE_REFRESH_BEFORE_UPDATE"))
+
 // The package name for the NodeJS dynamic provider.
 const nodejsDynamicProviderPackage = "pulumi-nodejs"
 
@@ -76,10 +80,13 @@ type provider struct {
 
 	ctx                    *Context                         // a plugin context for caching, etc.
 	pkg                    tokens.Package                   // the Pulumi package containing this provider's resources.
-	plug                   *plugin                          // the actual plugin process wrapper.
+	plug                   *Plugin                          // the actual plugin process wrapper.
 	clientRaw              pulumirpc.ResourceProviderClient // the raw provider client; usually unsafe to use directly.
 	disableProviderPreview bool                             // true if previews for Create and Update are disabled.
 	legacyPreview          bool                             // enables legacy behavior for unconfigured provider previews.
+
+	// The version to use for the provider if given. Used for Git sources.
+	overrideVersion *semver.Version
 
 	// Protocol information for the provider.
 	protocol *pluginProtocol
@@ -159,20 +166,15 @@ func GetProviderAttachPort(pkg tokens.Package) (*int, error) {
 
 // NewProvider attempts to bind to a given package's resource plugin and then creates a gRPC connection to it.  If the
 // plugin could not be found, or an error occurs while creating the child process, an error is returned.
-func NewProvider(host Host, ctx *Context, pkg tokens.Package, version *semver.Version,
-	options map[string]interface{}, disableProviderPreview bool, jsonConfig string,
-	projectName tokens.PackageName,
-) (Provider, error) {
-	return NewProviderFromSubdir(host, ctx, pkg, "", version, options, disableProviderPreview, jsonConfig, projectName)
-}
-
-func NewProviderFromSubdir(host Host, ctx *Context, pkg tokens.Package, subdir string, version *semver.Version,
+func NewProvider(host Host, ctx *Context, spec workspace.PluginSpec,
 	options map[string]interface{}, disableProviderPreview bool, jsonConfig string,
 	projectName tokens.PackageName,
 ) (Provider, error) {
 	// See if this is a provider we just want to attach to
-	var plug *plugin
+	var plug *Plugin
 	var handshakeRes *ProviderHandshakeResponse
+
+	pkg := tokens.Package(spec.Name)
 
 	attachPort, err := GetProviderAttachPort(pkg)
 	if err != nil {
@@ -190,8 +192,11 @@ func NewProviderFromSubdir(host Host, ctx *Context, pkg tokens.Package, subdir s
 			req := &ProviderHandshakeRequest{
 				EngineAddress: host.ServerAddr(),
 				// If we're attaching then we don't know the root or program directory.
-				RootDirectory:    nil,
-				ProgramDirectory: nil,
+				RootDirectory:               nil,
+				ProgramDirectory:            nil,
+				ConfigureWithUrn:            true,
+				SupportsViews:               true,
+				SupportsRefreshBeforeUpdate: supportsRefreshBeforeUpdate,
 			}
 			return handshake(ctx, bin, prefix, conn, req)
 		}
@@ -204,16 +209,14 @@ func NewProviderFromSubdir(host Host, ctx *Context, pkg tokens.Package, subdir s
 		}
 
 		// Done; store the connection and return the plugin info.
-		plug = &plugin{
+		plug = &Plugin{
 			Conn: conn,
 			// Nothing to kill
 			Kill: func() error { return nil },
 		}
 	} else {
 		// Load the plugin's path by using the standard workspace logic.
-		path, err := workspace.GetPluginPathWithSubdir(ctx.Diag,
-			apitype.ResourcePlugin, strings.ReplaceAll(string(pkg), tokens.QNameDelimiter, "_"), subdir,
-			version, host.GetProjectPlugins())
+		path, err := workspace.GetPluginPath(ctx.baseContext, ctx.Diag, spec, host.GetProjectPlugins())
 		if err != nil {
 			return nil, err
 		}
@@ -244,16 +247,20 @@ func NewProviderFromSubdir(host Host, ctx *Context, pkg tokens.Package, subdir s
 		) (*ProviderHandshakeResponse, error) {
 			dir := filepath.Dir(bin)
 			req := &ProviderHandshakeRequest{
-				EngineAddress:    host.ServerAddr(),
-				RootDirectory:    &dir,
-				ProgramDirectory: &dir,
+				EngineAddress:               host.ServerAddr(),
+				RootDirectory:               &dir,
+				ProgramDirectory:            &dir,
+				ConfigureWithUrn:            true,
+				SupportsViews:               true,
+				SupportsRefreshBeforeUpdate: supportsRefreshBeforeUpdate,
 			}
 			return handshake(ctx, bin, prefix, conn, req)
 		}
 
 		plug, handshakeRes, err = newPlugin(ctx, ctx.Pwd, path, prefix,
 			apitype.ResourcePlugin, []string{host.ServerAddr()}, env,
-			handshake, providerPluginDialOptions(ctx, pkg, ""))
+			handshake, providerPluginDialOptions(ctx, pkg, ""),
+			host.AttachDebugger(DebugSpec{Type: DebugTypePlugin, Name: spec.Name}))
 		if err != nil {
 			return nil, err
 		}
@@ -263,6 +270,11 @@ func NewProviderFromSubdir(host Host, ctx *Context, pkg tokens.Package, subdir s
 
 	legacyPreview := cmdutil.IsTruthy(os.Getenv("PULUMI_LEGACY_PROVIDER_PREVIEW"))
 
+	var overrideVersion *semver.Version
+	if spec.IsGitPlugin() {
+		overrideVersion = spec.Version
+	}
+
 	p := &provider{
 		ctx:                    ctx,
 		pkg:                    pkg,
@@ -271,14 +283,16 @@ func NewProviderFromSubdir(host Host, ctx *Context, pkg tokens.Package, subdir s
 		disableProviderPreview: disableProviderPreview,
 		legacyPreview:          legacyPreview,
 		configSource:           &promise.CompletionSource[pluginConfig]{},
+		overrideVersion:        overrideVersion,
 	}
 
 	if handshakeRes != nil {
 		p.protocol = &pluginProtocol{
-			acceptSecrets:   true,
-			acceptResources: true,
-			supportsPreview: true,
-			acceptOutputs:   true,
+			acceptSecrets:                   handshakeRes.AcceptSecrets,
+			acceptResources:                 handshakeRes.AcceptResources,
+			supportsPreview:                 true,
+			acceptOutputs:                   handshakeRes.AcceptOutputs,
+			supportsAutonamingConfiguration: handshakeRes.SupportsAutonamingConfiguration,
 		}
 	}
 
@@ -301,10 +315,13 @@ func handshake(
 	req *ProviderHandshakeRequest,
 ) (*ProviderHandshakeResponse, error) {
 	client := pulumirpc.NewResourceProviderClient(conn)
-	_, err := client.Handshake(ctx, &pulumirpc.ProviderHandshakeRequest{
-		EngineAddress:    req.EngineAddress,
-		RootDirectory:    req.RootDirectory,
-		ProgramDirectory: req.ProgramDirectory,
+	res, err := client.Handshake(ctx, &pulumirpc.ProviderHandshakeRequest{
+		EngineAddress:               req.EngineAddress,
+		RootDirectory:               req.RootDirectory,
+		ProgramDirectory:            req.ProgramDirectory,
+		ConfigureWithUrn:            req.ConfigureWithUrn,
+		SupportsViews:               req.SupportsViews,
+		SupportsRefreshBeforeUpdate: req.SupportsRefreshBeforeUpdate,
 	})
 	if err != nil {
 		status, ok := status.FromError(err)
@@ -313,10 +330,16 @@ func handshake(
 			logging.V(7).Infof("Handshake: not supported by '%v'", bin)
 			return nil, nil
 		}
+		return nil, fmt.Errorf("failed to handshake with '%v': %w", bin, err)
 	}
 
 	logging.V(7).Infof("Handshake: success [%v]", bin)
-	return &ProviderHandshakeResponse{}, nil
+	return &ProviderHandshakeResponse{
+		AcceptSecrets:                   res.GetAcceptSecrets(),
+		AcceptResources:                 res.GetAcceptResources(),
+		AcceptOutputs:                   res.GetAcceptOutputs(),
+		SupportsAutonamingConfiguration: res.GetSupportsAutonamingConfiguration(),
+	}, nil
 }
 
 func providerPluginDialOptions(ctx *Context, pkg tokens.Package, path string) []grpc.DialOption {
@@ -352,16 +375,20 @@ func NewProviderFromPath(host Host, ctx *Context, path string) (Provider, error)
 	) (*ProviderHandshakeResponse, error) {
 		dir := filepath.Dir(bin)
 		req := &ProviderHandshakeRequest{
-			EngineAddress:    host.ServerAddr(),
-			RootDirectory:    &dir,
-			ProgramDirectory: &dir,
+			EngineAddress:               host.ServerAddr(),
+			RootDirectory:               &dir,
+			ProgramDirectory:            &dir,
+			ConfigureWithUrn:            true,
+			SupportsViews:               true,
+			SupportsRefreshBeforeUpdate: supportsRefreshBeforeUpdate,
 		}
 		return handshake(ctx, bin, prefix, conn, req)
 	}
 
 	plug, handshakeRes, err := newPlugin(ctx, ctx.Pwd, path, "",
 		apitype.ResourcePlugin, []string{host.ServerAddr()}, env,
-		handshake, providerPluginDialOptions(ctx, "", path))
+		handshake, providerPluginDialOptions(ctx, "", path),
+		host.AttachDebugger(DebugSpec{Type: DebugTypePlugin, Name: path}))
 	if err != nil {
 		return nil, err
 	}
@@ -379,10 +406,11 @@ func NewProviderFromPath(host Host, ctx *Context, path string) (Provider, error)
 
 	if handshakeRes != nil {
 		p.protocol = &pluginProtocol{
-			acceptSecrets:   true,
-			acceptResources: true,
-			supportsPreview: true,
-			acceptOutputs:   true,
+			acceptSecrets:                   handshakeRes.AcceptSecrets,
+			acceptResources:                 handshakeRes.AcceptResources,
+			supportsPreview:                 true,
+			acceptOutputs:                   handshakeRes.AcceptOutputs,
+			supportsAutonamingConfiguration: handshakeRes.SupportsAutonamingConfiguration,
 		}
 	}
 
@@ -405,6 +433,19 @@ func NewProviderWithClient(ctx *Context, pkg tokens.Package, client pulumirpc.Re
 		clientRaw:              client,
 		disableProviderPreview: disableProviderPreview,
 		configSource:           &promise.CompletionSource[pluginConfig]{},
+	}
+}
+
+func NewProviderWithVersionOverride(ctx *Context, pkg tokens.Package, client pulumirpc.ResourceProviderClient,
+	disableProviderPreview bool, version *semver.Version,
+) Provider {
+	return &provider{
+		ctx:                    ctx,
+		pkg:                    pkg,
+		clientRaw:              client,
+		disableProviderPreview: disableProviderPreview,
+		configSource:           &promise.CompletionSource[pluginConfig]{},
+		overrideVersion:        version,
 	}
 }
 
@@ -448,16 +489,24 @@ func isDiffCheckConfigLogicallyUnimplemented(err *rpcerror.Error, providerType t
 }
 
 func (p *provider) Handshake(ctx context.Context, req ProviderHandshakeRequest) (*ProviderHandshakeResponse, error) {
-	_, err := p.clientRaw.Handshake(ctx, &pulumirpc.ProviderHandshakeRequest{
-		EngineAddress:    req.EngineAddress,
-		RootDirectory:    req.RootDirectory,
-		ProgramDirectory: req.ProgramDirectory,
+	res, err := p.clientRaw.Handshake(ctx, &pulumirpc.ProviderHandshakeRequest{
+		EngineAddress:               req.EngineAddress,
+		RootDirectory:               req.RootDirectory,
+		ProgramDirectory:            req.ProgramDirectory,
+		ConfigureWithUrn:            req.ConfigureWithUrn,
+		SupportsViews:               req.SupportsViews,
+		SupportsRefreshBeforeUpdate: req.SupportsRefreshBeforeUpdate,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return &ProviderHandshakeResponse{}, nil
+	return &ProviderHandshakeResponse{
+		AcceptSecrets:                   res.GetAcceptSecrets(),
+		AcceptResources:                 res.GetAcceptResources(),
+		AcceptOutputs:                   res.GetAcceptOutputs(),
+		SupportsAutonamingConfiguration: res.GetSupportsAutonamingConfiguration(),
+	}, nil
 }
 
 func (p *provider) Parameterize(ctx context.Context, request ParameterizeRequest) (ParameterizeResponse, error) {
@@ -508,7 +557,20 @@ func (p *provider) GetSchema(ctx context.Context, req GetSchemaRequest) (GetSche
 	if err != nil {
 		return GetSchemaResponse{}, err
 	}
-	return GetSchemaResponse{[]byte(resp.GetSchema())}, nil
+	schema := []byte(resp.GetSchema())
+	if p.overrideVersion != nil {
+		var unmarshalled map[string]any
+		if err := json.Unmarshal([]byte(resp.GetSchema()), &unmarshalled); err != nil {
+			return GetSchemaResponse{}, err
+		}
+		unmarshalled["version"] = p.overrideVersion.String()
+		var err error
+		schema, err = json.Marshal(unmarshalled)
+		if err != nil {
+			return GetSchemaResponse{}, err
+		}
+	}
+	return GetSchemaResponse{schema}, nil
 }
 
 // CheckConfig validates the configuration for this resource provider.
@@ -933,7 +995,25 @@ func (p *provider) Configure(ctx context.Context, req ConfigureRequest) (Configu
 	// Spawn the configure to happen in parallel.  This ensures that we remain responsive elsewhere that might
 	// want to make forward progress, even as the configure call is happening.
 	go func() {
+		var urn, typ, id *string
+		if req.URN != nil {
+			urnVal := string(*req.URN)
+			urn = &urnVal
+		}
+		if req.ID != nil {
+			idVal := string(*req.ID)
+			id = &idVal
+		}
+		if req.Type != nil {
+			typVal := string(*req.Type)
+			typ = &typVal
+		}
+
 		resp, err := p.clientRaw.Configure(p.requestContext(), &pulumirpc.ConfigureRequest{
+			Urn:                    urn,
+			Name:                   req.Name,
+			Type:                   typ,
+			Id:                     id,
 			AcceptSecrets:          true,
 			AcceptResources:        true,
 			SendsOldInputs:         true,
@@ -1244,18 +1324,21 @@ func (p *provider) Create(ctx context.Context, req CreateRequest) (CreateRespons
 
 	var id resource.ID
 	var liveObject *structpb.Struct
+	var refreshBeforeUpdate bool
 	var resourceError error
 	resourceStatus := resource.StatusOK
 	resp, err := client.Create(p.requestContext(), &pulumirpc.CreateRequest{
-		Urn:        string(req.URN),
-		Name:       req.URN.Name(),
-		Type:       req.URN.Type().String(),
-		Properties: mprops,
-		Timeout:    req.Timeout,
-		Preview:    req.Preview,
+		Urn:                   string(req.URN),
+		Name:                  req.URN.Name(),
+		Type:                  req.URN.Type().String(),
+		Properties:            mprops,
+		Timeout:               req.Timeout,
+		Preview:               req.Preview,
+		ResourceStatusAddress: req.ResourceStatusAddress,
+		ResourceStatusToken:   req.ResourceStatusToken,
 	})
 	if err != nil {
-		resourceStatus, id, liveObject, _, resourceError = parseError(err)
+		resourceStatus, id, liveObject, _, refreshBeforeUpdate, resourceError = parseError(err)
 		logging.V(7).Infof("%s failed: %v", label, resourceError)
 
 		if resourceStatus != resource.StatusPartialFailure {
@@ -1265,6 +1348,7 @@ func (p *provider) Create(ctx context.Context, req CreateRequest) (CreateRespons
 	} else {
 		id = resource.ID(resp.GetId())
 		liveObject = resp.GetProperties()
+		refreshBeforeUpdate = resp.GetRefreshBeforeUpdate()
 	}
 
 	if id == "" && !req.Preview {
@@ -1291,10 +1375,12 @@ func (p *provider) Create(ctx context.Context, req CreateRequest) (CreateRespons
 	}
 
 	logging.V(7).Infof("%s success: id=%s; #outs=%d", label, id, len(outs))
+
 	return CreateResponse{
-		ID:         id,
-		Properties: outs,
-		Status:     resourceStatus,
+		ID:                  id,
+		Properties:          outs,
+		Status:              resourceStatus,
+		RefreshBeforeUpdate: refreshBeforeUpdate && supportsRefreshBeforeUpdate,
 	}, resourceError
 }
 
@@ -1352,22 +1438,35 @@ func (p *provider) Read(ctx context.Context, req ReadRequest) (ReadResponse, err
 		return ReadResponse{Status: resource.StatusUnknown}, err
 	}
 
+	oldViews, err := marshalViews(req.OldViews, MarshalOptions{
+		Label:         label,
+		KeepSecrets:   protocol.acceptSecrets,
+		KeepResources: protocol.acceptResources,
+	})
+	if err != nil {
+		return ReadResponse{Status: resource.StatusUnknown}, err
+	}
+
 	// Now issue the read request over RPC, blocking until it finished.
 	var readID resource.ID
 	var liveObject *structpb.Struct
 	var liveInputs *structpb.Struct
+	var refreshBeforeUpdate bool
 	var resourceError error
 	resourceStatus := resource.StatusOK
 	resp, err := client.Read(p.requestContext(), &pulumirpc.ReadRequest{
-		Id:         string(req.ID),
-		Urn:        string(req.URN),
-		Name:       req.URN.Name(),
-		Type:       req.URN.Type().String(),
-		Properties: mstate,
-		Inputs:     minputs,
+		Id:                    string(req.ID),
+		Urn:                   string(req.URN),
+		Name:                  req.URN.Name(),
+		Type:                  req.URN.Type().String(),
+		Properties:            mstate,
+		Inputs:                minputs,
+		ResourceStatusAddress: req.ResourceStatusAddress,
+		ResourceStatusToken:   req.ResourceStatusToken,
+		OldViews:              oldViews,
 	})
 	if err != nil {
-		resourceStatus, readID, liveObject, liveInputs, resourceError = parseError(err)
+		resourceStatus, readID, liveObject, liveInputs, refreshBeforeUpdate, resourceError = parseError(err)
 		logging.V(7).Infof("%s failed: %v", label, err)
 
 		if resourceStatus != resource.StatusPartialFailure {
@@ -1378,6 +1477,7 @@ func (p *provider) Read(ctx context.Context, req ReadRequest) (ReadResponse, err
 		readID = resource.ID(resp.GetId())
 		liveObject = resp.GetProperties()
 		liveInputs = resp.GetInputs()
+		refreshBeforeUpdate = resp.GetRefreshBeforeUpdate()
 	}
 
 	// If the resource was missing, simply return a nil property map.
@@ -1423,9 +1523,10 @@ func (p *provider) Read(ctx context.Context, req ReadRequest) (ReadResponse, err
 
 	logging.V(7).Infof("%s success; #outs=%d, #inputs=%d", label, len(newState), len(newInputs))
 	return ReadResponse{ReadResult{
-		ID:      readID,
-		Outputs: newState,
-		Inputs:  newInputs,
+		ID:                  readID,
+		Outputs:             newState,
+		Inputs:              newInputs,
+		RefreshBeforeUpdate: refreshBeforeUpdate && supportsRefreshBeforeUpdate,
 	}, resourceStatus}, resourceError
 }
 
@@ -1508,23 +1609,36 @@ func (p *provider) Update(ctx context.Context, req UpdateRequest) (UpdateRespons
 		return UpdateResponse{Status: resource.StatusOK}, err
 	}
 
+	oldViews, err := marshalViews(req.OldViews, MarshalOptions{
+		Label:         label + ".oldViews",
+		KeepSecrets:   protocol.acceptSecrets,
+		KeepResources: protocol.acceptResources,
+	})
+	if err != nil {
+		return UpdateResponse{Status: resource.StatusOK}, err
+	}
+
 	var liveObject *structpb.Struct
+	var refreshBeforeUpdate bool
 	var resourceError error
 	resourceStatus := resource.StatusOK
 	resp, err := client.Update(p.requestContext(), &pulumirpc.UpdateRequest{
-		Id:            string(req.ID),
-		Urn:           string(req.URN),
-		Name:          req.URN.Name(),
-		Type:          req.URN.Type().String(),
-		Olds:          mOldOutputs,
-		News:          mNewInputs,
-		Timeout:       req.Timeout,
-		IgnoreChanges: req.IgnoreChanges,
-		Preview:       req.Preview,
-		OldInputs:     mOldInputs,
+		Id:                    string(req.ID),
+		Urn:                   string(req.URN),
+		Name:                  req.URN.Name(),
+		Type:                  req.URN.Type().String(),
+		Olds:                  mOldOutputs,
+		News:                  mNewInputs,
+		Timeout:               req.Timeout,
+		IgnoreChanges:         req.IgnoreChanges,
+		Preview:               req.Preview,
+		OldInputs:             mOldInputs,
+		ResourceStatusAddress: req.ResourceStatusAddress,
+		ResourceStatusToken:   req.ResourceStatusToken,
+		OldViews:              oldViews,
 	})
 	if err != nil {
-		resourceStatus, _, liveObject, _, resourceError = parseError(err)
+		resourceStatus, _, liveObject, _, refreshBeforeUpdate, resourceError = parseError(err)
 		logging.V(7).Infof("%s failed: %v", label, resourceError)
 
 		if resourceStatus != resource.StatusPartialFailure {
@@ -1533,6 +1647,7 @@ func (p *provider) Update(ctx context.Context, req UpdateRequest) (UpdateRespons
 		// Else it's a `StatusPartialFailure`.
 	} else {
 		liveObject = resp.GetProperties()
+		refreshBeforeUpdate = resp.GetRefreshBeforeUpdate()
 	}
 
 	outs, err := UnmarshalProperties(liveObject, MarshalOptions{
@@ -1554,7 +1669,11 @@ func (p *provider) Update(ctx context.Context, req UpdateRequest) (UpdateRespons
 	}
 	logging.V(7).Infof("%s success; #outs=%d", label, len(outs))
 
-	return UpdateResponse{Properties: outs, Status: resourceStatus}, resourceError
+	return UpdateResponse{
+		Properties:          outs,
+		Status:              resourceStatus,
+		RefreshBeforeUpdate: refreshBeforeUpdate && supportsRefreshBeforeUpdate,
+	}, resourceError
 }
 
 // Delete tears down an existing resource.
@@ -1601,17 +1720,29 @@ func (p *provider) Delete(ctx context.Context, req DeleteRequest) (DeleteRespons
 		return DeleteResponse{}, err
 	}
 
+	oldViews, err := marshalViews(req.OldViews, MarshalOptions{
+		Label:         label + ".oldViews",
+		KeepSecrets:   protocol.acceptSecrets,
+		KeepResources: protocol.acceptResources,
+	})
+	if err != nil {
+		return DeleteResponse{}, err
+	}
+
 	// We should only be calling {Create,Update,Delete} if the provider is fully configured.
 	contract.Assertf(pcfg.known, "Delete cannot be called if the configuration is unknown")
 
 	if _, err := client.Delete(p.requestContext(), &pulumirpc.DeleteRequest{
-		Id:         string(req.ID),
-		Urn:        string(req.URN),
-		Name:       req.URN.Name(),
-		Type:       req.URN.Type().String(),
-		Properties: moutputs,
-		Timeout:    req.Timeout,
-		OldInputs:  minputs,
+		Id:                    string(req.ID),
+		Urn:                   string(req.URN),
+		Name:                  req.URN.Name(),
+		Type:                  req.URN.Type().String(),
+		Properties:            moutputs,
+		Timeout:               req.Timeout,
+		OldInputs:             minputs,
+		ResourceStatusAddress: req.ResourceStatusAddress,
+		ResourceStatusToken:   req.ResourceStatusToken,
+		OldViews:              oldViews,
 	}); err != nil {
 		resourceStatus, rpcErr := resourceStateAndError(err)
 		logging.V(7).Infof("%s failed: %v", label, rpcErr)
@@ -1844,82 +1975,6 @@ func (p *provider) Invoke(ctx context.Context, req InvokeRequest) (InvokeRespons
 	}, nil
 }
 
-// StreamInvoke dynamically executes a built-in function in the provider, which returns a stream of
-// responses.
-func (p *provider) StreamInvoke(ctx context.Context, req StreamInvokeRequest) (StreamInvokeResponse, error) {
-	contract.Assertf(req.Tok != "", "StreamInvoke requires a token")
-
-	label := fmt.Sprintf("%s.StreamInvoke(%s)", p.label(), req.Tok)
-	logging.V(7).Infof("%s executing (#args=%d)", label, len(req.Args))
-
-	// Ensure that the plugin is configured.
-	client := p.clientRaw
-	protocol, pcfg, err := p.getPluginConfig(context.Background())
-	if err != nil {
-		return StreamInvokeResponse{}, err
-	}
-
-	// If the provider is not fully configured, return an empty property map.
-	if !pcfg.known {
-		return StreamInvokeResponse{}, req.OnNext(resource.PropertyMap{})
-	}
-
-	margs, err := MarshalProperties(req.Args, MarshalOptions{
-		Label:         label + ".args",
-		KeepSecrets:   protocol.acceptSecrets,
-		KeepResources: protocol.acceptResources,
-	})
-	if err != nil {
-		return StreamInvokeResponse{}, err
-	}
-
-	streamClient, err := client.StreamInvoke(p.requestContext(), &pulumirpc.InvokeRequest{
-		Tok:  string(req.Tok),
-		Args: margs,
-	})
-	if err != nil {
-		rpcError := rpcerror.Convert(err)
-		logging.V(7).Infof("%s failed: %v", label, rpcError.Message())
-		return StreamInvokeResponse{}, rpcError
-	}
-
-	for {
-		in, err := streamClient.Recv()
-		if err == io.EOF {
-			return StreamInvokeResponse{}, nil
-		}
-		if err != nil {
-			return StreamInvokeResponse{}, err
-		}
-
-		// Unmarshal response.
-		ret, err := UnmarshalProperties(in.GetReturn(), MarshalOptions{
-			Label:          label + ".returns",
-			RejectUnknowns: true,
-			KeepSecrets:    true,
-			KeepResources:  true,
-		})
-		if err != nil {
-			return StreamInvokeResponse{}, err
-		}
-
-		// Check properties that failed verification.
-		var failures []CheckFailure
-		for _, failure := range in.GetFailures() {
-			failures = append(failures, CheckFailure{resource.PropertyKey(failure.Property), failure.Reason})
-		}
-
-		if len(failures) > 0 {
-			return StreamInvokeResponse{Failures: failures}, nil
-		}
-
-		// Send stream message back to whoever is consuming the stream.
-		if err := req.OnNext(ret); err != nil {
-			return StreamInvokeResponse{}, err
-		}
-	}
-}
-
 // Call dynamically executes a method in the provider associated with a component resource.
 func (p *provider) Call(_ context.Context, req CallRequest) (CallResponse, error) {
 	contract.Assertf(req.Tok != "", "Call requires a token")
@@ -2022,22 +2077,26 @@ func (p *provider) GetPluginInfo(ctx context.Context) (workspace.PluginInfo, err
 	label := p.label() + ".GetPluginInfo()"
 	logging.V(7).Infof("%s executing", label)
 
-	// Calling GetPluginInfo happens immediately after loading, and does not require configuration to proceed.
-	// Thus, we access the clientRaw property, rather than calling getClient.
-	resp, err := p.clientRaw.GetPluginInfo(p.requestContext(), &emptypb.Empty{})
-	if err != nil {
-		rpcError := rpcerror.Convert(err)
-		logging.V(7).Infof("%s failed: err=%v", label, rpcError.Message())
-		return workspace.PluginInfo{}, rpcError
-	}
-
 	var version *semver.Version
-	if v := resp.Version; v != "" {
-		sv, err := semver.ParseTolerant(v)
+	if p.overrideVersion != nil {
+		version = p.overrideVersion
+	} else {
+		// Calling GetPluginInfo happens immediately after loading, and does not require configuration to proceed.
+		// Thus, we access the clientRaw property, rather than calling getClient.
+		resp, err := p.clientRaw.GetPluginInfo(p.requestContext(), &emptypb.Empty{})
 		if err != nil {
-			return workspace.PluginInfo{}, err
+			rpcError := rpcerror.Convert(err)
+			logging.V(7).Infof("%s failed: err=%v", label, rpcError.Message())
+			return workspace.PluginInfo{}, rpcError
 		}
-		version = &sv
+
+		if v := resp.Version; v != "" {
+			sv, err := semver.ParseTolerant(v)
+			if err != nil {
+				return workspace.PluginInfo{}, err
+			}
+			version = &sv
+		}
 	}
 
 	path := ""
@@ -2152,7 +2211,12 @@ func resourceStateAndError(err error) (resource.Status, *rpcerror.Error) {
 // object was created, but app code is continually crashing and the resource never achieves
 // liveness).
 func parseError(err error) (
-	resourceStatus resource.Status, id resource.ID, liveInputs, liveObject *structpb.Struct, resourceErr error,
+	resourceStatus resource.Status,
+	id resource.ID,
+	liveInputs,
+	liveObject *structpb.Struct,
+	refreshBeforeUpdate bool,
+	resourceErr error,
 ) {
 	var responseErr *rpcerror.Error
 	resourceStatus, responseErr = resourceStateAndError(err)
@@ -2166,13 +2230,14 @@ func parseError(err error) (
 			id = resource.ID(initErr.GetId())
 			liveObject = initErr.GetProperties()
 			liveInputs = initErr.GetInputs()
+			refreshBeforeUpdate = initErr.GetRefreshBeforeUpdate()
 			resourceStatus = resource.StatusPartialFailure
 			resourceErr = &InitError{Reasons: initErr.Reasons}
 			break
 		}
 	}
 
-	return resourceStatus, id, liveObject, liveInputs, resourceErr
+	return resourceStatus, id, liveObject, liveInputs, refreshBeforeUpdate, resourceErr
 }
 
 // InitError represents a failure to initialize a resource, i.e., the resource has been successfully
@@ -2275,4 +2340,41 @@ func (p *provider) GetMappings(ctx context.Context, req GetMappingsRequest) (Get
 		resp.Providers = []string{}
 	}
 	return GetMappingsResponse{resp.Providers}, nil
+}
+
+// marshalViews is a helper that marshals a slice of views into the gRPC equivalent.
+func marshalViews(views []View, opts MarshalOptions) ([]*pulumirpc.View, error) {
+	return slice.MapError(views, func(v View) (*pulumirpc.View, error) {
+		return marshalView(v, opts)
+	})
+}
+
+// marshalView is a helper that marshals a view into the gRPC equivalent.
+func marshalView(v View, opts MarshalOptions) (*pulumirpc.View, error) {
+	var err error
+
+	var inputs *structpb.Struct
+	if v.Inputs != nil {
+		inputs, err = MarshalProperties(v.Inputs, opts)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var outputs *structpb.Struct
+	if v.Outputs != nil {
+		outputs, err = MarshalProperties(v.Outputs, opts)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &pulumirpc.View{
+		Type:       string(v.Type),
+		Name:       v.Name,
+		ParentType: string(v.ParentType),
+		ParentName: v.ParentName,
+		Inputs:     inputs,
+		Outputs:    outputs,
+	}, nil
 }
