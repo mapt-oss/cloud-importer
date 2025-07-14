@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/util/errutil"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/fsutil"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/logging"
 )
@@ -91,6 +92,8 @@ type Toolchain interface {
 	ModuleCommand(ctx context.Context, module string, args ...string) (*exec.Cmd, error)
 	// About returns information about the python executable of the toolchain.
 	About(ctx context.Context) (Info, error)
+	// VirtualEnvPath returns the path of the virtual env used by the toolchain.
+	VirtualEnvPath(ctx context.Context) (string, error)
 }
 
 func Name(tc toolchain) string {
@@ -107,13 +110,14 @@ func Name(tc toolchain) string {
 }
 
 func ResolveToolchain(options PythonOptions) (Toolchain, error) {
-	if options.Toolchain == Poetry {
+	switch options.Toolchain { //nolint:exhaustive // golangci-lint v2 upgrade
+	case Poetry:
 		dir := options.ProgramDir
 		if dir == "" {
 			dir = options.Root
 		}
 		return newPoetry(dir)
-	} else if options.Toolchain == Uv {
+	case Uv:
 		return newUv(options.Root, options.Virtualenv)
 	}
 	return newPip(options.Root, options.Virtualenv)
@@ -199,8 +203,8 @@ func installPython(ctx context.Context, cwd string, showOutput bool, infoWriter,
 	}
 
 	if showOutput {
-		_, err := infoWriter.Write([]byte(fmt.Sprintf("Installing python version from .python-version file at %s\n",
-			versionFile)))
+		_, err := fmt.Fprintf(infoWriter, "Installing python version from .python-version file at %s\n",
+			versionFile)
 		if err != nil {
 			return fmt.Errorf("error while writing to infoWriter %s", err)
 		}
@@ -213,11 +217,7 @@ func installPython(ctx context.Context, cwd string, showOutput bool, infoWriter,
 	}
 	err = cmd.Run()
 	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			return fmt.Errorf("error while running pyenv install: %s", string(exitErr.Stderr))
-		}
-		return fmt.Errorf("error while running pyenv install: %s", err)
+		return errutil.ErrorWithStderr(err, "error while running pyenv install")
 	}
 	return nil
 }
@@ -234,16 +234,4 @@ func searchup(currentDir, fileToFind string) (string, error) {
 		return "", os.ErrNotExist
 	}
 	return searchup(parentDir, fileToFind)
-}
-
-// errorWithStderr returns an error that includes the stderr output if the error is an ExitError.
-func errorWithStderr(err error, message string) error {
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
-		stderr := strings.TrimSpace(string(exitErr.Stderr))
-		if len(stderr) > 0 {
-			return fmt.Errorf("%s: %w: %s", message, exitErr, exitErr.Stderr)
-		}
-	}
-	return fmt.Errorf("%s: %w", message, err)
 }
