@@ -42,7 +42,7 @@ podman run --rm --name import-openshift-local -d \
     -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
     -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
     -e AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} \
-    qghcr.io/mapt-oss/cloud-importer:latest openshift-local aws \
+    ghcr.io/mapt-oss/cloud-importer:latest openshift-local aws \
         --backed-url "file:///workspace" \
         --bundle-url ${BUNDLE_URL} \
         --shasum-url ${SHASUM_URL} \
