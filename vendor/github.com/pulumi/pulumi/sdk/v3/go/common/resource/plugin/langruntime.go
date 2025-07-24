@@ -24,6 +24,7 @@ import (
 	"strconv"
 
 	"github.com/hashicorp/hcl/v2"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/promise"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource/config"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
@@ -105,6 +106,7 @@ func (info ProgramInfo) Marshal() (*pulumirpc.ProgramInfo, error) {
 type InstallDependenciesRequest struct {
 	Info                    ProgramInfo
 	UseLanguageVersionTools bool
+	IsPlugin                bool
 }
 
 func (options InstallDependenciesRequest) String() string {
@@ -135,7 +137,7 @@ type LanguageRuntime interface {
 	// done channel to avoid deadlocks.
 	InstallDependencies(request InstallDependenciesRequest) (io.Reader, io.Reader, <-chan error, error)
 
-	// RuntimeOptions returns additional options that can be set for the runtime.
+	// RuntimeOptionsPrompts returns additional options that can be set for the runtime.
 	RuntimeOptionsPrompts(info ProgramInfo) ([]RuntimeOptionPrompt, error)
 
 	// About returns information about the language runtime.
@@ -145,14 +147,14 @@ type LanguageRuntime interface {
 	GetProgramDependencies(info ProgramInfo, transitiveDependencies bool) ([]DependencyInfo, error)
 
 	// RunPlugin executes a plugin program and returns its result asynchronously.
-	RunPlugin(info RunPluginInfo) (io.Reader, io.Reader, context.CancelFunc, error)
+	RunPlugin(ctx context.Context, info RunPluginInfo) (io.Reader, io.Reader, *promise.Promise[int32], error)
 
 	// GenerateProject generates a program project in the given directory. This will include metadata files such
 	// as Pulumi.yaml and package.json.
 	GenerateProject(sourceDirectory, targetDirectory, project string,
 		strict bool, loaderTarget string, localDependencies map[string]string) (hcl.Diagnostics, error)
 
-	// GeneratePlugin generates an SDK package.
+	// GeneratePackage generates an SDK package.
 	GeneratePackage(
 		directory string, schema string, extraFiles map[string][]byte,
 		loaderTarget string, localDependencies map[string]string,
@@ -166,6 +168,9 @@ type LanguageRuntime interface {
 
 	// Pack packs a library package into a language specific artifact in the given destination directory.
 	Pack(packageDirectory string, destinationDirectory string) (string, error)
+
+	// Link links a set of local dependencies into the given program directory.
+	Link(info ProgramInfo, localDependencies map[string]string) error
 }
 
 // DependencyInfo contains information about a dependency reported by a language runtime.
@@ -189,6 +194,8 @@ type RunPluginInfo struct {
 	WorkingDirectory string
 	Args             []string
 	Env              []string
+	Kind             string
+	AttachDebugger   bool
 }
 
 // RunInfo contains all of the information required to perform a plan or deployment operation.
