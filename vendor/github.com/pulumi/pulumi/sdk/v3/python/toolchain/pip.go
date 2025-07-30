@@ -32,8 +32,7 @@ import (
 )
 
 const (
-	windows             = "windows"
-	pythonShimCmdFormat = "pulumi-%s-shim.cmd"
+	windows = "windows"
 )
 
 type pip struct {
@@ -79,13 +78,13 @@ func (p *pip) ListPackages(ctx context.Context, transitive bool) ([]PythonPackag
 
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("calling `python %s`: %w", strings.Join(args, " "), err)
+		return nil, fmt.Errorf("calling `python %s`: %w", strings.Join(cmd.Args, " "), err)
 	}
 
 	var packages []PythonPackage
 	jsonDecoder := json.NewDecoder(bytes.NewBuffer(output))
 	if err := jsonDecoder.Decode(&packages); err != nil {
-		return nil, fmt.Errorf("parsing `python %s` output: %w", strings.Join(args, " "), err)
+		return nil, fmt.Errorf("parsing `python %s` output: %w", strings.Join(cmd.Args, " "), err)
 	}
 
 	return packages, nil
@@ -178,6 +177,10 @@ func (p *pip) EnsureVenv(ctx context.Context, cwd string, useLanguageVersionTool
 	return nil
 }
 
+func (p *pip) VirtualEnvPath(_ context.Context) (string, error) {
+	return p.virtualenvPath, nil
+}
+
 // IsVirtualEnv returns true if the specified directory contains a python binary.
 func IsVirtualEnv(dir string) bool {
 	pyBin := filepath.Join(dir, virtualEnvBinDirName(), "python")
@@ -236,13 +239,9 @@ func CommandPath() (string /*pythonPath*/, string /*pythonCmd*/, error) {
 // Command returns an *exec.Cmd for running `python`. Uses `ComandPath`
 // internally to find the correct executable.
 func Command(ctx context.Context, arg ...string) (*exec.Cmd, error) {
-	pythonPath, pythonCmd, err := CommandPath()
+	pythonPath, _, err := CommandPath()
 	if err != nil {
 		return nil, err
-	}
-	if needsPythonShim(pythonPath) {
-		shimCmd := fmt.Sprintf(pythonShimCmdFormat, pythonCmd)
-		return exec.CommandContext(ctx, shimCmd, arg...), nil
 	}
 	return exec.CommandContext(ctx, pythonPath, arg...), nil
 }

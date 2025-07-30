@@ -18,7 +18,9 @@
 
 package env
 
-import "github.com/pulumi/pulumi/sdk/v3/go/common/util/env"
+import (
+	"github.com/pulumi/pulumi/sdk/v3/go/common/util/env"
+)
 
 // Re-export some types and functions from the env library.
 
@@ -45,6 +47,8 @@ var Dev = env.Bool("DEV", "Enable features for hacking on pulumi itself.")
 
 var SkipCheckpoints = env.Bool("SKIP_CHECKPOINTS", "Skip saving state checkpoints and only save "+
 	"the final deployment. See #10668.")
+
+var APIURL = env.String("API", "The URL to use for the Pulumi service.")
 
 var DebugCommands = env.Bool("DEBUG_COMMANDS", "List commands helpful for debugging pulumi itself.")
 
@@ -97,8 +101,36 @@ var BackendURL = env.String("BACKEND_URL",
 var SuppressCopilotLink = env.Bool("SUPPRESS_COPILOT_LINK",
 	"Suppress showing the 'explainFailure' link to Copilot in the CLI output.")
 
+var CopilotEnabled = env.Bool("COPILOT",
+	"Enable Pulumi Copilot's assistance for improved CLI experience and insights.")
+
+// TODO: This is a soft-release feature and will be removed after the feature flag is launched
+// https://github.com/pulumi/pulumi/issues/19065
+var CopilotSummaryModel = env.String("COPILOT_SUMMARY_MODEL",
+	"The LLM model to use for the Copilot summary in diagnostics. Allowed values: 'gpt-4o-mini', 'gpt-4o'.")
+
+// TODO: This is a soft-release feature and will be removed after the feature flag is launched
+// https://github.com/pulumi/pulumi/issues/19065
+var CopilotSummaryMaxLen = env.Int("COPILOT_SUMMARY_MAXLEN",
+	"Max allowed length of Copilot summary in diagnostics. Allowed values are from 20 to 1920.")
+
 var FallbackToStateSecretsManager = env.Bool("FALLBACK_TO_STATE_SECRETS_MANAGER",
 	"Use the snapshot secrets manager as a fallback when the stack configuration is missing or incomplete.")
+
+var Parallel = env.Int("PARALLEL",
+	"Allow P resource operations to run in parallel at once (1 for no parallelism)")
+
+var AccessToken = env.String("ACCESS_TOKEN",
+	"The access token used to authenticate with the Pulumi Service.")
+
+var DisableSecretCache = env.Bool("DISABLE_SECRET_CACHE",
+	"Disable caching encryption operations for unchanged stack secrets.")
+
+var ParallelDiff = env.Bool("PARALLEL_DIFF",
+	"Enable running diff calculations in parallel.")
+
+var RunProgram = env.Bool("RUN_PROGRAM",
+	"Run the Pulumi program for refresh and destroy operations. This is the same as passing --run-program=true.")
 
 // List of overrides for Plugin Download URLs. The expected format is `regexp=URL`, and multiple pairs can
 // be specified separated by commas, e.g. `regexp1=URL1,regexp2=URL2`
@@ -133,6 +165,9 @@ var (
 	DIYBackendDisableCheckpointBackups = env.Bool("DIY_BACKEND_DISABLE_CHECKPOINT_BACKUPS",
 		"If set checkpoint backups will not be written the to the backup folder.",
 		env.Alternative("DISABLE_CHECKPOINT_BACKUPS"))
+
+	DIYBackendParallel = env.Int("DIY_BACKEND_PARALLEL",
+		"Number of parallel operations when fetching stacks and resources from the DIY backend.")
 )
 
 // Environment variables which affect Pulumi AI integrations
@@ -150,3 +185,5 @@ Currently this disables validation of the following formats:
 This should only be used in cases where current data does not conform to the format and either cannot be migrated
 without using the system itself, or show that the validation is too strict. Over time entries in the list above will be
 removed and enforced to be validated.`)
+
+var DisableRegistryResolve = env.Bool("DISABLE_REGISTRY_RESOLVE", "Use the Pulumi Registry to resolve package names")

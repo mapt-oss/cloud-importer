@@ -121,6 +121,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/opthistory"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optpreview"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optrefresh"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto/optrename"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/constant"
@@ -246,6 +247,9 @@ func (s *Stack) Preview(ctx context.Context, opts ...optpreview.Option) (Preview
 	for _, tURN := range preOpts.Target {
 		sharedArgs = append(sharedArgs, "--target="+tURN)
 	}
+	for _, eURN := range preOpts.Exclude {
+		sharedArgs = append(sharedArgs, "--exclude="+eURN)
+	}
 	for _, pack := range preOpts.PolicyPacks {
 		sharedArgs = append(sharedArgs, "--policy-pack="+pack)
 	}
@@ -254,6 +258,9 @@ func (s *Stack) Preview(ctx context.Context, opts ...optpreview.Option) (Preview
 	}
 	if preOpts.TargetDependents {
 		sharedArgs = append(sharedArgs, "--target-dependents")
+	}
+	if preOpts.ExcludeDependents {
+		sharedArgs = append(sharedArgs, "--exclude-dependents")
 	}
 	if preOpts.Parallel > 0 {
 		sharedArgs = append(sharedArgs, fmt.Sprintf("--parallel=%d", preOpts.Parallel))
@@ -284,6 +291,13 @@ func (s *Stack) Preview(ctx context.Context, opts ...optpreview.Option) (Preview
 	}
 	if preOpts.ConfigFile != "" {
 		sharedArgs = append(sharedArgs, "--config-file="+preOpts.ConfigFile)
+	}
+	if preOpts.RunProgram != nil {
+		if *preOpts.RunProgram {
+			sharedArgs = append(sharedArgs, "--run-program=true")
+		} else {
+			sharedArgs = append(sharedArgs, "--run-program=false")
+		}
 	}
 
 	// Apply the remote args, if needed.
@@ -385,6 +399,9 @@ func (s *Stack) Up(ctx context.Context, opts ...optup.Option) (UpResult, error) 
 	for _, tURN := range upOpts.Target {
 		sharedArgs = append(sharedArgs, "--target="+tURN)
 	}
+	for _, eURN := range upOpts.Exclude {
+		sharedArgs = append(sharedArgs, "--exclude="+eURN)
+	}
 	for _, pack := range upOpts.PolicyPacks {
 		sharedArgs = append(sharedArgs, "--policy-pack="+pack)
 	}
@@ -393,6 +410,9 @@ func (s *Stack) Up(ctx context.Context, opts ...optup.Option) (UpResult, error) 
 	}
 	if upOpts.TargetDependents {
 		sharedArgs = append(sharedArgs, "--target-dependents")
+	}
+	if upOpts.ExcludeDependents {
+		sharedArgs = append(sharedArgs, "--exclude-dependents")
 	}
 	if upOpts.Parallel > 0 {
 		sharedArgs = append(sharedArgs, fmt.Sprintf("--parallel=%d", upOpts.Parallel))
@@ -423,6 +443,13 @@ func (s *Stack) Up(ctx context.Context, opts ...optup.Option) (UpResult, error) 
 	}
 	if upOpts.ConfigFile != "" {
 		sharedArgs = append(sharedArgs, "--config-file="+upOpts.ConfigFile)
+	}
+	if upOpts.RunProgram != nil {
+		if *upOpts.RunProgram {
+			sharedArgs = append(sharedArgs, "--run-program=true")
+		} else {
+			sharedArgs = append(sharedArgs, "--run-program=false")
+		}
 	}
 
 	// Apply the remote args, if needed.
@@ -506,7 +533,17 @@ func (s *Stack) ImportResources(ctx context.Context, opts ...optimport.Option) (
 	// clean-up the temp directory after we are done
 	defer os.RemoveAll(tempDir)
 
-	args := []string{"import", "--yes", "--skip-preview"}
+	args := []string{"import"}
+
+	if importOpts.PreviewOnly != nil && *importOpts.PreviewOnly {
+		args = append(args, "--preview-only")
+	} else {
+		args = append(args, "--yes", "--skip-preview")
+	}
+
+	if importOpts.Diff != nil && *importOpts.Diff {
+		args = append(args, "--diff")
+	}
 
 	if importOpts.Resources != nil {
 		importFilePath := filepath.Join(tempDir, "import.json")
@@ -528,6 +565,10 @@ func (s *Stack) ImportResources(ctx context.Context, opts ...optimport.Option) (
 		}
 
 		args = append(args, "--file", importFilePath)
+	}
+
+	if importOpts.Resources == nil && importOpts.ImportFile != nil {
+		args = append(args, "--file", *importOpts.ImportFile)
 	}
 
 	if importOpts.Protect != nil && !*importOpts.Protect {
@@ -600,7 +641,13 @@ func (s *Stack) PreviewRefresh(ctx context.Context, opts ...optrefresh.Option) (
 		o.ApplyOption(refreshOpts)
 	}
 
-	args := refreshOptsToCmd(refreshOpts, s, true /*isPreview*/)
+	args, server, err := refreshOptsToCmd(refreshOpts, s, true /*isPreview*/)
+	if err != nil {
+		return res, fmt.Errorf("failed to prepare preview refresh command: %w", err)
+	}
+	if server != nil {
+		defer contract.IgnoreClose(server)
+	}
 
 	var summaryEvents []apitype.SummaryEvent
 	eventChannel := make(chan events.EngineEvent)
@@ -668,7 +715,13 @@ func (s *Stack) Refresh(ctx context.Context, opts ...optrefresh.Option) (Refresh
 		o.ApplyOption(refreshOpts)
 	}
 
-	args := refreshOptsToCmd(refreshOpts, s, false /*isPreview*/)
+	args, server, err := refreshOptsToCmd(refreshOpts, s, false /*isPreview*/)
+	if err != nil {
+		return res, fmt.Errorf("failed to prepare refresh command: %w", err)
+	}
+	if server != nil {
+		defer contract.IgnoreClose(server)
+	}
 
 	if len(refreshOpts.EventStreams) > 0 {
 		eventChannels := refreshOpts.EventStreams
@@ -718,7 +771,7 @@ func (s *Stack) Refresh(ctx context.Context, opts ...optrefresh.Option) (Refresh
 	return res, nil
 }
 
-func refreshOptsToCmd(o *optrefresh.Options, s *Stack, isPreview bool) []string {
+func refreshOptsToCmd(o *optrefresh.Options, s *Stack, isPreview bool) ([]string, io.Closer, error) {
 	args := slice.Prealloc[string](len(o.Target))
 
 	args = append(args, "refresh")
@@ -740,6 +793,15 @@ func refreshOptsToCmd(o *optrefresh.Options, s *Stack, isPreview bool) []string 
 	for _, tURN := range o.Target {
 		args = append(args, "--target="+tURN)
 	}
+	for _, eURN := range o.Exclude {
+		args = append(args, "--exclude="+eURN)
+	}
+	if o.TargetDependents {
+		args = append(args, "--target-dependents")
+	}
+	if o.ExcludeDependents {
+		args = append(args, "--exclude-dependents")
+	}
 	if o.Parallel > 0 {
 		args = append(args, fmt.Sprintf("--parallel=%d", o.Parallel))
 	}
@@ -758,17 +820,38 @@ func refreshOptsToCmd(o *optrefresh.Options, s *Stack, isPreview bool) []string 
 	if o.ConfigFile != "" {
 		args = append(args, "--config-file="+o.ConfigFile)
 	}
+	if o.Diff {
+		args = append(args, "--diff")
+	}
+	if o.RunProgram != nil {
+		if *o.RunProgram {
+			args = append(args, "--run-program=true")
+		} else {
+			args = append(args, "--run-program=false")
+		}
+	}
 
 	// Apply the remote args, if needed.
 	args = append(args, s.remoteArgs()...)
 
-	execKind := constant.ExecKindAutoLocal
-	if s.Workspace().Program() != nil {
-		execKind = constant.ExecKindAutoInline
-	}
-	args = append(args, "--exec-kind="+execKind)
+	kind := constant.ExecKindAutoLocal
+	var closer io.Closer
+	if program := s.Workspace().Program(); program != nil {
+		if s.Workspace().PulumiCommand().Version().LT(semver.Version{Major: 3, Minor: 181}) {
+			return nil, nil, errors.New("Pulumi CLI version >= 3.181.0 is required to use --client with refresh")
+		}
 
-	return args
+		server, err := startLanguageRuntimeServer(program)
+		if err != nil {
+			return nil, nil, err
+		}
+		closer = server
+
+		kind, args = constant.ExecKindAutoInline, append(args, "--client="+server.address)
+	}
+	args = append(args, "--exec-kind="+kind)
+
+	return args, closer, nil
 }
 
 func (s *Stack) PreviewDestroy(ctx context.Context, opts ...optdestroy.Option) (PreviewResult, error) {
@@ -784,7 +867,13 @@ func (s *Stack) PreviewDestroy(ctx context.Context, opts ...optdestroy.Option) (
 		o.ApplyOption(destroyOpts)
 	}
 
-	args := destroyOptsToCmd(destroyOpts, s)
+	args, server, err := destroyOptsToCmd(destroyOpts, s)
+	if err != nil {
+		return res, fmt.Errorf("failed to prepare preview destroy command: %w", err)
+	}
+	if server != nil {
+		defer contract.IgnoreClose(server)
+	}
 	args = append(args, "--preview-only")
 
 	var summaryEvents []apitype.SummaryEvent
@@ -842,6 +931,60 @@ func (s *Stack) PreviewDestroy(ctx context.Context, opts ...optdestroy.Option) (
 	return res, nil
 }
 
+// Rename renames the current stack.
+func (s *Stack) Rename(ctx context.Context, opts ...optrename.Option) (RenameResult, error) {
+	var res RenameResult
+
+	renameOpts := &optrename.Options{}
+	for _, o := range opts {
+		o.ApplyOption(renameOpts)
+	}
+
+	args := renameOptsToCmd(renameOpts, s)
+
+	stdout, stderr, code, err := s.runPulumiCmdSync(
+		ctx,
+		renameOpts.ProgressStreams,      /* additionalOutputs */
+		renameOpts.ErrorProgressStreams, /* additionalErrorOutputs */
+		args...,
+	)
+	if err != nil {
+		return res, newAutoError(fmt.Errorf("failed to rename stack: %w", err), stdout, stderr, code)
+	}
+
+	historyOpts := []opthistory.Option{}
+	if showSecrets := renameOpts.ShowSecrets; showSecrets != nil {
+		historyOpts = append(historyOpts, opthistory.ShowSecrets(*showSecrets))
+	}
+	// If it's a remote workspace, explicitly set ShowSecrets to false to prevent attempting to
+	// load the project file.
+	if s.isRemote() {
+		historyOpts = append(historyOpts, opthistory.ShowSecrets(false))
+	}
+	history, err := s.History(ctx, 1 /*pageSize*/, 1 /*page*/, historyOpts...)
+	if err != nil {
+		return res, fmt.Errorf("failed to rename stack: %w", err)
+	}
+
+	var summary UpdateSummary
+	if len(history) > 0 {
+		summary = history[0]
+	}
+
+	res = RenameResult{
+		Summary: summary,
+		StdOut:  stdout,
+		StdErr:  stderr,
+	}
+
+	return res, nil
+}
+
+func renameOptsToCmd(renameOpts *optrename.Options, s *Stack) []string {
+	args := slice.Prealloc[string](3)
+	return append(args, "stack", "rename", renameOpts.StackName)
+}
+
 // Destroy deletes all resources in a stack, leaving all history and configuration intact.
 func (s *Stack) Destroy(ctx context.Context, opts ...optdestroy.Option) (DestroyResult, error) {
 	var res DestroyResult
@@ -851,7 +994,13 @@ func (s *Stack) Destroy(ctx context.Context, opts ...optdestroy.Option) (Destroy
 		o.ApplyOption(destroyOpts)
 	}
 
-	args := destroyOptsToCmd(destroyOpts, s)
+	args, server, err := destroyOptsToCmd(destroyOpts, s)
+	if err != nil {
+		return res, fmt.Errorf("failed to prepare destroy command: %w", err)
+	}
+	if server != nil {
+		defer contract.IgnoreClose(server)
+	}
 	args = append(args, "--yes", "--skip-preview")
 
 	if len(destroyOpts.EventStreams) > 0 {
@@ -912,19 +1061,25 @@ func (s *Stack) Destroy(ctx context.Context, opts ...optdestroy.Option) (Destroy
 	return res, nil
 }
 
-func destroyOptsToCmd(destroyOpts *optdestroy.Options, s *Stack) []string {
+func destroyOptsToCmd(destroyOpts *optdestroy.Options, s *Stack) ([]string, io.Closer, error) {
 	args := slice.Prealloc[string](len(destroyOpts.Target))
 
-	args = debug.AddArgs(&destroyOpts.DebugLogOpts, args)
 	args = append(args, "destroy")
+	args = debug.AddArgs(&destroyOpts.DebugLogOpts, args)
 	if destroyOpts.Message != "" {
 		args = append(args, fmt.Sprintf("--message=%q", destroyOpts.Message))
 	}
 	for _, tURN := range destroyOpts.Target {
 		args = append(args, "--target="+tURN)
 	}
+	for _, eURN := range destroyOpts.Exclude {
+		args = append(args, "--exclude="+eURN)
+	}
 	if destroyOpts.TargetDependents {
 		args = append(args, "--target-dependents")
+	}
+	if destroyOpts.ExcludeDependents {
+		args = append(args, "--exclude-dependents")
 	}
 	if destroyOpts.Parallel > 0 {
 		args = append(args, fmt.Sprintf("--parallel=%d", destroyOpts.Parallel))
@@ -950,17 +1105,35 @@ func destroyOptsToCmd(destroyOpts *optdestroy.Options, s *Stack) []string {
 	if destroyOpts.ConfigFile != "" {
 		args = append(args, "--config-file="+destroyOpts.ConfigFile)
 	}
-
-	execKind := constant.ExecKindAutoLocal
-	if s.Workspace().Program() != nil {
-		execKind = constant.ExecKindAutoInline
+	if destroyOpts.RunProgram != nil {
+		if *destroyOpts.RunProgram {
+			args = append(args, "--run-program=true")
+		} else {
+			args = append(args, "--run-program=false")
+		}
 	}
-	args = append(args, "--exec-kind="+execKind)
+
+	kind := constant.ExecKindAutoLocal
+	var closer io.Closer
+	if program := s.Workspace().Program(); program != nil {
+		if s.Workspace().PulumiCommand().Version().LT(semver.Version{Major: 3, Minor: 181}) {
+			return nil, nil, errors.New("Pulumi CLI version >= 3.181.0 is required to use --client with destroy")
+		}
+
+		server, err := startLanguageRuntimeServer(program)
+		if err != nil {
+			return nil, nil, err
+		}
+		closer = server
+
+		kind, args = constant.ExecKindAutoInline, append(args, "--client="+server.address)
+	}
+	args = append(args, "--exec-kind="+kind)
 
 	// Apply the remote args, if needed.
 	args = append(args, s.remoteArgs()...)
 
-	return args
+	return args, closer, nil
 }
 
 // Outputs get the current set of Stack outputs from the last Stack.Up().
@@ -1285,6 +1458,13 @@ type RefreshResult struct {
 // GetPermalink returns the permalink URL in the Pulumi Console for the refresh operation.
 func (rr *RefreshResult) GetPermalink() (string, error) {
 	return GetPermalink(rr.StdOut)
+}
+
+// RenameResult is the output of a successful Stack.Rename operation
+type RenameResult struct {
+	StdOut  string
+	StdErr  string
+	Summary UpdateSummary
 }
 
 // DestroyResult is the output of a successful Stack.Destroy operation

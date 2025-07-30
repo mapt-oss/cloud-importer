@@ -17,6 +17,7 @@ package pulumi
 import (
 	"fmt"
 	"log"
+	"reflect"
 	"sync"
 
 	"golang.org/x/net/context"
@@ -32,8 +33,37 @@ import (
 )
 
 type MockResourceMonitor interface {
+	// This actually corresponds to Invoke on the provider, but is named so for legacy purposes
 	Call(args MockCallArgs) (resource.PropertyMap, error)
 	NewResource(args MockResourceArgs) (string, resource.PropertyMap, error)
+}
+
+// MockResourceMonitorWithMethodCall is an optional interface that mock resource monitors
+// can implement to support method calls. This is separate from MockResourceMonitor to
+// maintain backward compatibility with existing implementations.
+type MockResourceMonitorWithMethodCall interface {
+	MockResourceMonitor
+	// This actually corresponds to Call on the provider, but is named so to differentiate from the
+	// Call method which actually corresponds to Invoke
+	MethodCall(args MockCallArgs) (resource.PropertyMap, error)
+}
+
+// mockResourceMonitorWithRegisterResource is a mock resource monitor that
+// also implements the RegisterResource method. A new resource monitor interface
+// is created to avoid needing to implement additional methods for existing implementations
+// of MockResourceMonitor.
+type mockResourceMonitorWithRegisterResourceOutput interface {
+	MockResourceMonitor
+	RegisterResourceOutputs() (*emptypb.Empty, error)
+}
+
+// mockResourceMonitorWithSignalAndWaitForShutdown is a mock resource monitor
+// that also implements the SignalAndWaitForShutdown method. A new resource
+// monitor interface is created to avoid needing to implement additional methods
+// for existing implementations of MockResourceMonitor.
+type mockResourceMonitorWithSignalAndWaitForShutdown interface {
+	MockResourceMonitor
+	SignalAndWaitForShutdown() (*emptypb.Empty, error)
 }
 
 func WithMocks(project, stack string, mocks MockResourceMonitor) RunOption {
@@ -161,16 +191,42 @@ func (m *mockMonitor) Invoke(ctx context.Context, in *pulumirpc.ResourceInvokeRe
 	}, nil
 }
 
-func (m *mockMonitor) StreamInvoke(ctx context.Context, in *pulumirpc.ResourceInvokeRequest,
-	opts ...grpc.CallOption,
-) (pulumirpc.ResourceMonitor_StreamInvokeClient, error) {
-	panic("not implemented")
-}
-
 func (m *mockMonitor) Call(ctx context.Context, in *pulumirpc.ResourceCallRequest,
 	opts ...grpc.CallOption,
 ) (*pulumirpc.CallResponse, error) {
-	panic("not implemented")
+	methodCallMock, ok := m.mocks.(MockResourceMonitorWithMethodCall)
+	if !ok {
+		return nil, status.Error(codes.Unimplemented, "MethodCall is not implemented by this mock")
+	}
+
+	args, err := plugin.UnmarshalProperties(in.GetArgs(), plugin.MarshalOptions{
+		KeepSecrets:   true,
+		KeepResources: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resultV, err := methodCallMock.MethodCall(MockCallArgs{
+		Token:    in.GetTok(),
+		Args:     args,
+		Provider: in.GetProvider(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := plugin.MarshalProperties(resultV, plugin.MarshalOptions{
+		KeepSecrets:   true,
+		KeepResources: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &pulumirpc.CallResponse{
+		Return: result,
+	}, nil
 }
 
 func (m *mockMonitor) ReadResource(ctx context.Context, in *pulumirpc.ReadResourceRequest,
@@ -275,6 +331,17 @@ func (m *mockMonitor) RegisterResource(ctx context.Context, in *pulumirpc.Regist
 func (m *mockMonitor) RegisterResourceOutputs(ctx context.Context, in *pulumirpc.RegisterResourceOutputsRequest,
 	opts ...grpc.CallOption,
 ) (*emptypb.Empty, error) {
+	// Get the concrete type of the mock resource monitor.
+	// This is needed to call the RegisterResourceOutputs method on the mock resource monitor if it exists.
+	if reflect.TypeOf(m.mocks).Implements(reflect.TypeOf((*mockResourceMonitorWithRegisterResourceOutput)(nil)).Elem()) {
+		// Call the RegisterResourceOutputs method on the mock resource monitor.
+		if m, ok := m.mocks.(mockResourceMonitorWithRegisterResourceOutput); ok {
+			return m.RegisterResourceOutputs()
+		}
+
+		panic("RegisterResourceOutputs is not implemented")
+	}
+
 	return &emptypb.Empty{}, nil
 }
 
@@ -290,10 +357,29 @@ func (m *mockMonitor) RegisterStackInvokeTransform(ctx context.Context, in *pulu
 	panic("not implemented")
 }
 
+func (m *mockMonitor) RegisterResourceHook(ctx context.Context, in *pulumirpc.RegisterResourceHookRequest,
+	opts ...grpc.CallOption,
+) (*emptypb.Empty, error) {
+	panic("not implemented")
+}
+
 func (m *mockMonitor) RegisterPackage(ctx context.Context, in *pulumirpc.RegisterPackageRequest,
 	opts ...grpc.CallOption,
 ) (*pulumirpc.RegisterPackageResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "RegisterPackage is not implemented")
+	// Mocks don't _really_ support packages, so we just return a fake package ref.
+	return &pulumirpc.RegisterPackageResponse{
+		Ref: "mock-uuid",
+	}, nil
+}
+
+func (m *mockMonitor) SignalAndWaitForShutdown(ctx context.Context, req *emptypb.Empty,
+	opts ...grpc.CallOption,
+) (*emptypb.Empty, error) {
+	if m, ok := m.mocks.(mockResourceMonitorWithSignalAndWaitForShutdown); ok {
+		return m.SignalAndWaitForShutdown()
+	}
+
+	return &emptypb.Empty{}, nil
 }
 
 type mockEngine struct {
