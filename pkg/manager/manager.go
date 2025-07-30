@@ -1,15 +1,28 @@
 package manager
 
 import (
+	"fmt"
+	"sync"
+
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
 	providerAPI "github.com/devtools-qe-incubator/cloud-importer/pkg/manager/provider/api"
+	"github.com/devtools-qe-incubator/cloud-importer/pkg/util/logging"
+	"github.com/redhat-developer/mapt/pkg/provider/aws/data"
 )
 
 const (
 	stackRHELAI         string = "rhelai"
 	stackOpenshiftLocal string = "openshiftloca"
 	stackShare          string = "share"
+	stackReplicate      string = "replicate"
+
+	// aws provider pulumi env
+	CONFIG_AWS_REGION string = "aws:region"
 )
+
+func getUniqueStackNameForReplicate(prefix, region string) string {
+	return fmt.Sprintf("replicate-%s-%s", prefix, region)
+}
 
 func RHELAI(ctx *context.ContextArgs,
 	rawImageFilepath string,
@@ -106,6 +119,73 @@ func ShareImage(ctx *context.ContextArgs,
 		return err
 	}
 	return nil
+}
+
+func ReplicateImage(ctx *context.ContextArgs,
+	imageID, targetRegion string,
+	provider Provider) error {
+	// Initialize context
+	context.Init(ctx)
+	fmt.Println("Conext initialized")
+	// Get provider
+	p, err := getProvider(provider)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Got provider")
+	replicateFunc, err := p.Replicate(imageID, targetRegion)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Got replicateFunc", replicateFunc)
+	if targetRegion == "all" {
+		regions, err := data.GetRegions()
+		if err != nil {
+			return err
+		}
+
+		var wg sync.WaitGroup
+
+		for _, region := range regions {
+			wg.Add(1)
+			go func(ctx *context.ContextArgs, amiName, region string) {
+				stack := providerAPI.Stack{
+					// TODO add random ID
+					ProjectName: context.ProjectName(),
+					StackName:   getUniqueStackNameForReplicate(context.ProjectName(), region),
+					BackedURL:   context.BackedURL(),
+					ProviderCredentials: p.GetProviderCredentials(
+						map[string]string{CONFIG_AWS_REGION: region}),
+					DeployFunc: replicateFunc}
+
+				_, err = upStack(stack)
+				if err != nil {
+					logging.Debugf("Error while trying to replicate to: %s: %v", region, err)
+				}
+				wg.Done()
+			}(ctx, imageID, region)
+		}
+		wg.Wait()
+		return nil
+	} else {
+		// Create a stack based on the import function and create it
+		stack := providerAPI.Stack{
+			// TODO add random ID
+			ProjectName: context.ProjectName(),
+			StackName:   stackReplicate,
+			BackedURL:   context.BackedURL(),
+			ProviderCredentials: p.GetProviderCredentials(
+				map[string]string{CONFIG_AWS_REGION: targetRegion}),
+			DeployFunc: replicateFunc}
+
+		_, err = upStack(stack)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
 }
 
 // func manageImageImportResults(stackResult auto.UpResult, destinationFolder string) error {

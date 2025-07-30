@@ -155,20 +155,20 @@ func (p *poetry) ListPackages(ctx context.Context, transitive bool) ([]PythonPac
 
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("calling `python -m pip %s`: %w", strings.Join(args, " "), err)
+		return nil, fmt.Errorf("calling `python %s`: %w", strings.Join(cmd.Args, " "), err)
 	}
 
 	var packages []PythonPackage
 	jsonDecoder := json.NewDecoder(bytes.NewBuffer(output))
 	if err := jsonDecoder.Decode(&packages); err != nil {
-		return nil, fmt.Errorf("parsing `python -m pip %s` output: %w", strings.Join(args, " "), err)
+		return nil, fmt.Errorf("parsing `python %s` output: %w", strings.Join(cmd.Args, " "), err)
 	}
 
 	return packages, nil
 }
 
 func (p *poetry) Command(ctx context.Context, args ...string) (*exec.Cmd, error) {
-	virtualenvPath, err := p.virtualenvPath(ctx)
+	virtualenvPath, err := p.VirtualEnvPath(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -179,12 +179,7 @@ func (p *poetry) Command(ctx context.Context, args ...string) (*exec.Cmd, error)
 		name = name + ".exe"
 	}
 	cmdPath := filepath.Join(virtualenvPath, virtualEnvBinDirName(), name)
-	if needsPythonShim(cmdPath) {
-		shimCmd := fmt.Sprintf(pythonShimCmdFormat, name)
-		cmd = exec.CommandContext(ctx, shimCmd, args...)
-	} else {
-		cmd = exec.CommandContext(ctx, cmdPath, args...)
-	}
+	cmd = exec.CommandContext(ctx, cmdPath, args...)
 	cmd.Env = ActivateVirtualEnv(os.Environ(), virtualenvPath)
 	cmd.Dir = p.directory
 	return cmd, nil
@@ -214,7 +209,7 @@ func (p *poetry) About(ctx context.Context) (Info, error) {
 }
 
 func (p *poetry) ValidateVenv(ctx context.Context) error {
-	virtualenvPath, err := p.virtualenvPath(ctx)
+	virtualenvPath, err := p.VirtualEnvPath(ctx)
 	if err != nil {
 		return err
 	}
@@ -227,7 +222,7 @@ func (p *poetry) ValidateVenv(ctx context.Context) error {
 func (p *poetry) EnsureVenv(ctx context.Context, cwd string, useLanguageVersionTools,
 	showOutput bool, infoWriter, errorWriter io.Writer,
 ) error {
-	_, err := p.virtualenvPath(ctx)
+	_, err := p.VirtualEnvPath(ctx)
 	if err != nil {
 		// Couldn't get the virtualenv path, this means it does not exist. Let's create it.
 		return p.InstallDependencies(ctx, cwd, useLanguageVersionTools, showOutput, infoWriter, errorWriter)
@@ -235,7 +230,7 @@ func (p *poetry) EnsureVenv(ctx context.Context, cwd string, useLanguageVersionT
 	return nil
 }
 
-func (p *poetry) virtualenvPath(ctx context.Context) (string, error) {
+func (p *poetry) VirtualEnvPath(ctx context.Context) (string, error) {
 	pathCmd := exec.CommandContext(ctx, p.poetryExecutable, "env", "info", "--path") //nolint:gosec
 	pathCmd.Dir = p.directory
 	out, err := pathCmd.Output()
@@ -292,16 +287,6 @@ func (p *poetry) convertRequirementsTxt(requirementsTxt, pyprojectToml string, s
 }
 
 func (p *poetry) generatePyProjectTOML(dependencies map[string]string) (string, error) {
-	type BuildSystem struct {
-		Requires     []string `toml:"requires,omitempty" json:"requires,omitempty"`
-		BuildBackend string   `toml:"build-backend,omitempty" json:"build-backend,omitempty"`
-	}
-
-	type Pyproject struct {
-		BuildSystem *BuildSystem           `toml:"build-system,omitempty" json:"build-system,omitempty"`
-		Tool        map[string]interface{} `toml:"tool,omitempty" json:"tool,omitempty"`
-	}
-
 	pp := Pyproject{
 		BuildSystem: &BuildSystem{
 			Requires:     []string{"poetry-core"},
