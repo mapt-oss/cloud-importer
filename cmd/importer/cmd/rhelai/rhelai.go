@@ -26,6 +26,7 @@ func GetCmd() *cobra.Command {
 		},
 	}
 	c.AddCommand(aws())
+	c.AddCommand(azure())
 	return c
 }
 
@@ -35,6 +36,10 @@ var (
 	paramImagePathDesc = "local path to the raw image"
 	paramAMIName       = "ami-name"
 	paramAMINameDesc   = "ami name once the image is upload"
+
+	azureCMD           = "azure"
+	paramImageName     = "image-name"
+	paramImageNameDesc = "name for the image in azure"
 )
 
 func aws() *cobra.Command {
@@ -64,6 +69,39 @@ func aws() *cobra.Command {
 	flagSet.StringP(params.Output, "", "", params.OutputDesc)
 	flagSet.StringP(paramImagePath, "", "", paramImagePathDesc)
 	flagSet.StringP(paramAMIName, "", "", paramAMINameDesc)
+	c.PersistentFlags().AddFlagSet(flagSet)
+	return c
+}
+
+func azure() *cobra.Command {
+
+	c := &cobra.Command{
+		Use:   azureCMD,
+		Short: azureCMD,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := viper.BindPFlags(cmd.Flags()); err != nil {
+				return err
+			}
+
+			if err := manager.RHELAI(
+				&context.ContextArgs{
+					BackedURL:  viper.GetString(params.BackedURL),
+					Output:     viper.GetString(params.Output),
+					Debug:      viper.IsSet(params.Debug),
+					DebugLevel: viper.GetUint(params.DebugLevel),
+				},
+				viper.GetString(paramImagePath),
+				viper.GetString(paramImageName),
+				manager.AZURE); err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+	flagSet := pflag.NewFlagSet(azureCMD, pflag.ExitOnError)
+	flagSet.StringP(params.Output, "", "", params.OutputDesc)
+	flagSet.StringP(paramImagePath, "", "", paramImagePathDesc)
+	flagSet.StringP(paramImageName, "", "", paramImageNameDesc)
 	c.PersistentFlags().AddFlagSet(flagSet)
 	return c
 }

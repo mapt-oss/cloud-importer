@@ -29,6 +29,7 @@ import (
 
 	"github.com/blang/semver"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/util/errutil"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/logging"
 )
 
@@ -87,12 +88,7 @@ func newUv(root, virtualenv string) (*uv, error) {
 	}
 
 	// Validate the version
-	cmd := u.uvCommand(context.Background(), "", false, nil, nil, "--version")
-	versionString, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get uv version: %w", err)
-	}
-	version, err := u.uvVersion(string(versionString))
+	version, err := u.uvVersion()
 	if err != nil {
 		return nil, err
 	}
@@ -139,17 +135,32 @@ func (u *uv) InstallDependencies(ctx context.Context, cwd string, useLanguageVer
 				return fmt.Errorf("error while looking for requirements.txt in %s: %w", cwd, err)
 			}
 
-			initCmd := u.uvCommand(ctx, pyprojectTomlDir, showOutput, infoWriter, errorWriter,
-				"init", "--no-readme", "--no-package", "--no-pin-python")
+			args := []string{"init", "--bare", "--no-package", "--no-pin-python"}
+			deleteHello := false
+			uvVersion, err := u.uvVersion()
+			if err != nil {
+				return fmt.Errorf("error getting uv version: %s", err)
+			}
+			if uvVersion.LT(semver.MustParse("0.6.0")) {
+				// The `--bare` option prevents `uv init` from creating a
+				// `main.py` file, but this is only available in uv 0.6. Prior
+				// to 0.6, uv always creates a `hello.py` file, which we
+				// manually delete below.
+				// https://github.com/astral-sh/uv/blob/main/CHANGELOG.md#060
+				args = []string{"init", "--no-readme", "--no-package", "--no-pin-python"}
+				deleteHello = true
+			}
+
+			initCmd := u.uvCommand(ctx, pyprojectTomlDir, showOutput, infoWriter, errorWriter, args...)
 			if err := initCmd.Run(); err != nil {
-				return errorWithStderr(err, "error initializing python project")
+				return errutil.ErrorWithStderr(err, "error initializing python project")
 			}
 
 			if hasRequirementsTxt {
 				requirementsTxt := filepath.Join(requirementsTxtDir, "requirements.txt")
 				addCmd := u.uvCommand(ctx, cwd, showOutput, infoWriter, errorWriter, "add", "-r", requirementsTxt)
 				if err := addCmd.Run(); err != nil {
-					return errorWithStderr(err, "error installing dependecies from requirements.txt")
+					return errutil.ErrorWithStderr(err, "error installing dependecies from requirements.txt")
 				}
 				// Remove the requirements.txt file, after calling `uv add`, the
 				// dependencies are tracked in pyproject.toml.
@@ -164,8 +175,10 @@ func (u *uv) InstallDependencies(ctx context.Context, cwd string, useLanguageVer
 				}
 			}
 
-			// `uv init` creates a `hello.py` file, delete it.
-			contract.IgnoreError(os.Remove(filepath.Join(cwd, "hello.py")))
+			// `uv init` prior to 0.6 creates a `hello.py` file, delete it.
+			if deleteHello {
+				contract.IgnoreError(os.Remove(filepath.Join(cwd, "hello.py")))
+			}
 		}
 	}
 
@@ -173,7 +186,7 @@ func (u *uv) InstallDependencies(ctx context.Context, cwd string, useLanguageVer
 	// install the dependencies.
 	syncCmd := u.uvCommand(ctx, cwd, showOutput, infoWriter, errorWriter, "sync")
 	if err := syncCmd.Run(); err != nil {
-		return errorWithStderr(err, "error installing dependencies")
+		return errutil.ErrorWithStderr(err, "error installing dependencies")
 	}
 	return nil
 }
@@ -184,7 +197,7 @@ func (u *uv) EnsureVenv(ctx context.Context, cwd string, useLanguageVersionTools
 	venvCmd := u.uvCommand(ctx, cwd, showOutput, infoWriter, errorWriter, "venv", "--quiet",
 		"--allow-existing", u.virtualenvPath)
 	if err := venvCmd.Run(); err != nil {
-		return errorWithStderr(err, "error creating virtual environment")
+		return errutil.ErrorWithStderr(err, "error creating virtual environment")
 	}
 
 	return nil
@@ -229,13 +242,13 @@ func (u *uv) ListPackages(ctx context.Context, transitive bool) ([]PythonPackage
 			cmd.Dir = u.root
 			pipCmd = cmd
 		} else {
-			return nil, errorWithStderr(err, "checking for pip")
+			return nil, errutil.ErrorWithStderr(err, "checking for pip")
 		}
 	}
 
 	output, err := pipCmd.Output()
 	if err != nil {
-		return nil, errorWithStderr(err, "listing packages")
+		return nil, errutil.ErrorWithStderr(err, "listing packages")
 	}
 
 	var packages []PythonPackage
@@ -254,14 +267,28 @@ func (u *uv) Command(ctx context.Context, args ...string) (*exec.Cmd, error) {
 	// kills its children, so we have no problem here. On Windows however, it
 	// does not, and we end up with an orphaned Python process that's
 	// busy-waiting in the eventloop and never exits.
-	var cmd *exec.Cmd
-	name, cmdPath := u.pythonExecutable()
-	if needsPythonShim(cmdPath) {
-		shimCmd := fmt.Sprintf(pythonShimCmdFormat, name)
-		cmd = exec.CommandContext(ctx, shimCmd, args...)
-	} else {
-		cmd = exec.CommandContext(ctx, cmdPath, args...)
+	// See https://github.com/astral-sh/uv/issues/11817
+	//
+	// To maintain uv's behaviour that `uv run ...` should keep the venv
+	// up-to-date, we run `uv sync` first, provided there is a `pyproject.toml`.
+	pyprojectTomlDir, err := searchup(u.root, "pyproject.toml")
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("error while looking for pyproject.toml in %s: %w", u.root, err)
+		}
 	}
+	if pyprojectTomlDir != "" {
+		// uv run does an "inexact" sync, that is it leaves extraneous
+		// dependencies alone and does not remove them.
+		venvCmd := u.uvCommand(ctx, u.root, false, nil, nil, "sync", "--inexact")
+		if err := venvCmd.Run(); err != nil {
+			return nil, errutil.ErrorWithStderr(err, "error creating virtual environment")
+		}
+	}
+
+	var cmd *exec.Cmd
+	_, cmdPath := u.pythonExecutable()
+	cmd = exec.CommandContext(ctx, cmdPath, args...)
 	cmd.Env = ActivateVirtualEnv(cmd.Environ(), u.virtualenvPath)
 	cmd.Dir = u.root
 	return cmd, nil
@@ -314,7 +341,28 @@ func (u *uv) uvCommand(ctx context.Context, cwd string, showOutput bool,
 	return cmd
 }
 
-func (u *uv) uvVersion(versionString string) (semver.Version, error) {
+func (u *uv) uvVersion() (semver.Version, error) {
+	cmd := u.uvCommand(context.Background(), "", false, nil, nil, "--version")
+	versionString, err := cmd.Output()
+	if err != nil {
+		return semver.Version{}, fmt.Errorf("failed to get uv version: %w", err)
+	}
+	return ParseUvVersion(string(versionString))
+}
+
+func (u *uv) pythonExecutable() (string, string) {
+	name := "python"
+	if runtime.GOOS == windows {
+		name = name + ".exe"
+	}
+	return name, filepath.Join(u.virtualenvPath, virtualEnvBinDirName(), name)
+}
+
+func (u *uv) VirtualEnvPath(_ context.Context) (string, error) {
+	return u.virtualenvPath, nil
+}
+
+func ParseUvVersion(versionString string) (semver.Version, error) {
 	versionString = strings.TrimSpace(versionString)
 	re := regexp.MustCompile(`uv (?P<version>\d+\.\d+(.\d+)?).*`)
 	matches := re.FindStringSubmatch(versionString)
@@ -332,12 +380,4 @@ func (u *uv) uvVersion(versionString string) (semver.Version, error) {
 			versionString, minUvVersion)
 	}
 	return sem, nil
-}
-
-func (u *uv) pythonExecutable() (string, string) {
-	name := "python"
-	if runtime.GOOS == windows {
-		name = name + ".exe"
-	}
-	return name, filepath.Join(u.virtualenvPath, virtualEnvBinDirName(), name)
 }

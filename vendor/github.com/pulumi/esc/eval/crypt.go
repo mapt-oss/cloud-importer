@@ -26,6 +26,7 @@ import (
 
 	"github.com/pulumi/esc/syntax"
 	"github.com/pulumi/esc/syntax/encoding"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
 	"gopkg.in/yaml.v3"
 )
 
@@ -147,6 +148,16 @@ func DecryptSecrets(ctx context.Context, filename string, source []byte, decrypt
 	return rewriteYAML(ctx, filename, source, func(n syntax.Node) (syntax.Node, syntax.Diagnostics, error) {
 		obj, _, ciphertextNode, ok := parseSecret(n)
 		if !ok || ciphertextNode == nil {
+			return n, nil, nil
+		}
+
+		// Don't attempt to decrypt secrets outside of "values"
+		path := n.Syntax().Path()
+		propertyPath, err := resource.ParsePropertyPath(path)
+		if err != nil {
+			return nil, nil, fmt.Errorf("parsing property path %q", path)
+		}
+		if propertyPath[0] != "values" {
 			return n, nil, nil
 		}
 

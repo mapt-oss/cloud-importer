@@ -73,15 +73,19 @@ func PropertyValueSchema() string {
 }
 
 const (
-	// DeploymentSchemaVersionCurrent is the current version of the `Deployment` schema.
-	// Any deployments newer than this version will be rejected.
+	// DeploymentSchemaVersionCurrent is the current version of the `Deployment` schema
+	// when not using features that require v4.
 	DeploymentSchemaVersionCurrent = 3
 )
 
 // VersionedCheckpoint is a version number plus a json document. The version number describes what
 // version of the Checkpoint structure the Checkpoint member's json document can decode into.
 type VersionedCheckpoint struct {
-	Version    int             `json:"version"`
+	Version int `json:"version"`
+	// Features contains an optional list of features used by this Checkpoint. The CLI will error when reading a
+	// Checkpoint that uses a feature that is not supported by that version of the CLI. This is only looked at
+	// when `Version` is 4 or greater.
+	Features   []string        `json:"features,omitempty"`
 	Checkpoint json.RawMessage `json:"checkpoint"`
 }
 
@@ -139,6 +143,7 @@ type DeploymentV2 struct {
 
 // DeploymentV3 is the third version of the Deployment. It contains newer versions of the
 // Resource and Operation API types and a placeholder for a stack's secrets configuration.
+// Note that both deployment schema versions 3 and 4 can be unmarshaled into DeploymentV3.
 type DeploymentV3 struct {
 	// Manifest contains metadata about this deployment.
 	Manifest ManifestV1 `json:"manifest" yaml:"manifest"`
@@ -213,6 +218,10 @@ type OperationV2 struct {
 type UntypedDeployment struct {
 	// Version indicates the schema of the encoded deployment.
 	Version int `json:"version,omitempty"`
+	// Features contains an optional list of features used by this deployment. The CLI will error when reading a
+	// Deployment that uses a feature that is not supported by that version of the CLI. This is only looked at
+	// when `Version` is 4 or greater.
+	Features []string `json:"features,omitempty"`
 	// The opaque Pulumi deployment. This is conceptually of type `Deployment`, but we use `json.Message` to
 	// permit round-tripping of stack contents when an older client is talking to a newer server.  If we unmarshaled
 	// the contents, and then remarshaled them, we could end up losing important information.
@@ -355,6 +364,14 @@ type ResourceV3 struct {
 	SourcePosition string `json:"sourcePosition,omitempty" yaml:"sourcePosition,omitempty"`
 	// IgnoreChanges is a list of properties to ignore changes for.
 	IgnoreChanges []string `json:"ignoreChanges,omitempty" yaml:"ignoreChanges,omitempty"`
+	// ReplaceOnChanges is a list of properties that if changed trigger a replace.
+	ReplaceOnChanges []string `json:"replaceOnChanges,omitempty" yaml:"replaceOnChanges,omitempty"`
+	// RefreshBeforeUpdate indicates that this resource should always be refreshed prior to updates.
+	RefreshBeforeUpdate bool `json:"refreshBeforeUpdate,omitempty" yaml:"refreshBeforeUpdate,omitempty"`
+	// ViewOf is a reference to the resource that this resource is a view of.
+	ViewOf resource.URN `json:"viewOf,omitempty" yaml:"viewOf,omitempty"`
+	// ResourceHooks is a map of hook types to lists of hook names for the given type.
+	ResourceHooks map[resource.HookType][]string `json:"resourceHooks,omitempty" yaml:"resourceHooks,omitempty"`
 }
 
 // ManifestV1 captures meta-information about this checkpoint file, such as versions of binaries, etc.
@@ -412,13 +429,6 @@ const (
 	ProjectDescriptionTag StackTagName = "pulumi:description"
 	// ProjectTemplateTag is a tag that represents the template that was used to create a project.
 	ProjectTemplateTag StackTagName = "pulumi:template"
-	// GitHubOwnerNameTag is a tag that represents the name of the owner on GitHub that this stack
-	// may be associated with (inferred by the CLI based on git remote info).
-	// TODO [pulumi/pulumi-service#2306] Once the UI is updated, we would no longer need the GitHub specific keys.
-	GitHubOwnerNameTag StackTagName = "gitHub:owner"
-	// GitHubRepositoryNameTag is a tag that represents the name of a repository on GitHub that this stack
-	// may be associated with (inferred by the CLI based on git remote info).
-	GitHubRepositoryNameTag StackTagName = "gitHub:repo"
 	// VCSOwnerNameTag is a tag that represents the name of the owner on the cloud VCS that this stack
 	// may be associated with (inferred by the CLI based on git remote info).
 	VCSOwnerNameTag StackTagName = "vcs:owner"
@@ -441,6 +451,11 @@ const (
 
 // Stack describes a Stack running on a Pulumi Cloud.
 type Stack struct {
+	// ID is the logical ID of the stack.
+	//
+	// For maintainers of the Pulumi service:
+	// ID corresponds to the Program ID, not the Stack ID inside the Pulumi service.
+	ID          string       `json:"id"`
 	OrgName     string       `json:"orgName"`
 	ProjectName string       `json:"projectName"`
 	StackName   tokens.QName `json:"stackName"`
@@ -449,7 +464,25 @@ type Stack struct {
 	ActiveUpdate     string                  `json:"activeUpdate"`
 	Tags             map[StackTagName]string `json:"tags,omitempty"`
 
+	// Optional cloud-persisted stack configuration.
+	// If set, then the stack's configuration is loaded from the cloud and not a file on disk.
+	Config *StackConfig `json:"config,omitempty"`
+
 	Version int `json:"version"`
+}
+
+// StackConfig describes the configuration of a stack from Pulumi Cloud.
+type StackConfig struct {
+	// Reference to ESC environment to use as stack configuration.
+	Environment string `json:"environment"`
+	// SecretsProvider is this stack's secrets provider.
+	SecretsProvider string `json:"secretsProvider,omitempty"`
+	// EncryptedKey is the KMS-encrypted ciphertext for the data key used for secrets encryption.
+	// Only used for cloud-based secrets providers.
+	EncryptedKey string `json:"encryptedKey,omitempty"`
+	// EncryptionSalt is this stack's base64 encoded encryption salt. Only used for
+	// passphrase-based secrets providers.
+	EncryptionSalt string `json:"encryptionSalt,omitempty"`
 }
 
 // OperationStatus describes the state of an operation being performed on a Pulumi stack.

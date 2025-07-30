@@ -16,6 +16,11 @@ package apitype
 
 // StackSummary describes the state of a stack, without including its specific resources, etc.
 type StackSummary struct {
+	// ID is the logical ID of the stack.
+	//
+	// For maintainers of the Pulumi service:
+	// ID corresponds to the Program ID, not the Stack ID inside the Pulumi service.
+	ID string `json:"id"`
 	// OrgName is the organization name the stack is found in.
 	OrgName string `json:"orgName"`
 	// ProjectName is the name of the project the stack is associated with.
@@ -61,6 +66,8 @@ type CreateStackRequest struct {
 
 	// An optional state to initialize the stack with.
 	State *UntypedDeployment `json:"state,omitempty"`
+
+	Config *StackConfig `json:"config,omitempty"`
 }
 
 // CreateStackResponse is the response from a create Stack request.
@@ -76,6 +83,18 @@ type EncryptValueRequest struct {
 type EncryptValueResponse struct {
 	// The encrypted value.
 	Ciphertext []byte `json:"ciphertext"`
+}
+
+// BatchEncryptRequest defines the request body for encrypting multiple values.
+type BatchEncryptRequest struct {
+	// The values to encrypt.
+	Plaintexts [][]byte `json:"plaintexts"`
+}
+
+// BatchEncryptResponse defines the response body for multiple encrypted values.
+type BatchEncryptResponse struct {
+	// The encrypted values, in order of the plaintexts from the request.
+	Ciphertexts [][]byte `json:"ciphertexts"`
 }
 
 // DecryptValueRequest defines the request body for decrypting a value.
@@ -96,14 +115,14 @@ type Log3rdPartyDecryptionEvent struct {
 	CommandName string `json:"commandName,omitempty"`
 }
 
-// BulkDecryptValueRequest defines the request body for bulk decrypting secret values.
-type BulkDecryptValueRequest struct {
+// BatchDecryptRequest defines the request body for batch decrypting secret values.
+type BatchDecryptRequest struct {
 	Ciphertexts [][]byte `json:"ciphertexts"`
 }
 
-// BulkDecryptValueResponse defines the response body for bulk decrypted secret values. The key in
+// BatchDecryptResponse defines the response body for batch decrypted secret values. The key in
 // the map is the base64 encoding of the ciphertext.
-type BulkDecryptValueResponse struct {
+type BatchDecryptResponse struct {
 	Plaintexts map[string][]byte `json:"plaintexts"`
 }
 

@@ -51,6 +51,7 @@ const (
 	integerTypeName = "integer"
 	stringTypeName  = "string"
 	booleanTypeName = "boolean"
+	objectTypeName  = "object"
 )
 
 //go:embed project.json
@@ -73,32 +74,10 @@ func init() {
 type Analyzers []tokens.QName
 
 // ProjectTemplate is a Pulumi project template manifest.
-type ProjectTemplate struct {
-	// DisplayName is an optional user friendly name of the template.
-	DisplayName string `json:"displayName,omitempty" yaml:"displayName,omitempty"`
-	// Description is an optional description of the template.
-	Description string `json:"description,omitempty" yaml:"description,omitempty"`
-	// Quickstart contains optional text to be displayed after template creation.
-	Quickstart string `json:"quickstart,omitempty" yaml:"quickstart,omitempty"`
-	// Config is an optional template config.
-	Config map[string]ProjectTemplateConfigValue `json:"config,omitempty" yaml:"config,omitempty"`
-	// Important indicates the template is important.
-	//
-	// Deprecated: We don't use this field any more.
-	Important bool `json:"important,omitempty" yaml:"important,omitempty"`
-	// Metadata are key/value pairs used to attach additional metadata to a template.
-	Metadata map[string]string `json:"metadata,omitempty" yaml:"metadata,omitempty"`
-}
+type ProjectTemplate = apitype.ProjectTemplate
 
 // ProjectTemplateConfigValue is a config value included in the project template manifest.
-type ProjectTemplateConfigValue struct {
-	// Description is an optional description for the config value.
-	Description string `json:"description,omitempty" yaml:"description,omitempty"`
-	// Default is an optional default value for the config value.
-	Default string `json:"default,omitempty" yaml:"default,omitempty"`
-	// Secret may be set to true to indicate that the config value should be encrypted.
-	Secret bool `json:"secret,omitempty" yaml:"secret,omitempty"`
-}
+type ProjectTemplateConfigValue = apitype.ProjectTemplateConfigValue
 
 // ProjectBackend is the configuration for where the backend state is stored. If unset, will use the
 // system's currently logged-in backend.
@@ -121,6 +100,89 @@ type PluginOptions struct {
 	Name    string `json:"name" yaml:"name"`
 	Version string `json:"version,omitempty" yaml:"version,omitempty"`
 	Path    string `json:"path" yaml:"path"`
+}
+
+// PackageSpec defines the structured format for a package dependency
+type PackageSpec struct {
+	Source     string   `json:"source" yaml:"source"`
+	Version    string   `json:"version,omitempty" yaml:"version,omitempty"`
+	Parameters []string `json:"parameters,omitempty" yaml:"parameters,omitempty"`
+}
+
+// packageValue can be either a string or a PackageSpec
+// This is a private implementation type that handles the dual-format parsing
+type packageValue struct {
+	// The underlying value, either a string or a PackageSpec
+	value interface{}
+}
+
+// Spec returns the package as a PackageSpec if it's a PackageSpec,
+// or creates a simple PackageSpec from its string representation.
+func (pv *packageValue) Spec() PackageSpec {
+	switch v := pv.value.(type) {
+	case PackageSpec:
+		return v
+	case string:
+		// Check if the string contains a version specifier in the format "source@version"
+		parts := strings.Split(v, "@")
+		if len(parts) == 2 {
+			return PackageSpec{
+				Source:  parts[0],
+				Version: parts[1],
+			}
+		}
+		return PackageSpec{Source: v}
+	default:
+		panic("unexpected type in PackageValue")
+	}
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface
+func (pv *packageValue) UnmarshalJSON(data []byte) error {
+	// First try to unmarshal as a string
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		pv.value = s
+		return nil
+	}
+
+	// If that fails, try to unmarshal as a PackageSpec
+	var spec PackageSpec
+	if err := json.Unmarshal(data, &spec); err == nil {
+		pv.value = spec
+		return nil
+	}
+
+	return errors.New("package must be either a string or a package specification object")
+}
+
+// MarshalJSON implements the json.Marshaler interface
+func (pv packageValue) MarshalJSON() ([]byte, error) {
+	return json.Marshal(pv.value)
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface
+func (pv *packageValue) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	// First try to unmarshal as a string
+	var s string
+	if err := unmarshal(&s); err == nil {
+		pv.value = s
+		return nil
+	}
+
+	// If that fails, try to unmarshal as a PackageSpec
+	var spec PackageSpec
+	if err := unmarshal(&spec); err == nil {
+		pv.value = spec
+		return nil
+	}
+
+	return errors.New("package must be either a string or a package specification object")
+}
+
+// MarshalYAML implements the yaml.Marshaler interface
+func (pv packageValue) MarshalYAML() (interface{}, error) {
+	return pv.value, nil
 }
 
 type Plugins struct {
@@ -198,6 +260,9 @@ type Project struct {
 	// Options is an optional set of project options
 	Options *ProjectOptions `json:"options,omitempty" yaml:"options,omitempty"`
 
+	// Packages is a map of package dependencies that can be either strings or PackageSpecs
+	Packages map[string]packageValue `json:"packages,omitempty" yaml:"packages,omitempty"`
+
 	Plugins *Plugins `json:"plugins,omitempty" yaml:"plugins,omitempty"`
 
 	// Handle additional keys, albeit in a way that will remove comments and trivia.
@@ -209,6 +274,65 @@ type Project struct {
 
 func (proj Project) RawValue() []byte {
 	return proj.raw
+}
+
+// GetPackageSpecs returns a map of package names to their corresponding PackageSpecs
+func (proj *Project) GetPackageSpecs() map[string]PackageSpec {
+	if proj.Packages == nil {
+		return nil
+	}
+
+	result := make(map[string]PackageSpec)
+	for name, packageValue := range proj.Packages {
+		result[name] = packageValue.Spec()
+	}
+	return result
+}
+
+func (proj *Project) AddPackage(name string, spec PackageSpec) {
+	if proj.Packages == nil {
+		proj.Packages = make(map[string]packageValue)
+	}
+
+	// We default to using the simple string format, but if the package
+	// - has parameters or
+	// - if all existing packages use the PackageSpec format or
+	// - if this same package was already added using the PackageSpec format
+	// we use the PackageSpec format.
+	useStringFormat := true
+	if len(spec.Parameters) > 0 {
+		// Simple string format does not support parameters
+		useStringFormat = false
+	} else if existingSpec, ok := proj.Packages[name]; ok {
+		if _, ok := existingSpec.value.(PackageSpec); ok {
+			// If the existing spec is a PackageSpec, keep its format
+			useStringFormat = false
+		}
+	} else if len(proj.Packages) > 0 {
+		// Check if all existing packages are PackageSpec
+		// If all packages are already using the PackageSpec format, maintain consistency
+		allPackageSpecs := true
+		for _, existingPackage := range proj.Packages {
+			if _, ok := existingPackage.value.(PackageSpec); !ok {
+				allPackageSpecs = false
+				break
+			}
+		}
+		if allPackageSpecs {
+			useStringFormat = false
+		}
+	}
+
+	// Add the package to the project
+	if useStringFormat {
+		specString := spec.Source
+		if spec.Version != "" {
+			specString = fmt.Sprintf("%s@%s", spec.Source, spec.Version)
+		}
+		proj.Packages[name] = packageValue{value: specString}
+	} else {
+		proj.Packages[name] = packageValue{value: spec}
+	}
 }
 
 func isPrimitiveValue(value interface{}) bool {
@@ -601,6 +725,12 @@ func ValidateConfigValue(typeName string, itemsType *ProjectConfigItemsType, val
 		}
 
 		_, ok = value.(bool)
+		return ok
+	}
+
+	if typeName == objectTypeName {
+		// validate that the item is a map
+		_, ok := value.(map[string]interface{})
 		return ok
 	}
 

@@ -8,6 +8,8 @@ to the account which run the tool. In order to allow to use the image from a dif
 
 ## RHEL AI
 
+### AWS
+
 In order to test RHEL AI on AWS we need to import the image according to [RHEL AI installation guide](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux_ai/1.5/html/installing/installing_on_aws) this tool will run those steps for us. Alhough previously the raw image should be donwloaded by an authenticated user to agree with EULA License.
 
 To run the tool we can use the OCI container:
@@ -27,6 +29,31 @@ podman run --rm --name import-rhelai -d \
 
 podman logs -f import-rhelai
 ```
+
+### Azure
+
+To import a VHD image to Azure, you can use the `rhelai azure` command. This command will create a storage account, upload the VHD, and create a VM image.
+
+To run the tool we can use the OCI container:
+
+```bash
+podman run --rm --name import-rhelai-azure -d \
+    -v ${PWD}:/workspace:z \
+    -e AZURE_TENANT_ID=${AZURE_TENANT_ID} \
+    -e AZURE_CLIENT_ID=${AZURE_CLIENT_ID} \
+    -e AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET} \
+    -e AZURE_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID} \
+    -e AZURE_LOCATION=${AZURE_LOCATION} \
+    ghcr.io/mapt-oss/cloud-importer:latest rhelai azure \
+        --backed-url "file:///workspace" \
+        --raw-image-path "/workspace/rhel-ai-nvidia-azure-1.5-1747399384-x86_64.vhd" \
+        --image-name "rhel-ai-nvidia-azure-1.5.0" \
+        --debug \
+        --debug-level 9
+
+podman logs -f import-rhelai-azure
+```
+
 
 ## Openshift Local
 
