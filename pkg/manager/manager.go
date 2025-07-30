@@ -46,6 +46,40 @@ func RHELAI(ctx *context.ContextArgs,
 	return destroyStack(stack)
 }
 
+func RHELAIOnAzure(ctx *context.ContextArgs,
+	subscriptionID, resourceGroup, location, diskPath string, imageName string, tags map[string]string,
+	provider Provider) error {
+	// Initialize context
+	context.Init(ctx)
+	// Get provider
+	p, err := getProvider(provider)
+	if err != nil {
+		return err
+	}
+	importFunc, err := p.RHELAIOnAzure(subscriptionID, resourceGroup, location, diskPath, imageName, tags)
+	if err != nil {
+		return err
+	}
+	// Create a stack based on the import function and create it
+	stack := providerAPI.Stack{
+		// TODO add random ID
+		ProjectName: context.ProjectName(),
+		StackName:   stackRHELAI,
+		BackedURL:   context.BackedURL(),
+		DeployFunc:  importFunc}
+	_, err = upStack(stack)
+	if err != nil {
+		return err
+	}
+	// err = manageImageImportResults(stackResult, context.Output())
+	// if err != nil {
+	// 	return nil
+	// }
+	// Current exec create temporary resources to enable the import
+	// we delete it as they are only temporary
+	return destroyStack(stack)
+}
+
 func OpenshiftLocal(ctx *context.ContextArgs,
 	bundleURL string, shasumURL string, arch string,
 	provider Provider) error {
