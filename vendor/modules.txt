@@ -45,7 +45,16 @@ github.com/apparentlymart/go-textseg/v15/textseg
 # github.com/atotto/clipboard v0.1.4
 ## explicit
 github.com/atotto/clipboard
-# github.com/aws/aws-sdk-go-v2 v1.36.5
+# github.com/aws/amazon-ec2-instance-selector/v3 v3.1.1
+## explicit; go 1.23
+github.com/aws/amazon-ec2-instance-selector/v3/pkg/awsapi
+github.com/aws/amazon-ec2-instance-selector/v3/pkg/bytequantity
+github.com/aws/amazon-ec2-instance-selector/v3/pkg/ec2pricing
+github.com/aws/amazon-ec2-instance-selector/v3/pkg/instancetypes
+github.com/aws/amazon-ec2-instance-selector/v3/pkg/selector
+github.com/aws/amazon-ec2-instance-selector/v3/pkg/selector/outputs
+github.com/aws/amazon-ec2-instance-selector/v3/pkg/sorter
+# github.com/aws/aws-sdk-go-v2 v1.36.6
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/aws
 github.com/aws/aws-sdk-go-v2/aws/arn
@@ -77,10 +86,10 @@ github.com/aws/aws-sdk-go-v2/internal/timeconv
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream
 github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream/eventstreamapi
-# github.com/aws/aws-sdk-go-v2/config v1.29.17
+# github.com/aws/aws-sdk-go-v2/config v1.29.18
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/config
-# github.com/aws/aws-sdk-go-v2/credentials v1.17.70
+# github.com/aws/aws-sdk-go-v2/credentials v1.17.71
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/credentials
 github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds
@@ -89,35 +98,35 @@ github.com/aws/aws-sdk-go-v2/credentials/endpointcreds/internal/client
 github.com/aws/aws-sdk-go-v2/credentials/processcreds
 github.com/aws/aws-sdk-go-v2/credentials/ssocreds
 github.com/aws/aws-sdk-go-v2/credentials/stscreds
-# github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.32
+# github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.33
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds/internal/config
-# github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.36
+# github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.37
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/internal/configsources
-# github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.36
+# github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.37
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2
 # github.com/aws/aws-sdk-go-v2/internal/ini v1.8.3
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/internal/ini
-# github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.36
+# github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.37
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/internal/v4a
 github.com/aws/aws-sdk-go-v2/internal/v4a/internal/crypto
 github.com/aws/aws-sdk-go-v2/internal/v4a/internal/v4
-# github.com/aws/aws-sdk-go-v2/service/ec2 v1.231.0
+# github.com/aws/aws-sdk-go-v2/service/ec2 v1.235.0
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/service/ec2
 github.com/aws/aws-sdk-go-v2/service/ec2/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/ec2/types
-# github.com/aws/aws-sdk-go-v2/service/ecs v1.58.1
+# github.com/aws/aws-sdk-go-v2/service/ecs v1.60.1
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/service/ecs
 github.com/aws/aws-sdk-go-v2/service/ecs/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/ecs/types
-# github.com/aws/aws-sdk-go-v2/service/iam v1.43.0
+# github.com/aws/aws-sdk-go-v2/service/iam v1.43.1
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/service/iam
 github.com/aws/aws-sdk-go-v2/service/iam/internal/endpoints
@@ -125,40 +134,45 @@ github.com/aws/aws-sdk-go-v2/service/iam/types
 # github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.4
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding
-# github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.7.4
+# github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.7.5
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/service/internal/checksum
-# github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.17
+# github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.18
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url
-# github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.18.17
+# github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.18.18
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared/arn
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared/config
-# github.com/aws/aws-sdk-go-v2/service/s3 v1.83.0
+# github.com/aws/aws-sdk-go-v2/service/pricing v1.35.1
+## explicit; go 1.22
+github.com/aws/aws-sdk-go-v2/service/pricing
+github.com/aws/aws-sdk-go-v2/service/pricing/internal/endpoints
+github.com/aws/aws-sdk-go-v2/service/pricing/types
+# github.com/aws/aws-sdk-go-v2/service/s3 v1.84.1
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/service/s3
 github.com/aws/aws-sdk-go-v2/service/s3/internal/arn
 github.com/aws/aws-sdk-go-v2/service/s3/internal/customizations
 github.com/aws/aws-sdk-go-v2/service/s3/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/s3/types
-# github.com/aws/aws-sdk-go-v2/service/sso v1.25.5
+# github.com/aws/aws-sdk-go-v2/service/sso v1.25.6
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/service/sso
 github.com/aws/aws-sdk-go-v2/service/sso/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/sso/types
-# github.com/aws/aws-sdk-go-v2/service/ssooidc v1.30.3
+# github.com/aws/aws-sdk-go-v2/service/ssooidc v1.30.4
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/service/ssooidc
 github.com/aws/aws-sdk-go-v2/service/ssooidc/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/ssooidc/types
-# github.com/aws/aws-sdk-go-v2/service/sts v1.34.0
+# github.com/aws/aws-sdk-go-v2/service/sts v1.34.1
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/service/sts
 github.com/aws/aws-sdk-go-v2/service/sts/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/sts/types
-# github.com/aws/smithy-go v1.22.4
+# github.com/aws/smithy-go v1.22.5
 ## explicit; go 1.22
 github.com/aws/smithy-go
 github.com/aws/smithy-go/auth
@@ -193,12 +207,20 @@ github.com/aymanbagabas/go-osc52/v2
 # github.com/blang/semver v3.5.1+incompatible
 ## explicit
 github.com/blang/semver
+# github.com/blang/semver/v4 v4.0.0
+## explicit; go 1.14
+github.com/blang/semver/v4
 # github.com/charmbracelet/bubbles v0.21.0
 ## explicit; go 1.23.0
 github.com/charmbracelet/bubbles/cursor
+github.com/charmbracelet/bubbles/help
 github.com/charmbracelet/bubbles/key
+github.com/charmbracelet/bubbles/list
+github.com/charmbracelet/bubbles/paginator
 github.com/charmbracelet/bubbles/runeutil
+github.com/charmbracelet/bubbles/spinner
 github.com/charmbracelet/bubbles/textinput
+github.com/charmbracelet/bubbles/viewport
 # github.com/charmbracelet/bubbletea v1.3.6
 ## explicit; go 1.23.0
 github.com/charmbracelet/bubbletea
@@ -253,6 +275,9 @@ github.com/emirpasic/gods/utils
 # github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f
 ## explicit; go 1.16
 github.com/erikgeiser/coninput
+# github.com/evertras/bubble-table v0.17.2
+## explicit; go 1.18
+github.com/evertras/bubble-table/table
 # github.com/fsnotify/fsnotify v1.9.0
 ## explicit; go 1.17
 github.com/fsnotify/fsnotify
@@ -374,6 +399,9 @@ github.com/mattn/go-localereader
 # github.com/mattn/go-runewidth v0.0.16
 ## explicit; go 1.9
 github.com/mattn/go-runewidth
+# github.com/mitchellh/go-homedir v1.1.0
+## explicit
+github.com/mitchellh/go-homedir
 # github.com/mitchellh/go-ps v1.0.0
 ## explicit; go 1.13
 github.com/mitchellh/go-ps
@@ -387,6 +415,11 @@ github.com/muesli/ansi/compressor
 # github.com/muesli/cancelreader v0.2.2
 ## explicit; go 1.17
 github.com/muesli/cancelreader
+# github.com/muesli/reflow v0.3.0
+## explicit; go 1.13
+github.com/muesli/reflow/ansi
+github.com/muesli/reflow/truncate
+github.com/muesli/reflow/wordwrap
 # github.com/muesli/termenv v0.16.0
 ## explicit; go 1.17
 github.com/muesli/termenv
@@ -395,6 +428,9 @@ github.com/muesli/termenv
 github.com/nxadm/tail/util
 github.com/nxadm/tail/watch
 github.com/nxadm/tail/winfile
+# github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852
+## explicit
+github.com/oliveagle/jsonpath
 # github.com/opentracing/basictracer-go v1.1.0
 ## explicit; go 1.14
 github.com/opentracing/basictracer-go
@@ -404,6 +440,9 @@ github.com/opentracing/basictracer-go/wire
 github.com/opentracing/opentracing-go
 github.com/opentracing/opentracing-go/ext
 github.com/opentracing/opentracing-go/log
+# github.com/patrickmn/go-cache v2.1.0+incompatible
+## explicit
+github.com/patrickmn/go-cache
 # github.com/pelletier/go-toml/v2 v2.2.4
 ## explicit; go 1.21.0
 github.com/pelletier/go-toml/v2
@@ -519,13 +558,17 @@ github.com/pulumi/pulumi/sdk/v3/nodejs/npm
 github.com/pulumi/pulumi/sdk/v3/proto/go
 github.com/pulumi/pulumi/sdk/v3/proto/go/codegen
 github.com/pulumi/pulumi/sdk/v3/python/toolchain
-# github.com/redhat-developer/mapt v0.9.3
+# github.com/redhat-developer/mapt v0.9.5
 ## explicit; go 1.23.6
 github.com/redhat-developer/mapt/pkg/manager/credentials
+github.com/redhat-developer/mapt/pkg/provider/api/compute-request
+github.com/redhat-developer/mapt/pkg/provider/api/spot/types
 github.com/redhat-developer/mapt/pkg/provider/aws/constants
 github.com/redhat-developer/mapt/pkg/provider/aws/data
 github.com/redhat-developer/mapt/pkg/util
 github.com/redhat-developer/mapt/pkg/util/logging
+github.com/redhat-developer/mapt/pkg/util/maps
+github.com/redhat-developer/mapt/pkg/util/slices
 # github.com/rivo/uniseg v0.4.7
 ## explicit; go 1.18
 github.com/rivo/uniseg
@@ -541,6 +584,9 @@ github.com/sabhiram/go-gitignore
 # github.com/sagikazarmark/locafero v0.9.0
 ## explicit; go 1.23.0
 github.com/sagikazarmark/locafero
+# github.com/sahilm/fuzzy v0.1.1
+## explicit
+github.com/sahilm/fuzzy
 # github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 ## explicit; go 1.19
 github.com/santhosh-tekuri/jsonschema/v5
@@ -644,7 +690,7 @@ golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 golang.org/x/crypto/ssh/knownhosts
-# golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b
+# golang.org/x/exp v0.0.0-20250718183923-645b1fa84792
 ## explicit; go 1.23.0
 golang.org/x/exp/maps
 golang.org/x/exp/slices
@@ -689,7 +735,7 @@ golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
-# golang.org/x/tools v0.34.0
+# golang.org/x/tools v0.35.0
 ## explicit; go 1.23.0
 golang.org/x/tools/cmd/stringer
 golang.org/x/tools/go/gcexportdata

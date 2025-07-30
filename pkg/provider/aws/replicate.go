@@ -2,6 +2,7 @@ package aws
 
 import (
 	"fmt"
+
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws/ec2"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/redhat-developer/mapt/pkg/provider/aws/data"
@@ -16,6 +17,10 @@ func (a *aws) Replicate(amiName string, targetRegion string) (pulumi.RunFunc, er
 	r := replicateRequest{
 		amiName,
 		targetRegion}
+	
+	// if targetRegion == "all" {
+	// 	return r.runFunc2, nil
+	// }
 	return r.runFunc, nil
 }
 
