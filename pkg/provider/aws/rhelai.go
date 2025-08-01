@@ -21,6 +21,11 @@ func (a *aws) RHELAI(rawImageFilePath, amiName string) (pulumi.RunFunc, error) {
 	return r.runFunc, nil
 }
 
+func (a *aws) RHELAIOnAzure(subscriptionID, resourceGroup, location, diskPath string, imageName string, tags map[string]string) (pulumi.RunFunc, error) {
+	// Not implemented for AWS
+	return nil, nil
+}
+
 func (r importRequest) runFunc(ctx *pulumi.Context) error {
 	id := randomID()
 	_, err := bucketEphemeral(ctx, id)

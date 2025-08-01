@@ -18,6 +18,7 @@ type Stack struct {
 
 type Provider interface {
 	RHELAI(rawImageFilePath, amiName string) (pulumi.RunFunc, error)
+	RHELAIOnAzure(subscriptionID, resourceGroup, location, diskPath string, imageName string, tags map[string]string) (pulumi.RunFunc, error)
 	Share(imageID string, targetAccountID string) (pulumi.RunFunc, error)
 	OpenshiftLocal(bundleURL, shasumURL, arch string) (pulumi.RunFunc, error)
 }
