@@ -17,9 +17,7 @@ package plugin
 import (
 	"context"
 
-	"github.com/blang/semver"
 	"github.com/pkg/errors"
-	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/diag"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
@@ -37,11 +35,12 @@ type MockHost struct {
 	CloseProviderF      func(provider Provider) error
 	LanguageRuntimeF    func(runtime string, info ProgramInfo) (LanguageRuntime, error)
 	EnsurePluginsF      func(plugins []workspace.PluginSpec, kinds Flags) error
-	ResolvePluginF      func(kind apitype.PluginKind, name string, version *semver.Version) (*workspace.PluginInfo, error)
+	ResolvePluginF      func(spec workspace.PluginSpec) (*workspace.PluginInfo, error)
 	GetProjectPluginsF  func() []workspace.ProjectPlugin
 	SignalCancellationF func() error
 	CloseF              func() error
-	StartDebuggingF     func(DebuggingInfo) error
+	StartDebuggingF     func(info DebuggingInfo) error
+	AttachDebuggerF     func(spec DebugSpec) bool
 }
 
 var _ Host = (*MockHost)(nil)
@@ -115,10 +114,10 @@ func (m *MockHost) EnsurePlugins(plugins []workspace.PluginSpec, kinds Flags) er
 }
 
 func (m *MockHost) ResolvePlugin(
-	kind apitype.PluginKind, name string, version *semver.Version,
+	spec workspace.PluginSpec,
 ) (*workspace.PluginInfo, error) {
 	if m.ResolvePluginF != nil {
-		return m.ResolvePluginF(kind, name, version)
+		return m.ResolvePluginF(spec)
 	}
 	return nil, errors.New("ResolvePlugin not implemented")
 }
@@ -151,6 +150,13 @@ func (m *MockHost) StartDebugging(info DebuggingInfo) error {
 	return nil
 }
 
+func (m *MockHost) AttachDebugger(spec DebugSpec) bool {
+	if m.AttachDebuggerF != nil {
+		return m.AttachDebuggerF(spec)
+	}
+	return false
+}
+
 type MockProvider struct {
 	NotForwardCompatibleProvider
 
@@ -170,7 +176,6 @@ type MockProvider struct {
 	DeleteF             func(context.Context, DeleteRequest) (DeleteResponse, error)
 	ConstructF          func(context.Context, ConstructRequest) (ConstructResponse, error)
 	InvokeF             func(context.Context, InvokeRequest) (InvokeResponse, error)
-	StreamInvokeF       func(context.Context, StreamInvokeRequest) (StreamInvokeResponse, error)
 	CallF               func(context.Context, CallRequest) (CallResponse, error)
 	GetPluginInfoF      func(context.Context) (workspace.PluginInfo, error)
 	SignalCancellationF func(context.Context) error
@@ -292,13 +297,6 @@ func (m *MockProvider) Invoke(ctx context.Context, req InvokeRequest) (InvokeRes
 		return m.InvokeF(ctx, req)
 	}
 	return InvokeResponse{}, errors.New("Invoke not implemented")
-}
-
-func (m *MockProvider) StreamInvoke(ctx context.Context, req StreamInvokeRequest) (StreamInvokeResponse, error) {
-	if m.StreamInvokeF != nil {
-		return m.StreamInvokeF(ctx, req)
-	}
-	return StreamInvokeResponse{}, errors.New("StreamInvoke not implemented")
 }
 
 func (m *MockProvider) Call(ctx context.Context, req CallRequest) (CallResponse, error) {

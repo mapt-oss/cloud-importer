@@ -39,6 +39,14 @@ type AnalyzerClient interface {
 	GetPluginInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*PluginInfo, error)
 	// Configure configures the analyzer, passing configuration properties for each policy.
 	Configure(ctx context.Context, in *ConfigureAnalyzerRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// `Handshake` is the first call made by the engine to an analyzer. It is used to pass the engine's address to the
+	// analyzer so that it may establish its own connections back, and to establish protocol configuration that will be
+	// used to communicate between the two parties.
+	Handshake(ctx context.Context, in *AnalyzerHandshakeRequest, opts ...grpc.CallOption) (*AnalyzerHandshakeResponse, error)
+	// `ConfigureStack` is always called if the engine is using the analyzer to analyze resources in a specific stack.
+	// This method is not always called, for example if the engine is just booting the analyzer up to call
+	// GetAnalyzerInfo.
+	ConfigureStack(ctx context.Context, in *AnalyzerStackConfigureRequest, opts ...grpc.CallOption) (*AnalyzerStackConfigureResponse, error)
 }
 
 type analyzerClient struct {
@@ -103,6 +111,24 @@ func (c *analyzerClient) Configure(ctx context.Context, in *ConfigureAnalyzerReq
 	return out, nil
 }
 
+func (c *analyzerClient) Handshake(ctx context.Context, in *AnalyzerHandshakeRequest, opts ...grpc.CallOption) (*AnalyzerHandshakeResponse, error) {
+	out := new(AnalyzerHandshakeResponse)
+	err := c.cc.Invoke(ctx, "/pulumirpc.Analyzer/Handshake", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *analyzerClient) ConfigureStack(ctx context.Context, in *AnalyzerStackConfigureRequest, opts ...grpc.CallOption) (*AnalyzerStackConfigureResponse, error) {
+	out := new(AnalyzerStackConfigureResponse)
+	err := c.cc.Invoke(ctx, "/pulumirpc.Analyzer/ConfigureStack", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AnalyzerServer is the server API for Analyzer service.
 // All implementations must embed UnimplementedAnalyzerServer
 // for forward compatibility
@@ -123,6 +149,14 @@ type AnalyzerServer interface {
 	GetPluginInfo(context.Context, *emptypb.Empty) (*PluginInfo, error)
 	// Configure configures the analyzer, passing configuration properties for each policy.
 	Configure(context.Context, *ConfigureAnalyzerRequest) (*emptypb.Empty, error)
+	// `Handshake` is the first call made by the engine to an analyzer. It is used to pass the engine's address to the
+	// analyzer so that it may establish its own connections back, and to establish protocol configuration that will be
+	// used to communicate between the two parties.
+	Handshake(context.Context, *AnalyzerHandshakeRequest) (*AnalyzerHandshakeResponse, error)
+	// `ConfigureStack` is always called if the engine is using the analyzer to analyze resources in a specific stack.
+	// This method is not always called, for example if the engine is just booting the analyzer up to call
+	// GetAnalyzerInfo.
+	ConfigureStack(context.Context, *AnalyzerStackConfigureRequest) (*AnalyzerStackConfigureResponse, error)
 	mustEmbedUnimplementedAnalyzerServer()
 }
 
@@ -147,6 +181,12 @@ func (UnimplementedAnalyzerServer) GetPluginInfo(context.Context, *emptypb.Empty
 }
 func (UnimplementedAnalyzerServer) Configure(context.Context, *ConfigureAnalyzerRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Configure not implemented")
+}
+func (UnimplementedAnalyzerServer) Handshake(context.Context, *AnalyzerHandshakeRequest) (*AnalyzerHandshakeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Handshake not implemented")
+}
+func (UnimplementedAnalyzerServer) ConfigureStack(context.Context, *AnalyzerStackConfigureRequest) (*AnalyzerStackConfigureResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConfigureStack not implemented")
 }
 func (UnimplementedAnalyzerServer) mustEmbedUnimplementedAnalyzerServer() {}
 
@@ -269,6 +309,42 @@ func _Analyzer_Configure_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Analyzer_Handshake_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AnalyzerHandshakeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AnalyzerServer).Handshake(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pulumirpc.Analyzer/Handshake",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AnalyzerServer).Handshake(ctx, req.(*AnalyzerHandshakeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Analyzer_ConfigureStack_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AnalyzerStackConfigureRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AnalyzerServer).ConfigureStack(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pulumirpc.Analyzer/ConfigureStack",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AnalyzerServer).ConfigureStack(ctx, req.(*AnalyzerStackConfigureRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Analyzer_ServiceDesc is the grpc.ServiceDesc for Analyzer service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -299,6 +375,14 @@ var Analyzer_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Configure",
 			Handler:    _Analyzer_Configure_Handler,
+		},
+		{
+			MethodName: "Handshake",
+			Handler:    _Analyzer_Handshake_Handler,
+		},
+		{
+			MethodName: "ConfigureStack",
+			Handler:    _Analyzer_ConfigureStack_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -97,3 +97,12 @@ func GetBundleNameFromURI(bundleURI string) (string, error) {
 		return filepath.Base(bundleURI), nil
 	}
 }
+
+func GetAmiNameFromBundleURLandArch(bundleURL, arch string) string {
+	amiBaseName, err := GetDescription(bundleURL, (*BundleArch)(&arch))
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%s-%s", *amiBaseName, arch)
+}
+

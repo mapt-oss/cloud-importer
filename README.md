@@ -52,3 +52,57 @@ podman run --rm --name import-openshift-local -d \
 
 podman logs -f import-openshift-local
 ```
+
+### Replicating and Sharing the AMI
+
+```bash
+
+podman run --rm --name import-openshift-local -d \
+    -v ${PWD}:/workspace:z \
+    -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
+    -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
+    -e AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} \
+    ghcr.io/mapt-oss/cloud-importer:latest openshift-local aws \
+        --backed-url "file:///workspace" \
+        --bundle-url ${BUNDLE_URL} \
+        --shasum-url ${SHASUM_URL} \
+        --arch ${ARCH} \
+        --replicate us-west-1,ap-south-1 \ # use 'all' to replicate to all the regions
+        --share <aws_account_id> \
+        --debug \
+        --debug-level 9
+
+podman logs -f import-openshift-local
+```
+
+Additionally `cloud-importer` also provides the `replicate` and `share` commands which can be used to replicate or share an already imported OpenShift Local SNC AMI:
+
+```bash
+
+# to replicate
+podman run --rm --name import-openshift-local -d \
+    -v ${PWD}:/workspace:z \
+    -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
+    -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
+    -e AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} \
+    ghcr.io/mapt-oss/cloud-importer:latest replicate aws \
+        --backed-url file:///workspace \
+        --image-id openshift-local-4.19.3-arm64 \
+        --region all # 'all' replicates to all regions
+
+podman logs -f import-openshift-local
+
+# to share
+podman run --rm --name import-openshift-local -d \
+    -v ${PWD}:/workspace:z \
+    -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
+    -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
+    -e AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} \
+    ghcr.io/mapt-oss/cloud-importer:latest replicate aws \
+        --backed-url file:///workspace \
+        --image-id openshift-local-4.19.3-arm64 \
+        --account-id <aws_account_id>
+
+podman logs -f import-openshift-local
+```
+

@@ -4,6 +4,7 @@ import (
 	params "github.com/devtools-qe-incubator/cloud-importer/cmd/importer/params"
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager"
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
+	"github.com/devtools-qe-incubator/cloud-importer/pkg/util/bundle"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -37,6 +38,10 @@ var (
 	paramShasumURLDesc = "accessible url to get the shasum file to check bundle"
 	paramArch          = "arch"
 	paramArchDesc      = "architecture for the machine. Allowed x86_64 or arm64"
+	paramReplicate     = "replicate"
+	paramReplicateDesc = "provide a list of regions to replicate the ami to, or 'all' to replicate to all available regions"
+	paramShare         = "share-ids"
+	paramShareDesc     = "provide a list of AWS account ids to share the ami"
 )
 
 func aws() *cobra.Command {
@@ -60,6 +65,36 @@ func aws() *cobra.Command {
 				manager.AWS); err != nil {
 				return err
 			}
+
+			if regions := viper.GetStringSlice(paramReplicate); len(regions) > 0 {
+				if err := manager.ReplicateImage(
+					&context.ContextArgs{
+						BackedURL:  viper.GetString(params.BackedURL),
+						Debug:      viper.IsSet(params.Debug),
+						DebugLevel: viper.GetUint(params.DebugLevel),
+					},
+					bundle.GetAmiNameFromBundleURLandArch(viper.GetString(paramBundleURL), viper.GetString(paramArch)),
+					regions,
+					manager.AWS); err != nil {
+					return err
+				}
+			}
+
+			if accIds := viper.GetStringSlice(paramShare); len(accIds) > 0 {
+				for _, id := range accIds {
+					if err := manager.ShareImage(
+						&context.ContextArgs{
+							BackedURL:  viper.GetString(params.BackedURL),
+							Debug:      viper.IsSet(params.Debug),
+							DebugLevel: viper.GetUint(params.DebugLevel),
+						},
+						bundle.GetAmiNameFromBundleURLandArch(viper.GetString(paramBundleURL), viper.GetString(paramArch)),
+						id,
+						manager.AWS); err != nil {
+						return err
+					}
+				}
+			}
 			return nil
 		},
 	}
@@ -68,6 +103,8 @@ func aws() *cobra.Command {
 	flagSet.StringP(paramBundleURL, "", "", paramBundleURLDesc)
 	flagSet.StringP(paramShasumURL, "", "", paramShasumURLDesc)
 	flagSet.StringP(paramArch, "", "", paramArchDesc)
+	flagSet.StringSliceP(paramReplicate, "", []string{}, paramReplicateDesc)
+	flagSet.StringSliceP(paramShare, "", []string{}, paramShareDesc)
 	c.PersistentFlags().AddFlagSet(flagSet)
 	return c
 }
