@@ -4,19 +4,12 @@ import (
 	_ "embed"
 	"os"
 
-	// "github.com/crc/crc-cloud/pkg/util"
-	// "github.com/crc/crc-cloud/pkg/util/command"
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/util"
 	"github.com/pulumi/pulumi-command/sdk/go/command/local"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
 var ExtractedDiskFileName = "disk.raw"
-
-const (
-	ExtractedDiskRawFileName = "disk.raw"
-	bootKeyfilename          = "id_ecdsa"
-)
 
 //go:embed extract.sh
 var script []byte
