@@ -25,12 +25,13 @@ func GetCmd() *cobra.Command {
 			return nil
 		},
 	}
-	c.AddCommand(aws())
+	c.AddCommand(aws(), azure())
 	return c
 }
 
 var (
 	awsCMD             = "aws"
+	azureCMD           = "azure"
 	paramBundleURL     = "bundle-url"
 	paramBundleURLDesc = "accessible url to get the bundle"
 	paramShasumURL     = "shasum-url"
@@ -58,6 +59,39 @@ func aws() *cobra.Command {
 				viper.GetString(paramShasumURL),
 				viper.GetString(paramArch),
 				manager.AWS); err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+	flagSet := pflag.NewFlagSet(awsCMD, pflag.ExitOnError)
+	flagSet.StringP(params.Output, "", "", params.OutputDesc)
+	flagSet.StringP(paramBundleURL, "", "", paramBundleURLDesc)
+	flagSet.StringP(paramShasumURL, "", "", paramShasumURLDesc)
+	flagSet.StringP(paramArch, "", "", paramArchDesc)
+	c.PersistentFlags().AddFlagSet(flagSet)
+	return c
+}
+
+func azure() *cobra.Command {
+	c := &cobra.Command{
+		Use:   azureCMD,
+		Short: azureCMD,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := viper.BindPFlags(cmd.Flags()); err != nil {
+				return err
+			}
+			if err := manager.OpenshiftLocal(
+				&context.ContextArgs{
+					BackedURL:  viper.GetString(params.BackedURL),
+					Output:     viper.GetString(params.Output),
+					Debug:      viper.IsSet(params.Debug),
+					DebugLevel: viper.GetUint(params.DebugLevel),
+				},
+				viper.GetString(paramBundleURL),
+				viper.GetString(paramShasumURL),
+				viper.GetString(paramArch),
+				manager.AZURE); err != nil {
 				return err
 			}
 			return nil

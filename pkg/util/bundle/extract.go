@@ -9,12 +9,13 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-var ExtractedDiskFileName = "disk.raw"
+var ExtractedRAWDiskFileName = "disk.raw"
+var ExtractedVHDDiskFileName = "disk.vhd"
 
 //go:embed extract.sh
 var script []byte
 
-func Extract(ctx *pulumi.Context, bundleURL, shasumURL string) (*local.Command, error) {
+func Extract(ctx *pulumi.Context, bundleURL, shasumURL, provider string) (*local.Command, error) {
 	// Write to temp file to be executed locally
 	scriptfileName, err := util.WriteTempFile(string(script))
 	if err != nil {
@@ -25,7 +26,8 @@ func Extract(ctx *pulumi.Context, bundleURL, shasumURL string) (*local.Command, 
 	}
 	execScriptENVS := map[string]string{
 		"BUNDLE_DOWNLOAD_URL":     bundleURL,
-		"SHASUMFILE_DOWNLOAD_URL": shasumURL}
+		"SHASUMFILE_DOWNLOAD_URL": shasumURL,
+		"CLOUD_PROVIDER":          provider}
 	return local.NewCommand(ctx, "execExtractScript",
 		&local.CommandArgs{
 			Create:      pulumi.String(*scriptfileName),

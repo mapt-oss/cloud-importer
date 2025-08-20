@@ -50,6 +50,13 @@ rm bundle.tar
 
 # Export image to raw
 qemu-img convert bundle/crc.qcow2 disk.raw
+
+if [[ ${CLOUD_PROVIDER} == "azure" ]]; then
+    # Export image again to vhd from raw
+    qemu-img convert -f raw -O vpc -o subformat=fixed,force_size disk.raw disk.vhd
+    rm -rf disk.raw
+fi
+
 # Export booting private key  
 cp bundle/id_ecdsa_crc id_ecdsa
 rm -rf bundle
