@@ -24,6 +24,11 @@ func (p *azureProvider) Share(imageID string, targetAccountID string) (pulumi.Ru
 }
 
 func (p *azureProvider) OpenshiftLocal(bundleURL, shasumURL, arch string) (pulumi.RunFunc, error) {
-	// Not implemented for Azure
-	return nil, nil
+	ocpReq := openshiftRequest{
+		bundleURL: bundleURL,
+		shasumURL: shasumURL,
+		arch:      arch,
+	}
+	return ocpReq.runFunc, nil
 }
+

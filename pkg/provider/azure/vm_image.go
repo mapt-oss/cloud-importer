@@ -25,10 +25,11 @@ const (
 	rhelAIGalleryName   = "rhqe_rhelai_images"
 	rhelAIGalleryRGName = "cloud-importer-rhelai-image-rg"
 	// SNC
-	sncOffer       = "snc"
-	sncPublisher   = "openshift-local"
-	sncSKU         = "openshift-local-snc"
-	sncGalleryName = "crc-openshift-local-snc-images"
+	sncOffer         = "snc"
+	sncPublisher     = "openshift-local"
+	sncSKU           = "openshift_local_snc"
+	sncGalleryName   = "crc_openshift_local_snc_images"
+	sncGalleryRGName = "cloud-importer-crc-snc-image-rg"
 
 	imageTypeRhelAI = imageType("rhelai")
 	imageTypeSNC    = imageType("snc")

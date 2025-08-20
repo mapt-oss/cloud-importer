@@ -34,7 +34,7 @@ func (a *aws) OpenshiftLocal(bundleURL, shasumURL, arch string) (pulumi.RunFunc,
 }
 
 func (r openshiftRequest) runFunc(ctx *pulumi.Context) error {
-	extractExecution, err := bundle.Extract(ctx, r.bundleURL, r.shasumURL)
+	extractExecution, err := bundle.Extract(ctx, r.bundleURL, r.shasumURL, "aws")
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func (r openshiftRequest) runFunc(ctx *pulumi.Context) error {
 	if err != nil {
 		return err
 	}
-	u, err := uploadDisk(ctx, &bundle.ExtractedDiskFileName, id,
+	u, err := uploadDisk(ctx, &bundle.ExtractedRAWDiskFileName, id,
 		[]pulumi.Resource{ro, extractExecution})
 	if err != nil {
 		return err
