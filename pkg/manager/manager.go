@@ -1,15 +1,30 @@
 package manager
 
 import (
+	"fmt"
+	"sync"
+
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
 	providerAPI "github.com/devtools-qe-incubator/cloud-importer/pkg/manager/provider/api"
+	"github.com/devtools-qe-incubator/cloud-importer/pkg/util/logging"
 )
 
 const (
-	stackRHELAI         string = "rhelai"
-	stackOpenshiftLocal string = "openshiftloca"
-	stackShare          string = "share"
+	stackRHELAI             string = "rhelai"
+	stackOpenshiftLocal     string = "openshiftloca"
+	stackShare              string = "share"
+	stackReplicate          string = "replicate"
+	azureReplicateStackName string = "az-replicate"
+
+	// aws provider pulumi env
+	CONFIG_AWS_REGION string = "aws:region"
+
+	CONFIG_AZURE_LOCATION string = "azure-native:location"
 )
+
+func getUniqueStackNameForReplicate(prefix, region string) string {
+	return fmt.Sprintf("replicate-%s-%s", prefix, region)
+}
 
 func RHELAI(ctx *context.ContextArgs,
 	rawImageFilepath string,
@@ -48,7 +63,7 @@ func RHELAI(ctx *context.ContextArgs,
 
 func OpenshiftLocal(ctx *context.ContextArgs,
 	bundleURL string, shasumURL string, arch string,
-	provider Provider) error {
+	regions []string, provider Provider) error {
 	// Initialize context
 	context.Init(ctx)
 	// Get provider
@@ -56,7 +71,7 @@ func OpenshiftLocal(ctx *context.ContextArgs,
 	if err != nil {
 		return err
 	}
-	importFunc, err := p.OpenshiftLocal(bundleURL, shasumURL, arch)
+	importFunc, err := p.OpenshiftLocal(bundleURL, shasumURL, arch, regions)
 	if err != nil {
 		return err
 	}
@@ -105,6 +120,60 @@ func ShareImage(ctx *context.ContextArgs,
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func ReplicateImage(ctx *context.ContextArgs, imageID string, targetRegions []string, provider Provider) error {
+	// Initialize context
+	context.Init(ctx)
+	// Get provider
+	var err error
+
+	p, err := getProvider(provider)
+	if err != nil {
+		return err
+	}
+
+	replicateFunc, regions, err := p.Replicate(imageID, targetRegions)
+	if err != nil {
+		return err
+	}
+
+	if provider == AZURE {
+		stack := providerAPI.Stack{
+			ProjectName: context.ProjectName(),
+			StackName:   azureReplicateStackName,
+			BackedURL:   context.BackedURL(),
+			DeployFunc:  replicateFunc,
+		}
+		_, err = upStack(stack)
+		return err
+	}
+
+	var wg sync.WaitGroup
+	for _, region := range regions {
+		wg.Add(1)
+		go func(ctx *context.ContextArgs, amiName, region string) {
+			stack := providerAPI.Stack{
+				// TODO add random ID
+				ProjectName: context.ProjectName(),
+				StackName:   getUniqueStackNameForReplicate(context.ProjectName(), region),
+				BackedURL:   context.BackedURL(),
+				ProviderCredentials: p.GetProviderCredentials(
+					map[string]string{
+						CONFIG_AWS_REGION: region,
+					}),
+				DeployFunc: replicateFunc,
+			}
+
+			_, err = upStack(stack)
+			if err != nil {
+				logging.Debugf("Error while trying to replicate to: %s: %v", region, err)
+			}
+			wg.Done()
+		}(ctx, imageID, region)
+	}
+	wg.Wait()
 	return nil
 }
 

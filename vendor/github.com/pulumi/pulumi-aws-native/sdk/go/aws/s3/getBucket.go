@@ -57,12 +57,15 @@ type LookupBucketResult struct {
 	DualStackDomainName *string `pulumi:"dualStackDomainName"`
 	// Defines how Amazon S3 handles Intelligent-Tiering storage.
 	IntelligentTieringConfigurations []BucketIntelligentTieringConfiguration `pulumi:"intelligentTieringConfigurations"`
-	// Specifies the inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
+	// Specifies the S3 Inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
 	InventoryConfigurations []BucketInventoryConfiguration `pulumi:"inventoryConfigurations"`
 	// Specifies the lifecycle configuration for objects in an Amazon S3 bucket. For more information, see [Object Lifecycle Management](https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lifecycle-mgmt.html) in the *Amazon S3 User Guide*.
 	LifecycleConfiguration *BucketLifecycleConfiguration `pulumi:"lifecycleConfiguration"`
 	// Settings that define where logs are stored.
-	LoggingConfiguration       *BucketLoggingConfiguration       `pulumi:"loggingConfiguration"`
+	LoggingConfiguration *BucketLoggingConfiguration `pulumi:"loggingConfiguration"`
+	// The S3 Metadata configuration for a general purpose bucket.
+	MetadataConfiguration *BucketMetadataConfiguration `pulumi:"metadataConfiguration"`
+	// The metadata table configuration of an S3 general purpose bucket.
 	MetadataTableConfiguration *BucketMetadataTableConfiguration `pulumi:"metadataTableConfiguration"`
 	// Specifies a metrics configuration for the CloudWatch request metrics (specified by the metrics configuration ID) from an Amazon S3 bucket. If you're updating an existing metrics configuration, note that this is a full replacement of the existing metrics configuration. If you don't include the elements you want to keep, they are erased. For more information, see [PutBucketMetricsConfiguration](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTMetricConfiguration.html).
 	MetricsConfigurations []BucketMetricsConfiguration `pulumi:"metricsConfigurations"`
@@ -185,7 +188,7 @@ func (o LookupBucketResultOutput) IntelligentTieringConfigurations() BucketIntel
 	}).(BucketIntelligentTieringConfigurationArrayOutput)
 }
 
-// Specifies the inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
+// Specifies the S3 Inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
 func (o LookupBucketResultOutput) InventoryConfigurations() BucketInventoryConfigurationArrayOutput {
 	return o.ApplyT(func(v LookupBucketResult) []BucketInventoryConfiguration { return v.InventoryConfigurations }).(BucketInventoryConfigurationArrayOutput)
 }
@@ -200,6 +203,12 @@ func (o LookupBucketResultOutput) LoggingConfiguration() BucketLoggingConfigurat
 	return o.ApplyT(func(v LookupBucketResult) *BucketLoggingConfiguration { return v.LoggingConfiguration }).(BucketLoggingConfigurationPtrOutput)
 }
 
+// The S3 Metadata configuration for a general purpose bucket.
+func (o LookupBucketResultOutput) MetadataConfiguration() BucketMetadataConfigurationPtrOutput {
+	return o.ApplyT(func(v LookupBucketResult) *BucketMetadataConfiguration { return v.MetadataConfiguration }).(BucketMetadataConfigurationPtrOutput)
+}
+
+// The metadata table configuration of an S3 general purpose bucket.
 func (o LookupBucketResultOutput) MetadataTableConfiguration() BucketMetadataTableConfigurationPtrOutput {
 	return o.ApplyT(func(v LookupBucketResult) *BucketMetadataTableConfiguration { return v.MetadataTableConfiguration }).(BucketMetadataTableConfigurationPtrOutput)
 }

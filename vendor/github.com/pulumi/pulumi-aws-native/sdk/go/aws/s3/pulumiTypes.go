@@ -490,6 +490,13 @@ func (o AccessPointPublicAccessBlockConfigurationPtrOutput) RestrictPublicBucket
 	}).(pulumi.BoolPtrOutput)
 }
 
+type AccessPointTag struct {
+	// The key of the tag. Tags are key-value pairs that you use to label your access points. Tags can help you organize and control access to access points. For more information, see [Tagging S3 resources for cost allocation or attribute-based access control (ABAC)](https://docs.aws.amazon.com/AmazonS3/latest/userguide/tagging.html) .
+	Key string `pulumi:"key"`
+	// The value of the tag. Tags are key-value pairs that you use to label your access points. Tags can help you organize and control access to access points. For more information, see [Tagging S3 resources for cost allocation or attribute-based access control (ABAC)](https://docs.aws.amazon.com/AmazonS3/latest/userguide/tagging.html) .
+	Value string `pulumi:"value"`
+}
+
 // The Virtual Private Cloud (VPC) configuration for a bucket access point.
 type AccessPointVpcConfiguration struct {
 	// If this field is specified, this access point will only allow connections from the specified VPC ID.
@@ -1328,7 +1335,7 @@ type BucketCorsRule struct {
 	// Headers that are specified in the ``Access-Control-Request-Headers`` header. These headers are allowed in a preflight OPTIONS request. In response to any preflight OPTIONS request, Amazon S3 returns any requested headers that are allowed.
 	AllowedHeaders []string `pulumi:"allowedHeaders"`
 	// An HTTP method that you allow the origin to run.
-	//   *Allowed values*: ``GET`` | ``PUT`` | ``HEAD`` | ``POST`` | ``DELETE``
+	//  *Allowed values*: ``GET`` | ``PUT`` | ``HEAD`` | ``POST`` | ``DELETE``
 	AllowedMethods []BucketCorsRuleAllowedMethodsItem `pulumi:"allowedMethods"`
 	// One or more origins you want customers to be able to access the bucket from.
 	AllowedOrigins []string `pulumi:"allowedOrigins"`
@@ -1356,7 +1363,7 @@ type BucketCorsRuleArgs struct {
 	// Headers that are specified in the ``Access-Control-Request-Headers`` header. These headers are allowed in a preflight OPTIONS request. In response to any preflight OPTIONS request, Amazon S3 returns any requested headers that are allowed.
 	AllowedHeaders pulumi.StringArrayInput `pulumi:"allowedHeaders"`
 	// An HTTP method that you allow the origin to run.
-	//   *Allowed values*: ``GET`` | ``PUT`` | ``HEAD`` | ``POST`` | ``DELETE``
+	//  *Allowed values*: ``GET`` | ``PUT`` | ``HEAD`` | ``POST`` | ``DELETE``
 	AllowedMethods BucketCorsRuleAllowedMethodsItemArrayInput `pulumi:"allowedMethods"`
 	// One or more origins you want customers to be able to access the bucket from.
 	AllowedOrigins pulumi.StringArrayInput `pulumi:"allowedOrigins"`
@@ -1815,7 +1822,7 @@ func (o BucketDefaultRetentionPtrOutput) Years() pulumi.IntPtrOutput {
 	}).(pulumi.IntPtrOutput)
 }
 
-// Specifies whether Amazon S3 replicates delete markers. If you specify a “Filter“ in your replication configuration, you must also include a “DeleteMarkerReplication“ element. If your “Filter“ includes a “Tag“ element, the “DeleteMarkerReplication“ “Status“ must be set to Disabled, because Amazon S3 does not support replicating delete markers for tag-based rules. For an example configuration, see [Basic Rule Configuration](https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-add-config.html#replication-config-min-rule-config).
+// Specifies whether Amazon S3 replicates delete markers. If you specify a “Filter“ in your replication configuration, you must also include a “DeleteMarkerReplication“ element. If your “Filter“ includes a “Tag“ element, the “DeleteMarkerReplication````Status“ must be set to Disabled, because Amazon S3 does not support replicating delete markers for tag-based rules. For an example configuration, see [Basic Rule Configuration](https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-add-config.html#replication-config-min-rule-config).
 //
 //	For more information about delete marker replication, see [Basic Rule Configuration](https://docs.aws.amazon.com/AmazonS3/latest/dev/delete-marker-replication.html).
 //	 If you are using an earlier version of the replication configuration, Amazon S3 handles replication of delete markers differently. For more information, see [Backward Compatibility](https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-add-config.html#replication-backward-compat-considerations).
@@ -1835,7 +1842,7 @@ type BucketDeleteMarkerReplicationInput interface {
 	ToBucketDeleteMarkerReplicationOutputWithContext(context.Context) BucketDeleteMarkerReplicationOutput
 }
 
-// Specifies whether Amazon S3 replicates delete markers. If you specify a “Filter“ in your replication configuration, you must also include a “DeleteMarkerReplication“ element. If your “Filter“ includes a “Tag“ element, the “DeleteMarkerReplication“ “Status“ must be set to Disabled, because Amazon S3 does not support replicating delete markers for tag-based rules. For an example configuration, see [Basic Rule Configuration](https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-add-config.html#replication-config-min-rule-config).
+// Specifies whether Amazon S3 replicates delete markers. If you specify a “Filter“ in your replication configuration, you must also include a “DeleteMarkerReplication“ element. If your “Filter“ includes a “Tag“ element, the “DeleteMarkerReplication````Status“ must be set to Disabled, because Amazon S3 does not support replicating delete markers for tag-based rules. For an example configuration, see [Basic Rule Configuration](https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-add-config.html#replication-config-min-rule-config).
 //
 //	For more information about delete marker replication, see [Basic Rule Configuration](https://docs.aws.amazon.com/AmazonS3/latest/dev/delete-marker-replication.html).
 //	 If you are using an earlier version of the replication configuration, Amazon S3 handles replication of delete markers differently. For more information, see [Backward Compatibility](https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-add-config.html#replication-backward-compat-considerations).
@@ -1897,7 +1904,7 @@ func (i *bucketDeleteMarkerReplicationPtrType) ToBucketDeleteMarkerReplicationPt
 	return pulumi.ToOutputWithContext(ctx, i).(BucketDeleteMarkerReplicationPtrOutput)
 }
 
-// Specifies whether Amazon S3 replicates delete markers. If you specify a “Filter“ in your replication configuration, you must also include a “DeleteMarkerReplication“ element. If your “Filter“ includes a “Tag“ element, the “DeleteMarkerReplication“ “Status“ must be set to Disabled, because Amazon S3 does not support replicating delete markers for tag-based rules. For an example configuration, see [Basic Rule Configuration](https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-add-config.html#replication-config-min-rule-config).
+// Specifies whether Amazon S3 replicates delete markers. If you specify a “Filter“ in your replication configuration, you must also include a “DeleteMarkerReplication“ element. If your “Filter“ includes a “Tag“ element, the “DeleteMarkerReplication````Status“ must be set to Disabled, because Amazon S3 does not support replicating delete markers for tag-based rules. For an example configuration, see [Basic Rule Configuration](https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-add-config.html#replication-config-min-rule-config).
 //
 //	For more information about delete marker replication, see [Basic Rule Configuration](https://docs.aws.amazon.com/AmazonS3/latest/dev/delete-marker-replication.html).
 //	 If you are using an earlier version of the replication configuration, Amazon S3 handles replication of delete markers differently. For more information, see [Backward Compatibility](https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-add-config.html#replication-backward-compat-considerations).
@@ -1972,7 +1979,7 @@ type BucketDestination struct {
 	// The Amazon Resource Name (ARN) of the bucket to which data is exported.
 	BucketArn string `pulumi:"bucketArn"`
 	// Specifies the file format used when exporting data to Amazon S3.
-	//   *Allowed values*: ``CSV`` | ``ORC`` | ``Parquet``
+	//  *Allowed values*: ``CSV`` | ``ORC`` | ``Parquet``
 	Format BucketDestinationFormat `pulumi:"format"`
 	// The prefix to use when exporting data. The prefix is prepended to all results.
 	Prefix *string `pulumi:"prefix"`
@@ -1997,7 +2004,7 @@ type BucketDestinationArgs struct {
 	// The Amazon Resource Name (ARN) of the bucket to which data is exported.
 	BucketArn pulumi.StringInput `pulumi:"bucketArn"`
 	// Specifies the file format used when exporting data to Amazon S3.
-	//   *Allowed values*: ``CSV`` | ``ORC`` | ``Parquet``
+	//  *Allowed values*: ``CSV`` | ``ORC`` | ``Parquet``
 	Format BucketDestinationFormatInput `pulumi:"format"`
 	// The prefix to use when exporting data. The prefix is prepended to all results.
 	Prefix pulumi.StringPtrInput `pulumi:"prefix"`
@@ -2862,7 +2869,7 @@ func (o BucketIntelligentTieringConfigurationArrayOutput) Index(i pulumi.IntInpu
 	}).(BucketIntelligentTieringConfigurationOutput)
 }
 
-// Specifies the inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
+// Specifies the S3 Inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
 type BucketInventoryConfiguration struct {
 	// Contains information about where to publish the inventory results.
 	Destination BucketDestination `pulumi:"destination"`
@@ -2891,7 +2898,7 @@ type BucketInventoryConfigurationInput interface {
 	ToBucketInventoryConfigurationOutputWithContext(context.Context) BucketInventoryConfigurationOutput
 }
 
-// Specifies the inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
+// Specifies the S3 Inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
 type BucketInventoryConfigurationArgs struct {
 	// Contains information about where to publish the inventory results.
 	Destination BucketDestinationInput `pulumi:"destination"`
@@ -2946,7 +2953,7 @@ func (i BucketInventoryConfigurationArray) ToBucketInventoryConfigurationArrayOu
 	return pulumi.ToOutputWithContext(ctx, i).(BucketInventoryConfigurationArrayOutput)
 }
 
-// Specifies the inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
+// Specifies the S3 Inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
 type BucketInventoryConfigurationOutput struct{ *pulumi.OutputState }
 
 func (BucketInventoryConfigurationOutput) ElementType() reflect.Type {
@@ -3020,6 +3027,406 @@ func (o BucketInventoryConfigurationArrayOutput) Index(i pulumi.IntInput) Bucket
 	return pulumi.All(o, i).ApplyT(func(vs []interface{}) BucketInventoryConfiguration {
 		return vs[0].([]BucketInventoryConfiguration)[vs[1].(int)]
 	}).(BucketInventoryConfigurationOutput)
+}
+
+// The inventory table configuration for an S3 Metadata configuration.
+type BucketInventoryTableConfiguration struct {
+	// The configuration state of the inventory table, indicating whether the inventory table is enabled or disabled.
+	ConfigurationState BucketInventoryTableConfigurationConfigurationState `pulumi:"configurationState"`
+	// The encryption configuration for the inventory table.
+	EncryptionConfiguration *BucketMetadataTableEncryptionConfiguration `pulumi:"encryptionConfiguration"`
+	// The Amazon Resource Name (ARN) for the inventory table.
+	TableArn *string `pulumi:"tableArn"`
+	// The name of the inventory table.
+	TableName *string `pulumi:"tableName"`
+}
+
+// BucketInventoryTableConfigurationInput is an input type that accepts BucketInventoryTableConfigurationArgs and BucketInventoryTableConfigurationOutput values.
+// You can construct a concrete instance of `BucketInventoryTableConfigurationInput` via:
+//
+//	BucketInventoryTableConfigurationArgs{...}
+type BucketInventoryTableConfigurationInput interface {
+	pulumi.Input
+
+	ToBucketInventoryTableConfigurationOutput() BucketInventoryTableConfigurationOutput
+	ToBucketInventoryTableConfigurationOutputWithContext(context.Context) BucketInventoryTableConfigurationOutput
+}
+
+// The inventory table configuration for an S3 Metadata configuration.
+type BucketInventoryTableConfigurationArgs struct {
+	// The configuration state of the inventory table, indicating whether the inventory table is enabled or disabled.
+	ConfigurationState BucketInventoryTableConfigurationConfigurationStateInput `pulumi:"configurationState"`
+	// The encryption configuration for the inventory table.
+	EncryptionConfiguration BucketMetadataTableEncryptionConfigurationPtrInput `pulumi:"encryptionConfiguration"`
+	// The Amazon Resource Name (ARN) for the inventory table.
+	TableArn pulumi.StringPtrInput `pulumi:"tableArn"`
+	// The name of the inventory table.
+	TableName pulumi.StringPtrInput `pulumi:"tableName"`
+}
+
+func (BucketInventoryTableConfigurationArgs) ElementType() reflect.Type {
+	return reflect.TypeOf((*BucketInventoryTableConfiguration)(nil)).Elem()
+}
+
+func (i BucketInventoryTableConfigurationArgs) ToBucketInventoryTableConfigurationOutput() BucketInventoryTableConfigurationOutput {
+	return i.ToBucketInventoryTableConfigurationOutputWithContext(context.Background())
+}
+
+func (i BucketInventoryTableConfigurationArgs) ToBucketInventoryTableConfigurationOutputWithContext(ctx context.Context) BucketInventoryTableConfigurationOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(BucketInventoryTableConfigurationOutput)
+}
+
+func (i BucketInventoryTableConfigurationArgs) ToBucketInventoryTableConfigurationPtrOutput() BucketInventoryTableConfigurationPtrOutput {
+	return i.ToBucketInventoryTableConfigurationPtrOutputWithContext(context.Background())
+}
+
+func (i BucketInventoryTableConfigurationArgs) ToBucketInventoryTableConfigurationPtrOutputWithContext(ctx context.Context) BucketInventoryTableConfigurationPtrOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(BucketInventoryTableConfigurationOutput).ToBucketInventoryTableConfigurationPtrOutputWithContext(ctx)
+}
+
+// BucketInventoryTableConfigurationPtrInput is an input type that accepts BucketInventoryTableConfigurationArgs, BucketInventoryTableConfigurationPtr and BucketInventoryTableConfigurationPtrOutput values.
+// You can construct a concrete instance of `BucketInventoryTableConfigurationPtrInput` via:
+//
+//	        BucketInventoryTableConfigurationArgs{...}
+//
+//	or:
+//
+//	        nil
+type BucketInventoryTableConfigurationPtrInput interface {
+	pulumi.Input
+
+	ToBucketInventoryTableConfigurationPtrOutput() BucketInventoryTableConfigurationPtrOutput
+	ToBucketInventoryTableConfigurationPtrOutputWithContext(context.Context) BucketInventoryTableConfigurationPtrOutput
+}
+
+type bucketInventoryTableConfigurationPtrType BucketInventoryTableConfigurationArgs
+
+func BucketInventoryTableConfigurationPtr(v *BucketInventoryTableConfigurationArgs) BucketInventoryTableConfigurationPtrInput {
+	return (*bucketInventoryTableConfigurationPtrType)(v)
+}
+
+func (*bucketInventoryTableConfigurationPtrType) ElementType() reflect.Type {
+	return reflect.TypeOf((**BucketInventoryTableConfiguration)(nil)).Elem()
+}
+
+func (i *bucketInventoryTableConfigurationPtrType) ToBucketInventoryTableConfigurationPtrOutput() BucketInventoryTableConfigurationPtrOutput {
+	return i.ToBucketInventoryTableConfigurationPtrOutputWithContext(context.Background())
+}
+
+func (i *bucketInventoryTableConfigurationPtrType) ToBucketInventoryTableConfigurationPtrOutputWithContext(ctx context.Context) BucketInventoryTableConfigurationPtrOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(BucketInventoryTableConfigurationPtrOutput)
+}
+
+// The inventory table configuration for an S3 Metadata configuration.
+type BucketInventoryTableConfigurationOutput struct{ *pulumi.OutputState }
+
+func (BucketInventoryTableConfigurationOutput) ElementType() reflect.Type {
+	return reflect.TypeOf((*BucketInventoryTableConfiguration)(nil)).Elem()
+}
+
+func (o BucketInventoryTableConfigurationOutput) ToBucketInventoryTableConfigurationOutput() BucketInventoryTableConfigurationOutput {
+	return o
+}
+
+func (o BucketInventoryTableConfigurationOutput) ToBucketInventoryTableConfigurationOutputWithContext(ctx context.Context) BucketInventoryTableConfigurationOutput {
+	return o
+}
+
+func (o BucketInventoryTableConfigurationOutput) ToBucketInventoryTableConfigurationPtrOutput() BucketInventoryTableConfigurationPtrOutput {
+	return o.ToBucketInventoryTableConfigurationPtrOutputWithContext(context.Background())
+}
+
+func (o BucketInventoryTableConfigurationOutput) ToBucketInventoryTableConfigurationPtrOutputWithContext(ctx context.Context) BucketInventoryTableConfigurationPtrOutput {
+	return o.ApplyTWithContext(ctx, func(_ context.Context, v BucketInventoryTableConfiguration) *BucketInventoryTableConfiguration {
+		return &v
+	}).(BucketInventoryTableConfigurationPtrOutput)
+}
+
+// The configuration state of the inventory table, indicating whether the inventory table is enabled or disabled.
+func (o BucketInventoryTableConfigurationOutput) ConfigurationState() BucketInventoryTableConfigurationConfigurationStateOutput {
+	return o.ApplyT(func(v BucketInventoryTableConfiguration) BucketInventoryTableConfigurationConfigurationState {
+		return v.ConfigurationState
+	}).(BucketInventoryTableConfigurationConfigurationStateOutput)
+}
+
+// The encryption configuration for the inventory table.
+func (o BucketInventoryTableConfigurationOutput) EncryptionConfiguration() BucketMetadataTableEncryptionConfigurationPtrOutput {
+	return o.ApplyT(func(v BucketInventoryTableConfiguration) *BucketMetadataTableEncryptionConfiguration {
+		return v.EncryptionConfiguration
+	}).(BucketMetadataTableEncryptionConfigurationPtrOutput)
+}
+
+// The Amazon Resource Name (ARN) for the inventory table.
+func (o BucketInventoryTableConfigurationOutput) TableArn() pulumi.StringPtrOutput {
+	return o.ApplyT(func(v BucketInventoryTableConfiguration) *string { return v.TableArn }).(pulumi.StringPtrOutput)
+}
+
+// The name of the inventory table.
+func (o BucketInventoryTableConfigurationOutput) TableName() pulumi.StringPtrOutput {
+	return o.ApplyT(func(v BucketInventoryTableConfiguration) *string { return v.TableName }).(pulumi.StringPtrOutput)
+}
+
+type BucketInventoryTableConfigurationPtrOutput struct{ *pulumi.OutputState }
+
+func (BucketInventoryTableConfigurationPtrOutput) ElementType() reflect.Type {
+	return reflect.TypeOf((**BucketInventoryTableConfiguration)(nil)).Elem()
+}
+
+func (o BucketInventoryTableConfigurationPtrOutput) ToBucketInventoryTableConfigurationPtrOutput() BucketInventoryTableConfigurationPtrOutput {
+	return o
+}
+
+func (o BucketInventoryTableConfigurationPtrOutput) ToBucketInventoryTableConfigurationPtrOutputWithContext(ctx context.Context) BucketInventoryTableConfigurationPtrOutput {
+	return o
+}
+
+func (o BucketInventoryTableConfigurationPtrOutput) Elem() BucketInventoryTableConfigurationOutput {
+	return o.ApplyT(func(v *BucketInventoryTableConfiguration) BucketInventoryTableConfiguration {
+		if v != nil {
+			return *v
+		}
+		var ret BucketInventoryTableConfiguration
+		return ret
+	}).(BucketInventoryTableConfigurationOutput)
+}
+
+// The configuration state of the inventory table, indicating whether the inventory table is enabled or disabled.
+func (o BucketInventoryTableConfigurationPtrOutput) ConfigurationState() BucketInventoryTableConfigurationConfigurationStatePtrOutput {
+	return o.ApplyT(func(v *BucketInventoryTableConfiguration) *BucketInventoryTableConfigurationConfigurationState {
+		if v == nil {
+			return nil
+		}
+		return &v.ConfigurationState
+	}).(BucketInventoryTableConfigurationConfigurationStatePtrOutput)
+}
+
+// The encryption configuration for the inventory table.
+func (o BucketInventoryTableConfigurationPtrOutput) EncryptionConfiguration() BucketMetadataTableEncryptionConfigurationPtrOutput {
+	return o.ApplyT(func(v *BucketInventoryTableConfiguration) *BucketMetadataTableEncryptionConfiguration {
+		if v == nil {
+			return nil
+		}
+		return v.EncryptionConfiguration
+	}).(BucketMetadataTableEncryptionConfigurationPtrOutput)
+}
+
+// The Amazon Resource Name (ARN) for the inventory table.
+func (o BucketInventoryTableConfigurationPtrOutput) TableArn() pulumi.StringPtrOutput {
+	return o.ApplyT(func(v *BucketInventoryTableConfiguration) *string {
+		if v == nil {
+			return nil
+		}
+		return v.TableArn
+	}).(pulumi.StringPtrOutput)
+}
+
+// The name of the inventory table.
+func (o BucketInventoryTableConfigurationPtrOutput) TableName() pulumi.StringPtrOutput {
+	return o.ApplyT(func(v *BucketInventoryTableConfiguration) *string {
+		if v == nil {
+			return nil
+		}
+		return v.TableName
+	}).(pulumi.StringPtrOutput)
+}
+
+// The journal table configuration for an S3 Metadata configuration.
+type BucketJournalTableConfiguration struct {
+	// The encryption configuration for the journal table.
+	EncryptionConfiguration *BucketMetadataTableEncryptionConfiguration `pulumi:"encryptionConfiguration"`
+	// The journal table record expiration settings for the journal table.
+	RecordExpiration BucketRecordExpiration `pulumi:"recordExpiration"`
+	// The Amazon Resource Name (ARN) for the journal table.
+	TableArn *string `pulumi:"tableArn"`
+	// The name of the journal table.
+	TableName *string `pulumi:"tableName"`
+}
+
+// BucketJournalTableConfigurationInput is an input type that accepts BucketJournalTableConfigurationArgs and BucketJournalTableConfigurationOutput values.
+// You can construct a concrete instance of `BucketJournalTableConfigurationInput` via:
+//
+//	BucketJournalTableConfigurationArgs{...}
+type BucketJournalTableConfigurationInput interface {
+	pulumi.Input
+
+	ToBucketJournalTableConfigurationOutput() BucketJournalTableConfigurationOutput
+	ToBucketJournalTableConfigurationOutputWithContext(context.Context) BucketJournalTableConfigurationOutput
+}
+
+// The journal table configuration for an S3 Metadata configuration.
+type BucketJournalTableConfigurationArgs struct {
+	// The encryption configuration for the journal table.
+	EncryptionConfiguration BucketMetadataTableEncryptionConfigurationPtrInput `pulumi:"encryptionConfiguration"`
+	// The journal table record expiration settings for the journal table.
+	RecordExpiration BucketRecordExpirationInput `pulumi:"recordExpiration"`
+	// The Amazon Resource Name (ARN) for the journal table.
+	TableArn pulumi.StringPtrInput `pulumi:"tableArn"`
+	// The name of the journal table.
+	TableName pulumi.StringPtrInput `pulumi:"tableName"`
+}
+
+func (BucketJournalTableConfigurationArgs) ElementType() reflect.Type {
+	return reflect.TypeOf((*BucketJournalTableConfiguration)(nil)).Elem()
+}
+
+func (i BucketJournalTableConfigurationArgs) ToBucketJournalTableConfigurationOutput() BucketJournalTableConfigurationOutput {
+	return i.ToBucketJournalTableConfigurationOutputWithContext(context.Background())
+}
+
+func (i BucketJournalTableConfigurationArgs) ToBucketJournalTableConfigurationOutputWithContext(ctx context.Context) BucketJournalTableConfigurationOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(BucketJournalTableConfigurationOutput)
+}
+
+func (i BucketJournalTableConfigurationArgs) ToBucketJournalTableConfigurationPtrOutput() BucketJournalTableConfigurationPtrOutput {
+	return i.ToBucketJournalTableConfigurationPtrOutputWithContext(context.Background())
+}
+
+func (i BucketJournalTableConfigurationArgs) ToBucketJournalTableConfigurationPtrOutputWithContext(ctx context.Context) BucketJournalTableConfigurationPtrOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(BucketJournalTableConfigurationOutput).ToBucketJournalTableConfigurationPtrOutputWithContext(ctx)
+}
+
+// BucketJournalTableConfigurationPtrInput is an input type that accepts BucketJournalTableConfigurationArgs, BucketJournalTableConfigurationPtr and BucketJournalTableConfigurationPtrOutput values.
+// You can construct a concrete instance of `BucketJournalTableConfigurationPtrInput` via:
+//
+//	        BucketJournalTableConfigurationArgs{...}
+//
+//	or:
+//
+//	        nil
+type BucketJournalTableConfigurationPtrInput interface {
+	pulumi.Input
+
+	ToBucketJournalTableConfigurationPtrOutput() BucketJournalTableConfigurationPtrOutput
+	ToBucketJournalTableConfigurationPtrOutputWithContext(context.Context) BucketJournalTableConfigurationPtrOutput
+}
+
+type bucketJournalTableConfigurationPtrType BucketJournalTableConfigurationArgs
+
+func BucketJournalTableConfigurationPtr(v *BucketJournalTableConfigurationArgs) BucketJournalTableConfigurationPtrInput {
+	return (*bucketJournalTableConfigurationPtrType)(v)
+}
+
+func (*bucketJournalTableConfigurationPtrType) ElementType() reflect.Type {
+	return reflect.TypeOf((**BucketJournalTableConfiguration)(nil)).Elem()
+}
+
+func (i *bucketJournalTableConfigurationPtrType) ToBucketJournalTableConfigurationPtrOutput() BucketJournalTableConfigurationPtrOutput {
+	return i.ToBucketJournalTableConfigurationPtrOutputWithContext(context.Background())
+}
+
+func (i *bucketJournalTableConfigurationPtrType) ToBucketJournalTableConfigurationPtrOutputWithContext(ctx context.Context) BucketJournalTableConfigurationPtrOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(BucketJournalTableConfigurationPtrOutput)
+}
+
+// The journal table configuration for an S3 Metadata configuration.
+type BucketJournalTableConfigurationOutput struct{ *pulumi.OutputState }
+
+func (BucketJournalTableConfigurationOutput) ElementType() reflect.Type {
+	return reflect.TypeOf((*BucketJournalTableConfiguration)(nil)).Elem()
+}
+
+func (o BucketJournalTableConfigurationOutput) ToBucketJournalTableConfigurationOutput() BucketJournalTableConfigurationOutput {
+	return o
+}
+
+func (o BucketJournalTableConfigurationOutput) ToBucketJournalTableConfigurationOutputWithContext(ctx context.Context) BucketJournalTableConfigurationOutput {
+	return o
+}
+
+func (o BucketJournalTableConfigurationOutput) ToBucketJournalTableConfigurationPtrOutput() BucketJournalTableConfigurationPtrOutput {
+	return o.ToBucketJournalTableConfigurationPtrOutputWithContext(context.Background())
+}
+
+func (o BucketJournalTableConfigurationOutput) ToBucketJournalTableConfigurationPtrOutputWithContext(ctx context.Context) BucketJournalTableConfigurationPtrOutput {
+	return o.ApplyTWithContext(ctx, func(_ context.Context, v BucketJournalTableConfiguration) *BucketJournalTableConfiguration {
+		return &v
+	}).(BucketJournalTableConfigurationPtrOutput)
+}
+
+// The encryption configuration for the journal table.
+func (o BucketJournalTableConfigurationOutput) EncryptionConfiguration() BucketMetadataTableEncryptionConfigurationPtrOutput {
+	return o.ApplyT(func(v BucketJournalTableConfiguration) *BucketMetadataTableEncryptionConfiguration {
+		return v.EncryptionConfiguration
+	}).(BucketMetadataTableEncryptionConfigurationPtrOutput)
+}
+
+// The journal table record expiration settings for the journal table.
+func (o BucketJournalTableConfigurationOutput) RecordExpiration() BucketRecordExpirationOutput {
+	return o.ApplyT(func(v BucketJournalTableConfiguration) BucketRecordExpiration { return v.RecordExpiration }).(BucketRecordExpirationOutput)
+}
+
+// The Amazon Resource Name (ARN) for the journal table.
+func (o BucketJournalTableConfigurationOutput) TableArn() pulumi.StringPtrOutput {
+	return o.ApplyT(func(v BucketJournalTableConfiguration) *string { return v.TableArn }).(pulumi.StringPtrOutput)
+}
+
+// The name of the journal table.
+func (o BucketJournalTableConfigurationOutput) TableName() pulumi.StringPtrOutput {
+	return o.ApplyT(func(v BucketJournalTableConfiguration) *string { return v.TableName }).(pulumi.StringPtrOutput)
+}
+
+type BucketJournalTableConfigurationPtrOutput struct{ *pulumi.OutputState }
+
+func (BucketJournalTableConfigurationPtrOutput) ElementType() reflect.Type {
+	return reflect.TypeOf((**BucketJournalTableConfiguration)(nil)).Elem()
+}
+
+func (o BucketJournalTableConfigurationPtrOutput) ToBucketJournalTableConfigurationPtrOutput() BucketJournalTableConfigurationPtrOutput {
+	return o
+}
+
+func (o BucketJournalTableConfigurationPtrOutput) ToBucketJournalTableConfigurationPtrOutputWithContext(ctx context.Context) BucketJournalTableConfigurationPtrOutput {
+	return o
+}
+
+func (o BucketJournalTableConfigurationPtrOutput) Elem() BucketJournalTableConfigurationOutput {
+	return o.ApplyT(func(v *BucketJournalTableConfiguration) BucketJournalTableConfiguration {
+		if v != nil {
+			return *v
+		}
+		var ret BucketJournalTableConfiguration
+		return ret
+	}).(BucketJournalTableConfigurationOutput)
+}
+
+// The encryption configuration for the journal table.
+func (o BucketJournalTableConfigurationPtrOutput) EncryptionConfiguration() BucketMetadataTableEncryptionConfigurationPtrOutput {
+	return o.ApplyT(func(v *BucketJournalTableConfiguration) *BucketMetadataTableEncryptionConfiguration {
+		if v == nil {
+			return nil
+		}
+		return v.EncryptionConfiguration
+	}).(BucketMetadataTableEncryptionConfigurationPtrOutput)
+}
+
+// The journal table record expiration settings for the journal table.
+func (o BucketJournalTableConfigurationPtrOutput) RecordExpiration() BucketRecordExpirationPtrOutput {
+	return o.ApplyT(func(v *BucketJournalTableConfiguration) *BucketRecordExpiration {
+		if v == nil {
+			return nil
+		}
+		return &v.RecordExpiration
+	}).(BucketRecordExpirationPtrOutput)
+}
+
+// The Amazon Resource Name (ARN) for the journal table.
+func (o BucketJournalTableConfigurationPtrOutput) TableArn() pulumi.StringPtrOutput {
+	return o.ApplyT(func(v *BucketJournalTableConfiguration) *string {
+		if v == nil {
+			return nil
+		}
+		return v.TableArn
+	}).(pulumi.StringPtrOutput)
+}
+
+// The name of the journal table.
+func (o BucketJournalTableConfigurationPtrOutput) TableName() pulumi.StringPtrOutput {
+	return o.ApplyT(func(v *BucketJournalTableConfiguration) *string {
+		if v == nil {
+			return nil
+		}
+		return v.TableName
+	}).(pulumi.StringPtrOutput)
 }
 
 // Describes the LAMlong functions to invoke and the events for which to invoke them.
@@ -3146,8 +3553,8 @@ type BucketLifecycleConfiguration struct {
 	Rules []BucketRule `pulumi:"rules"`
 	// Indicates which default minimum object size behavior is applied to the lifecycle configuration.
 	//   This parameter applies to general purpose buckets only. It isn't supported for directory bucket lifecycle configurations.
-	//    +   ``all_storage_classes_128K`` - Objects smaller than 128 KB will not transition to any storage class by default.
-	//   +   ``varies_by_storage_class`` - Objects smaller than 128 KB will transition to Glacier Flexible Retrieval or Glacier Deep Archive storage classes. By default, all other storage classes will prevent transitions smaller than 128 KB.
+	//    +  ``all_storage_classes_128K`` - Objects smaller than 128 KB will not transition to any storage class by default.
+	//   +  ``varies_by_storage_class`` - Objects smaller than 128 KB will transition to Glacier Flexible Retrieval or Glacier Deep Archive storage classes. By default, all other storage classes will prevent transitions smaller than 128 KB.
 	//
 	//  To customize the minimum object size for any transition you can add a filter that specifies a custom ``ObjectSizeGreaterThan`` or ``ObjectSizeLessThan`` in the body of your transition rule. Custom filters always take precedence over the default transition behavior.
 	TransitionDefaultMinimumObjectSize *BucketLifecycleConfigurationTransitionDefaultMinimumObjectSize `pulumi:"transitionDefaultMinimumObjectSize"`
@@ -3170,8 +3577,8 @@ type BucketLifecycleConfigurationArgs struct {
 	Rules BucketRuleArrayInput `pulumi:"rules"`
 	// Indicates which default minimum object size behavior is applied to the lifecycle configuration.
 	//   This parameter applies to general purpose buckets only. It isn't supported for directory bucket lifecycle configurations.
-	//    +   ``all_storage_classes_128K`` - Objects smaller than 128 KB will not transition to any storage class by default.
-	//   +   ``varies_by_storage_class`` - Objects smaller than 128 KB will transition to Glacier Flexible Retrieval or Glacier Deep Archive storage classes. By default, all other storage classes will prevent transitions smaller than 128 KB.
+	//    +  ``all_storage_classes_128K`` - Objects smaller than 128 KB will not transition to any storage class by default.
+	//   +  ``varies_by_storage_class`` - Objects smaller than 128 KB will transition to Glacier Flexible Retrieval or Glacier Deep Archive storage classes. By default, all other storage classes will prevent transitions smaller than 128 KB.
 	//
 	//  To customize the minimum object size for any transition you can add a filter that specifies a custom ``ObjectSizeGreaterThan`` or ``ObjectSizeLessThan`` in the body of your transition rule. Custom filters always take precedence over the default transition behavior.
 	TransitionDefaultMinimumObjectSize BucketLifecycleConfigurationTransitionDefaultMinimumObjectSizePtrInput `pulumi:"transitionDefaultMinimumObjectSize"`
@@ -3263,8 +3670,8 @@ func (o BucketLifecycleConfigurationOutput) Rules() BucketRuleArrayOutput {
 // Indicates which default minimum object size behavior is applied to the lifecycle configuration.
 //
 //	 This parameter applies to general purpose buckets only. It isn't supported for directory bucket lifecycle configurations.
-//	  +   ``all_storage_classes_128K`` - Objects smaller than 128 KB will not transition to any storage class by default.
-//	 +   ``varies_by_storage_class`` - Objects smaller than 128 KB will transition to Glacier Flexible Retrieval or Glacier Deep Archive storage classes. By default, all other storage classes will prevent transitions smaller than 128 KB.
+//	  +  ``all_storage_classes_128K`` - Objects smaller than 128 KB will not transition to any storage class by default.
+//	 +  ``varies_by_storage_class`` - Objects smaller than 128 KB will transition to Glacier Flexible Retrieval or Glacier Deep Archive storage classes. By default, all other storage classes will prevent transitions smaller than 128 KB.
 //
 //	To customize the minimum object size for any transition you can add a filter that specifies a custom ``ObjectSizeGreaterThan`` or ``ObjectSizeLessThan`` in the body of your transition rule. Custom filters always take precedence over the default transition behavior.
 func (o BucketLifecycleConfigurationOutput) TransitionDefaultMinimumObjectSize() BucketLifecycleConfigurationTransitionDefaultMinimumObjectSizePtrOutput {
@@ -3310,8 +3717,8 @@ func (o BucketLifecycleConfigurationPtrOutput) Rules() BucketRuleArrayOutput {
 // Indicates which default minimum object size behavior is applied to the lifecycle configuration.
 //
 //	 This parameter applies to general purpose buckets only. It isn't supported for directory bucket lifecycle configurations.
-//	  +   ``all_storage_classes_128K`` - Objects smaller than 128 KB will not transition to any storage class by default.
-//	 +   ``varies_by_storage_class`` - Objects smaller than 128 KB will transition to Glacier Flexible Retrieval or Glacier Deep Archive storage classes. By default, all other storage classes will prevent transitions smaller than 128 KB.
+//	  +  ``all_storage_classes_128K`` - Objects smaller than 128 KB will not transition to any storage class by default.
+//	 +  ``varies_by_storage_class`` - Objects smaller than 128 KB will transition to Glacier Flexible Retrieval or Glacier Deep Archive storage classes. By default, all other storage classes will prevent transitions smaller than 128 KB.
 //
 //	To customize the minimum object size for any transition you can add a filter that specifies a custom ``ObjectSizeGreaterThan`` or ``ObjectSizeLessThan`` in the body of your transition rule. Custom filters always take precedence over the default transition behavior.
 func (o BucketLifecycleConfigurationPtrOutput) TransitionDefaultMinimumObjectSize() BucketLifecycleConfigurationTransitionDefaultMinimumObjectSizePtrOutput {
@@ -3507,7 +3914,372 @@ func (o BucketLoggingConfigurationPtrOutput) TargetObjectKeyFormat() BucketTarge
 	}).(BucketTargetObjectKeyFormatPtrOutput)
 }
 
+// Creates a V2 S3 Metadata configuration of a general purpose bucket. For more information, see [Accelerating data discovery with S3 Metadata](https://docs.aws.amazon.com/AmazonS3/latest/userguide/metadata-tables-overview.html) in the *Amazon S3 User Guide*.
+type BucketMetadataConfiguration struct {
+	// The destination information for the S3 Metadata configuration.
+	Destination *BucketMetadataDestination `pulumi:"destination"`
+	// The inventory table configuration for a metadata configuration.
+	InventoryTableConfiguration *BucketInventoryTableConfiguration `pulumi:"inventoryTableConfiguration"`
+	// The journal table configuration for a metadata configuration.
+	JournalTableConfiguration BucketJournalTableConfiguration `pulumi:"journalTableConfiguration"`
+}
+
+// BucketMetadataConfigurationInput is an input type that accepts BucketMetadataConfigurationArgs and BucketMetadataConfigurationOutput values.
+// You can construct a concrete instance of `BucketMetadataConfigurationInput` via:
+//
+//	BucketMetadataConfigurationArgs{...}
+type BucketMetadataConfigurationInput interface {
+	pulumi.Input
+
+	ToBucketMetadataConfigurationOutput() BucketMetadataConfigurationOutput
+	ToBucketMetadataConfigurationOutputWithContext(context.Context) BucketMetadataConfigurationOutput
+}
+
+// Creates a V2 S3 Metadata configuration of a general purpose bucket. For more information, see [Accelerating data discovery with S3 Metadata](https://docs.aws.amazon.com/AmazonS3/latest/userguide/metadata-tables-overview.html) in the *Amazon S3 User Guide*.
+type BucketMetadataConfigurationArgs struct {
+	// The destination information for the S3 Metadata configuration.
+	Destination BucketMetadataDestinationPtrInput `pulumi:"destination"`
+	// The inventory table configuration for a metadata configuration.
+	InventoryTableConfiguration BucketInventoryTableConfigurationPtrInput `pulumi:"inventoryTableConfiguration"`
+	// The journal table configuration for a metadata configuration.
+	JournalTableConfiguration BucketJournalTableConfigurationInput `pulumi:"journalTableConfiguration"`
+}
+
+func (BucketMetadataConfigurationArgs) ElementType() reflect.Type {
+	return reflect.TypeOf((*BucketMetadataConfiguration)(nil)).Elem()
+}
+
+func (i BucketMetadataConfigurationArgs) ToBucketMetadataConfigurationOutput() BucketMetadataConfigurationOutput {
+	return i.ToBucketMetadataConfigurationOutputWithContext(context.Background())
+}
+
+func (i BucketMetadataConfigurationArgs) ToBucketMetadataConfigurationOutputWithContext(ctx context.Context) BucketMetadataConfigurationOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(BucketMetadataConfigurationOutput)
+}
+
+func (i BucketMetadataConfigurationArgs) ToBucketMetadataConfigurationPtrOutput() BucketMetadataConfigurationPtrOutput {
+	return i.ToBucketMetadataConfigurationPtrOutputWithContext(context.Background())
+}
+
+func (i BucketMetadataConfigurationArgs) ToBucketMetadataConfigurationPtrOutputWithContext(ctx context.Context) BucketMetadataConfigurationPtrOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(BucketMetadataConfigurationOutput).ToBucketMetadataConfigurationPtrOutputWithContext(ctx)
+}
+
+// BucketMetadataConfigurationPtrInput is an input type that accepts BucketMetadataConfigurationArgs, BucketMetadataConfigurationPtr and BucketMetadataConfigurationPtrOutput values.
+// You can construct a concrete instance of `BucketMetadataConfigurationPtrInput` via:
+//
+//	        BucketMetadataConfigurationArgs{...}
+//
+//	or:
+//
+//	        nil
+type BucketMetadataConfigurationPtrInput interface {
+	pulumi.Input
+
+	ToBucketMetadataConfigurationPtrOutput() BucketMetadataConfigurationPtrOutput
+	ToBucketMetadataConfigurationPtrOutputWithContext(context.Context) BucketMetadataConfigurationPtrOutput
+}
+
+type bucketMetadataConfigurationPtrType BucketMetadataConfigurationArgs
+
+func BucketMetadataConfigurationPtr(v *BucketMetadataConfigurationArgs) BucketMetadataConfigurationPtrInput {
+	return (*bucketMetadataConfigurationPtrType)(v)
+}
+
+func (*bucketMetadataConfigurationPtrType) ElementType() reflect.Type {
+	return reflect.TypeOf((**BucketMetadataConfiguration)(nil)).Elem()
+}
+
+func (i *bucketMetadataConfigurationPtrType) ToBucketMetadataConfigurationPtrOutput() BucketMetadataConfigurationPtrOutput {
+	return i.ToBucketMetadataConfigurationPtrOutputWithContext(context.Background())
+}
+
+func (i *bucketMetadataConfigurationPtrType) ToBucketMetadataConfigurationPtrOutputWithContext(ctx context.Context) BucketMetadataConfigurationPtrOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(BucketMetadataConfigurationPtrOutput)
+}
+
+// Creates a V2 S3 Metadata configuration of a general purpose bucket. For more information, see [Accelerating data discovery with S3 Metadata](https://docs.aws.amazon.com/AmazonS3/latest/userguide/metadata-tables-overview.html) in the *Amazon S3 User Guide*.
+type BucketMetadataConfigurationOutput struct{ *pulumi.OutputState }
+
+func (BucketMetadataConfigurationOutput) ElementType() reflect.Type {
+	return reflect.TypeOf((*BucketMetadataConfiguration)(nil)).Elem()
+}
+
+func (o BucketMetadataConfigurationOutput) ToBucketMetadataConfigurationOutput() BucketMetadataConfigurationOutput {
+	return o
+}
+
+func (o BucketMetadataConfigurationOutput) ToBucketMetadataConfigurationOutputWithContext(ctx context.Context) BucketMetadataConfigurationOutput {
+	return o
+}
+
+func (o BucketMetadataConfigurationOutput) ToBucketMetadataConfigurationPtrOutput() BucketMetadataConfigurationPtrOutput {
+	return o.ToBucketMetadataConfigurationPtrOutputWithContext(context.Background())
+}
+
+func (o BucketMetadataConfigurationOutput) ToBucketMetadataConfigurationPtrOutputWithContext(ctx context.Context) BucketMetadataConfigurationPtrOutput {
+	return o.ApplyTWithContext(ctx, func(_ context.Context, v BucketMetadataConfiguration) *BucketMetadataConfiguration {
+		return &v
+	}).(BucketMetadataConfigurationPtrOutput)
+}
+
+// The destination information for the S3 Metadata configuration.
+func (o BucketMetadataConfigurationOutput) Destination() BucketMetadataDestinationPtrOutput {
+	return o.ApplyT(func(v BucketMetadataConfiguration) *BucketMetadataDestination { return v.Destination }).(BucketMetadataDestinationPtrOutput)
+}
+
+// The inventory table configuration for a metadata configuration.
+func (o BucketMetadataConfigurationOutput) InventoryTableConfiguration() BucketInventoryTableConfigurationPtrOutput {
+	return o.ApplyT(func(v BucketMetadataConfiguration) *BucketInventoryTableConfiguration {
+		return v.InventoryTableConfiguration
+	}).(BucketInventoryTableConfigurationPtrOutput)
+}
+
+// The journal table configuration for a metadata configuration.
+func (o BucketMetadataConfigurationOutput) JournalTableConfiguration() BucketJournalTableConfigurationOutput {
+	return o.ApplyT(func(v BucketMetadataConfiguration) BucketJournalTableConfiguration {
+		return v.JournalTableConfiguration
+	}).(BucketJournalTableConfigurationOutput)
+}
+
+type BucketMetadataConfigurationPtrOutput struct{ *pulumi.OutputState }
+
+func (BucketMetadataConfigurationPtrOutput) ElementType() reflect.Type {
+	return reflect.TypeOf((**BucketMetadataConfiguration)(nil)).Elem()
+}
+
+func (o BucketMetadataConfigurationPtrOutput) ToBucketMetadataConfigurationPtrOutput() BucketMetadataConfigurationPtrOutput {
+	return o
+}
+
+func (o BucketMetadataConfigurationPtrOutput) ToBucketMetadataConfigurationPtrOutputWithContext(ctx context.Context) BucketMetadataConfigurationPtrOutput {
+	return o
+}
+
+func (o BucketMetadataConfigurationPtrOutput) Elem() BucketMetadataConfigurationOutput {
+	return o.ApplyT(func(v *BucketMetadataConfiguration) BucketMetadataConfiguration {
+		if v != nil {
+			return *v
+		}
+		var ret BucketMetadataConfiguration
+		return ret
+	}).(BucketMetadataConfigurationOutput)
+}
+
+// The destination information for the S3 Metadata configuration.
+func (o BucketMetadataConfigurationPtrOutput) Destination() BucketMetadataDestinationPtrOutput {
+	return o.ApplyT(func(v *BucketMetadataConfiguration) *BucketMetadataDestination {
+		if v == nil {
+			return nil
+		}
+		return v.Destination
+	}).(BucketMetadataDestinationPtrOutput)
+}
+
+// The inventory table configuration for a metadata configuration.
+func (o BucketMetadataConfigurationPtrOutput) InventoryTableConfiguration() BucketInventoryTableConfigurationPtrOutput {
+	return o.ApplyT(func(v *BucketMetadataConfiguration) *BucketInventoryTableConfiguration {
+		if v == nil {
+			return nil
+		}
+		return v.InventoryTableConfiguration
+	}).(BucketInventoryTableConfigurationPtrOutput)
+}
+
+// The journal table configuration for a metadata configuration.
+func (o BucketMetadataConfigurationPtrOutput) JournalTableConfiguration() BucketJournalTableConfigurationPtrOutput {
+	return o.ApplyT(func(v *BucketMetadataConfiguration) *BucketJournalTableConfiguration {
+		if v == nil {
+			return nil
+		}
+		return &v.JournalTableConfiguration
+	}).(BucketJournalTableConfigurationPtrOutput)
+}
+
+// The destination information for the S3 Metadata configuration.
+type BucketMetadataDestination struct {
+	// The Amazon Resource Name (ARN) of the table bucket where the metadata configuration is stored.
+	TableBucketArn *string `pulumi:"tableBucketArn"`
+	// The type of the table bucket where the metadata configuration is stored. The ``aws`` value indicates an AWS managed table bucket, and the ``customer`` value indicates a customer-managed table bucket. V2 metadata configurations are stored in AWS managed table buckets, and V1 metadata configurations are stored in customer-managed table buckets.
+	TableBucketType BucketMetadataDestinationTableBucketType `pulumi:"tableBucketType"`
+	// The namespace in the table bucket where the metadata tables for a metadata configuration are stored.
+	TableNamespace *string `pulumi:"tableNamespace"`
+}
+
+// BucketMetadataDestinationInput is an input type that accepts BucketMetadataDestinationArgs and BucketMetadataDestinationOutput values.
+// You can construct a concrete instance of `BucketMetadataDestinationInput` via:
+//
+//	BucketMetadataDestinationArgs{...}
+type BucketMetadataDestinationInput interface {
+	pulumi.Input
+
+	ToBucketMetadataDestinationOutput() BucketMetadataDestinationOutput
+	ToBucketMetadataDestinationOutputWithContext(context.Context) BucketMetadataDestinationOutput
+}
+
+// The destination information for the S3 Metadata configuration.
+type BucketMetadataDestinationArgs struct {
+	// The Amazon Resource Name (ARN) of the table bucket where the metadata configuration is stored.
+	TableBucketArn pulumi.StringPtrInput `pulumi:"tableBucketArn"`
+	// The type of the table bucket where the metadata configuration is stored. The ``aws`` value indicates an AWS managed table bucket, and the ``customer`` value indicates a customer-managed table bucket. V2 metadata configurations are stored in AWS managed table buckets, and V1 metadata configurations are stored in customer-managed table buckets.
+	TableBucketType BucketMetadataDestinationTableBucketTypeInput `pulumi:"tableBucketType"`
+	// The namespace in the table bucket where the metadata tables for a metadata configuration are stored.
+	TableNamespace pulumi.StringPtrInput `pulumi:"tableNamespace"`
+}
+
+func (BucketMetadataDestinationArgs) ElementType() reflect.Type {
+	return reflect.TypeOf((*BucketMetadataDestination)(nil)).Elem()
+}
+
+func (i BucketMetadataDestinationArgs) ToBucketMetadataDestinationOutput() BucketMetadataDestinationOutput {
+	return i.ToBucketMetadataDestinationOutputWithContext(context.Background())
+}
+
+func (i BucketMetadataDestinationArgs) ToBucketMetadataDestinationOutputWithContext(ctx context.Context) BucketMetadataDestinationOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(BucketMetadataDestinationOutput)
+}
+
+func (i BucketMetadataDestinationArgs) ToBucketMetadataDestinationPtrOutput() BucketMetadataDestinationPtrOutput {
+	return i.ToBucketMetadataDestinationPtrOutputWithContext(context.Background())
+}
+
+func (i BucketMetadataDestinationArgs) ToBucketMetadataDestinationPtrOutputWithContext(ctx context.Context) BucketMetadataDestinationPtrOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(BucketMetadataDestinationOutput).ToBucketMetadataDestinationPtrOutputWithContext(ctx)
+}
+
+// BucketMetadataDestinationPtrInput is an input type that accepts BucketMetadataDestinationArgs, BucketMetadataDestinationPtr and BucketMetadataDestinationPtrOutput values.
+// You can construct a concrete instance of `BucketMetadataDestinationPtrInput` via:
+//
+//	        BucketMetadataDestinationArgs{...}
+//
+//	or:
+//
+//	        nil
+type BucketMetadataDestinationPtrInput interface {
+	pulumi.Input
+
+	ToBucketMetadataDestinationPtrOutput() BucketMetadataDestinationPtrOutput
+	ToBucketMetadataDestinationPtrOutputWithContext(context.Context) BucketMetadataDestinationPtrOutput
+}
+
+type bucketMetadataDestinationPtrType BucketMetadataDestinationArgs
+
+func BucketMetadataDestinationPtr(v *BucketMetadataDestinationArgs) BucketMetadataDestinationPtrInput {
+	return (*bucketMetadataDestinationPtrType)(v)
+}
+
+func (*bucketMetadataDestinationPtrType) ElementType() reflect.Type {
+	return reflect.TypeOf((**BucketMetadataDestination)(nil)).Elem()
+}
+
+func (i *bucketMetadataDestinationPtrType) ToBucketMetadataDestinationPtrOutput() BucketMetadataDestinationPtrOutput {
+	return i.ToBucketMetadataDestinationPtrOutputWithContext(context.Background())
+}
+
+func (i *bucketMetadataDestinationPtrType) ToBucketMetadataDestinationPtrOutputWithContext(ctx context.Context) BucketMetadataDestinationPtrOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(BucketMetadataDestinationPtrOutput)
+}
+
+// The destination information for the S3 Metadata configuration.
+type BucketMetadataDestinationOutput struct{ *pulumi.OutputState }
+
+func (BucketMetadataDestinationOutput) ElementType() reflect.Type {
+	return reflect.TypeOf((*BucketMetadataDestination)(nil)).Elem()
+}
+
+func (o BucketMetadataDestinationOutput) ToBucketMetadataDestinationOutput() BucketMetadataDestinationOutput {
+	return o
+}
+
+func (o BucketMetadataDestinationOutput) ToBucketMetadataDestinationOutputWithContext(ctx context.Context) BucketMetadataDestinationOutput {
+	return o
+}
+
+func (o BucketMetadataDestinationOutput) ToBucketMetadataDestinationPtrOutput() BucketMetadataDestinationPtrOutput {
+	return o.ToBucketMetadataDestinationPtrOutputWithContext(context.Background())
+}
+
+func (o BucketMetadataDestinationOutput) ToBucketMetadataDestinationPtrOutputWithContext(ctx context.Context) BucketMetadataDestinationPtrOutput {
+	return o.ApplyTWithContext(ctx, func(_ context.Context, v BucketMetadataDestination) *BucketMetadataDestination {
+		return &v
+	}).(BucketMetadataDestinationPtrOutput)
+}
+
+// The Amazon Resource Name (ARN) of the table bucket where the metadata configuration is stored.
+func (o BucketMetadataDestinationOutput) TableBucketArn() pulumi.StringPtrOutput {
+	return o.ApplyT(func(v BucketMetadataDestination) *string { return v.TableBucketArn }).(pulumi.StringPtrOutput)
+}
+
+// The type of the table bucket where the metadata configuration is stored. The “aws“ value indicates an AWS managed table bucket, and the “customer“ value indicates a customer-managed table bucket. V2 metadata configurations are stored in AWS managed table buckets, and V1 metadata configurations are stored in customer-managed table buckets.
+func (o BucketMetadataDestinationOutput) TableBucketType() BucketMetadataDestinationTableBucketTypeOutput {
+	return o.ApplyT(func(v BucketMetadataDestination) BucketMetadataDestinationTableBucketType { return v.TableBucketType }).(BucketMetadataDestinationTableBucketTypeOutput)
+}
+
+// The namespace in the table bucket where the metadata tables for a metadata configuration are stored.
+func (o BucketMetadataDestinationOutput) TableNamespace() pulumi.StringPtrOutput {
+	return o.ApplyT(func(v BucketMetadataDestination) *string { return v.TableNamespace }).(pulumi.StringPtrOutput)
+}
+
+type BucketMetadataDestinationPtrOutput struct{ *pulumi.OutputState }
+
+func (BucketMetadataDestinationPtrOutput) ElementType() reflect.Type {
+	return reflect.TypeOf((**BucketMetadataDestination)(nil)).Elem()
+}
+
+func (o BucketMetadataDestinationPtrOutput) ToBucketMetadataDestinationPtrOutput() BucketMetadataDestinationPtrOutput {
+	return o
+}
+
+func (o BucketMetadataDestinationPtrOutput) ToBucketMetadataDestinationPtrOutputWithContext(ctx context.Context) BucketMetadataDestinationPtrOutput {
+	return o
+}
+
+func (o BucketMetadataDestinationPtrOutput) Elem() BucketMetadataDestinationOutput {
+	return o.ApplyT(func(v *BucketMetadataDestination) BucketMetadataDestination {
+		if v != nil {
+			return *v
+		}
+		var ret BucketMetadataDestination
+		return ret
+	}).(BucketMetadataDestinationOutput)
+}
+
+// The Amazon Resource Name (ARN) of the table bucket where the metadata configuration is stored.
+func (o BucketMetadataDestinationPtrOutput) TableBucketArn() pulumi.StringPtrOutput {
+	return o.ApplyT(func(v *BucketMetadataDestination) *string {
+		if v == nil {
+			return nil
+		}
+		return v.TableBucketArn
+	}).(pulumi.StringPtrOutput)
+}
+
+// The type of the table bucket where the metadata configuration is stored. The “aws“ value indicates an AWS managed table bucket, and the “customer“ value indicates a customer-managed table bucket. V2 metadata configurations are stored in AWS managed table buckets, and V1 metadata configurations are stored in customer-managed table buckets.
+func (o BucketMetadataDestinationPtrOutput) TableBucketType() BucketMetadataDestinationTableBucketTypePtrOutput {
+	return o.ApplyT(func(v *BucketMetadataDestination) *BucketMetadataDestinationTableBucketType {
+		if v == nil {
+			return nil
+		}
+		return &v.TableBucketType
+	}).(BucketMetadataDestinationTableBucketTypePtrOutput)
+}
+
+// The namespace in the table bucket where the metadata tables for a metadata configuration are stored.
+func (o BucketMetadataDestinationPtrOutput) TableNamespace() pulumi.StringPtrOutput {
+	return o.ApplyT(func(v *BucketMetadataDestination) *string {
+		if v == nil {
+			return nil
+		}
+		return v.TableNamespace
+	}).(pulumi.StringPtrOutput)
+}
+
+// We recommend that you create your S3 Metadata configurations by using the V2 [MetadataConfiguration](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-s3-bucket-metadataconfiguration.html) resource type. We no longer recommend using the V1 “MetadataTableConfiguration“ resource type.
+//
+//	If you created your S3 Metadata configuration before July 15, 2025, we recommend that you delete and re-create your configuration by using the [MetadataConfiguration](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-s3-bucket-metadataconfiguration.html) resource type so that you can expire journal table records and create a live inventory table.
+//	 Creates a V1 S3 Metadata configuration for a general purpose bucket. For more information, see [Accelerating data discovery with S3 Metadata](https://docs.aws.amazon.com/AmazonS3/latest/userguide/metadata-tables-overview.html) in the *Amazon S3 User Guide*.
 type BucketMetadataTableConfiguration struct {
+	// The destination information for the metadata table configuration. The destination table bucket must be in the same Region and AWS-account as the general purpose bucket. The specified metadata table name must be unique within the ``aws_s3_metadata`` namespace in the destination table bucket.
 	S3TablesDestination BucketS3TablesDestination `pulumi:"s3TablesDestination"`
 }
 
@@ -3522,7 +4294,12 @@ type BucketMetadataTableConfigurationInput interface {
 	ToBucketMetadataTableConfigurationOutputWithContext(context.Context) BucketMetadataTableConfigurationOutput
 }
 
+// We recommend that you create your S3 Metadata configurations by using the V2 [MetadataConfiguration](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-s3-bucket-metadataconfiguration.html) resource type. We no longer recommend using the V1 “MetadataTableConfiguration“ resource type.
+//
+//	If you created your S3 Metadata configuration before July 15, 2025, we recommend that you delete and re-create your configuration by using the [MetadataConfiguration](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-s3-bucket-metadataconfiguration.html) resource type so that you can expire journal table records and create a live inventory table.
+//	 Creates a V1 S3 Metadata configuration for a general purpose bucket. For more information, see [Accelerating data discovery with S3 Metadata](https://docs.aws.amazon.com/AmazonS3/latest/userguide/metadata-tables-overview.html) in the *Amazon S3 User Guide*.
 type BucketMetadataTableConfigurationArgs struct {
+	// The destination information for the metadata table configuration. The destination table bucket must be in the same Region and AWS-account as the general purpose bucket. The specified metadata table name must be unique within the ``aws_s3_metadata`` namespace in the destination table bucket.
 	S3TablesDestination BucketS3TablesDestinationInput `pulumi:"s3TablesDestination"`
 }
 
@@ -3579,6 +4356,10 @@ func (i *bucketMetadataTableConfigurationPtrType) ToBucketMetadataTableConfigura
 	return pulumi.ToOutputWithContext(ctx, i).(BucketMetadataTableConfigurationPtrOutput)
 }
 
+// We recommend that you create your S3 Metadata configurations by using the V2 [MetadataConfiguration](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-s3-bucket-metadataconfiguration.html) resource type. We no longer recommend using the V1 “MetadataTableConfiguration“ resource type.
+//
+//	If you created your S3 Metadata configuration before July 15, 2025, we recommend that you delete and re-create your configuration by using the [MetadataConfiguration](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-s3-bucket-metadataconfiguration.html) resource type so that you can expire journal table records and create a live inventory table.
+//	 Creates a V1 S3 Metadata configuration for a general purpose bucket. For more information, see [Accelerating data discovery with S3 Metadata](https://docs.aws.amazon.com/AmazonS3/latest/userguide/metadata-tables-overview.html) in the *Amazon S3 User Guide*.
 type BucketMetadataTableConfigurationOutput struct{ *pulumi.OutputState }
 
 func (BucketMetadataTableConfigurationOutput) ElementType() reflect.Type {
@@ -3603,6 +4384,7 @@ func (o BucketMetadataTableConfigurationOutput) ToBucketMetadataTableConfigurati
 	}).(BucketMetadataTableConfigurationPtrOutput)
 }
 
+// The destination information for the metadata table configuration. The destination table bucket must be in the same Region and AWS-account as the general purpose bucket. The specified metadata table name must be unique within the “aws_s3_metadata“ namespace in the destination table bucket.
 func (o BucketMetadataTableConfigurationOutput) S3TablesDestination() BucketS3TablesDestinationOutput {
 	return o.ApplyT(func(v BucketMetadataTableConfiguration) BucketS3TablesDestination { return v.S3TablesDestination }).(BucketS3TablesDestinationOutput)
 }
@@ -3631,6 +4413,7 @@ func (o BucketMetadataTableConfigurationPtrOutput) Elem() BucketMetadataTableCon
 	}).(BucketMetadataTableConfigurationOutput)
 }
 
+// The destination information for the metadata table configuration. The destination table bucket must be in the same Region and AWS-account as the general purpose bucket. The specified metadata table name must be unique within the “aws_s3_metadata“ namespace in the destination table bucket.
 func (o BucketMetadataTableConfigurationPtrOutput) S3TablesDestination() BucketS3TablesDestinationPtrOutput {
 	return o.ApplyT(func(v *BucketMetadataTableConfiguration) *BucketS3TablesDestination {
 		if v == nil {
@@ -3638,6 +4421,167 @@ func (o BucketMetadataTableConfigurationPtrOutput) S3TablesDestination() BucketS
 		}
 		return &v.S3TablesDestination
 	}).(BucketS3TablesDestinationPtrOutput)
+}
+
+// The encryption settings for an S3 Metadata journal table or inventory table configuration.
+type BucketMetadataTableEncryptionConfiguration struct {
+	// If server-side encryption with KMSlong (KMS) keys (SSE-KMS) is specified, you must also specify the KMS key Amazon Resource Name (ARN). You must specify a customer-managed KMS key that's located in the same Region as the general purpose bucket that corresponds to the metadata table configuration.
+	KmsKeyArn *string `pulumi:"kmsKeyArn"`
+	// The encryption type specified for a metadata table. To specify server-side encryption with KMSlong (KMS) keys (SSE-KMS), use the ``aws:kms`` value. To specify server-side encryption with Amazon S3 managed keys (SSE-S3), use the ``AES256`` value.
+	SseAlgorithm BucketMetadataTableEncryptionConfigurationSseAlgorithm `pulumi:"sseAlgorithm"`
+}
+
+// BucketMetadataTableEncryptionConfigurationInput is an input type that accepts BucketMetadataTableEncryptionConfigurationArgs and BucketMetadataTableEncryptionConfigurationOutput values.
+// You can construct a concrete instance of `BucketMetadataTableEncryptionConfigurationInput` via:
+//
+//	BucketMetadataTableEncryptionConfigurationArgs{...}
+type BucketMetadataTableEncryptionConfigurationInput interface {
+	pulumi.Input
+
+	ToBucketMetadataTableEncryptionConfigurationOutput() BucketMetadataTableEncryptionConfigurationOutput
+	ToBucketMetadataTableEncryptionConfigurationOutputWithContext(context.Context) BucketMetadataTableEncryptionConfigurationOutput
+}
+
+// The encryption settings for an S3 Metadata journal table or inventory table configuration.
+type BucketMetadataTableEncryptionConfigurationArgs struct {
+	// If server-side encryption with KMSlong (KMS) keys (SSE-KMS) is specified, you must also specify the KMS key Amazon Resource Name (ARN). You must specify a customer-managed KMS key that's located in the same Region as the general purpose bucket that corresponds to the metadata table configuration.
+	KmsKeyArn pulumi.StringPtrInput `pulumi:"kmsKeyArn"`
+	// The encryption type specified for a metadata table. To specify server-side encryption with KMSlong (KMS) keys (SSE-KMS), use the ``aws:kms`` value. To specify server-side encryption with Amazon S3 managed keys (SSE-S3), use the ``AES256`` value.
+	SseAlgorithm BucketMetadataTableEncryptionConfigurationSseAlgorithmInput `pulumi:"sseAlgorithm"`
+}
+
+func (BucketMetadataTableEncryptionConfigurationArgs) ElementType() reflect.Type {
+	return reflect.TypeOf((*BucketMetadataTableEncryptionConfiguration)(nil)).Elem()
+}
+
+func (i BucketMetadataTableEncryptionConfigurationArgs) ToBucketMetadataTableEncryptionConfigurationOutput() BucketMetadataTableEncryptionConfigurationOutput {
+	return i.ToBucketMetadataTableEncryptionConfigurationOutputWithContext(context.Background())
+}
+
+func (i BucketMetadataTableEncryptionConfigurationArgs) ToBucketMetadataTableEncryptionConfigurationOutputWithContext(ctx context.Context) BucketMetadataTableEncryptionConfigurationOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(BucketMetadataTableEncryptionConfigurationOutput)
+}
+
+func (i BucketMetadataTableEncryptionConfigurationArgs) ToBucketMetadataTableEncryptionConfigurationPtrOutput() BucketMetadataTableEncryptionConfigurationPtrOutput {
+	return i.ToBucketMetadataTableEncryptionConfigurationPtrOutputWithContext(context.Background())
+}
+
+func (i BucketMetadataTableEncryptionConfigurationArgs) ToBucketMetadataTableEncryptionConfigurationPtrOutputWithContext(ctx context.Context) BucketMetadataTableEncryptionConfigurationPtrOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(BucketMetadataTableEncryptionConfigurationOutput).ToBucketMetadataTableEncryptionConfigurationPtrOutputWithContext(ctx)
+}
+
+// BucketMetadataTableEncryptionConfigurationPtrInput is an input type that accepts BucketMetadataTableEncryptionConfigurationArgs, BucketMetadataTableEncryptionConfigurationPtr and BucketMetadataTableEncryptionConfigurationPtrOutput values.
+// You can construct a concrete instance of `BucketMetadataTableEncryptionConfigurationPtrInput` via:
+//
+//	        BucketMetadataTableEncryptionConfigurationArgs{...}
+//
+//	or:
+//
+//	        nil
+type BucketMetadataTableEncryptionConfigurationPtrInput interface {
+	pulumi.Input
+
+	ToBucketMetadataTableEncryptionConfigurationPtrOutput() BucketMetadataTableEncryptionConfigurationPtrOutput
+	ToBucketMetadataTableEncryptionConfigurationPtrOutputWithContext(context.Context) BucketMetadataTableEncryptionConfigurationPtrOutput
+}
+
+type bucketMetadataTableEncryptionConfigurationPtrType BucketMetadataTableEncryptionConfigurationArgs
+
+func BucketMetadataTableEncryptionConfigurationPtr(v *BucketMetadataTableEncryptionConfigurationArgs) BucketMetadataTableEncryptionConfigurationPtrInput {
+	return (*bucketMetadataTableEncryptionConfigurationPtrType)(v)
+}
+
+func (*bucketMetadataTableEncryptionConfigurationPtrType) ElementType() reflect.Type {
+	return reflect.TypeOf((**BucketMetadataTableEncryptionConfiguration)(nil)).Elem()
+}
+
+func (i *bucketMetadataTableEncryptionConfigurationPtrType) ToBucketMetadataTableEncryptionConfigurationPtrOutput() BucketMetadataTableEncryptionConfigurationPtrOutput {
+	return i.ToBucketMetadataTableEncryptionConfigurationPtrOutputWithContext(context.Background())
+}
+
+func (i *bucketMetadataTableEncryptionConfigurationPtrType) ToBucketMetadataTableEncryptionConfigurationPtrOutputWithContext(ctx context.Context) BucketMetadataTableEncryptionConfigurationPtrOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(BucketMetadataTableEncryptionConfigurationPtrOutput)
+}
+
+// The encryption settings for an S3 Metadata journal table or inventory table configuration.
+type BucketMetadataTableEncryptionConfigurationOutput struct{ *pulumi.OutputState }
+
+func (BucketMetadataTableEncryptionConfigurationOutput) ElementType() reflect.Type {
+	return reflect.TypeOf((*BucketMetadataTableEncryptionConfiguration)(nil)).Elem()
+}
+
+func (o BucketMetadataTableEncryptionConfigurationOutput) ToBucketMetadataTableEncryptionConfigurationOutput() BucketMetadataTableEncryptionConfigurationOutput {
+	return o
+}
+
+func (o BucketMetadataTableEncryptionConfigurationOutput) ToBucketMetadataTableEncryptionConfigurationOutputWithContext(ctx context.Context) BucketMetadataTableEncryptionConfigurationOutput {
+	return o
+}
+
+func (o BucketMetadataTableEncryptionConfigurationOutput) ToBucketMetadataTableEncryptionConfigurationPtrOutput() BucketMetadataTableEncryptionConfigurationPtrOutput {
+	return o.ToBucketMetadataTableEncryptionConfigurationPtrOutputWithContext(context.Background())
+}
+
+func (o BucketMetadataTableEncryptionConfigurationOutput) ToBucketMetadataTableEncryptionConfigurationPtrOutputWithContext(ctx context.Context) BucketMetadataTableEncryptionConfigurationPtrOutput {
+	return o.ApplyTWithContext(ctx, func(_ context.Context, v BucketMetadataTableEncryptionConfiguration) *BucketMetadataTableEncryptionConfiguration {
+		return &v
+	}).(BucketMetadataTableEncryptionConfigurationPtrOutput)
+}
+
+// If server-side encryption with KMSlong (KMS) keys (SSE-KMS) is specified, you must also specify the KMS key Amazon Resource Name (ARN). You must specify a customer-managed KMS key that's located in the same Region as the general purpose bucket that corresponds to the metadata table configuration.
+func (o BucketMetadataTableEncryptionConfigurationOutput) KmsKeyArn() pulumi.StringPtrOutput {
+	return o.ApplyT(func(v BucketMetadataTableEncryptionConfiguration) *string { return v.KmsKeyArn }).(pulumi.StringPtrOutput)
+}
+
+// The encryption type specified for a metadata table. To specify server-side encryption with KMSlong (KMS) keys (SSE-KMS), use the “aws:kms“ value. To specify server-side encryption with Amazon S3 managed keys (SSE-S3), use the “AES256“ value.
+func (o BucketMetadataTableEncryptionConfigurationOutput) SseAlgorithm() BucketMetadataTableEncryptionConfigurationSseAlgorithmOutput {
+	return o.ApplyT(func(v BucketMetadataTableEncryptionConfiguration) BucketMetadataTableEncryptionConfigurationSseAlgorithm {
+		return v.SseAlgorithm
+	}).(BucketMetadataTableEncryptionConfigurationSseAlgorithmOutput)
+}
+
+type BucketMetadataTableEncryptionConfigurationPtrOutput struct{ *pulumi.OutputState }
+
+func (BucketMetadataTableEncryptionConfigurationPtrOutput) ElementType() reflect.Type {
+	return reflect.TypeOf((**BucketMetadataTableEncryptionConfiguration)(nil)).Elem()
+}
+
+func (o BucketMetadataTableEncryptionConfigurationPtrOutput) ToBucketMetadataTableEncryptionConfigurationPtrOutput() BucketMetadataTableEncryptionConfigurationPtrOutput {
+	return o
+}
+
+func (o BucketMetadataTableEncryptionConfigurationPtrOutput) ToBucketMetadataTableEncryptionConfigurationPtrOutputWithContext(ctx context.Context) BucketMetadataTableEncryptionConfigurationPtrOutput {
+	return o
+}
+
+func (o BucketMetadataTableEncryptionConfigurationPtrOutput) Elem() BucketMetadataTableEncryptionConfigurationOutput {
+	return o.ApplyT(func(v *BucketMetadataTableEncryptionConfiguration) BucketMetadataTableEncryptionConfiguration {
+		if v != nil {
+			return *v
+		}
+		var ret BucketMetadataTableEncryptionConfiguration
+		return ret
+	}).(BucketMetadataTableEncryptionConfigurationOutput)
+}
+
+// If server-side encryption with KMSlong (KMS) keys (SSE-KMS) is specified, you must also specify the KMS key Amazon Resource Name (ARN). You must specify a customer-managed KMS key that's located in the same Region as the general purpose bucket that corresponds to the metadata table configuration.
+func (o BucketMetadataTableEncryptionConfigurationPtrOutput) KmsKeyArn() pulumi.StringPtrOutput {
+	return o.ApplyT(func(v *BucketMetadataTableEncryptionConfiguration) *string {
+		if v == nil {
+			return nil
+		}
+		return v.KmsKeyArn
+	}).(pulumi.StringPtrOutput)
+}
+
+// The encryption type specified for a metadata table. To specify server-side encryption with KMSlong (KMS) keys (SSE-KMS), use the “aws:kms“ value. To specify server-side encryption with Amazon S3 managed keys (SSE-S3), use the “AES256“ value.
+func (o BucketMetadataTableEncryptionConfigurationPtrOutput) SseAlgorithm() BucketMetadataTableEncryptionConfigurationSseAlgorithmPtrOutput {
+	return o.ApplyT(func(v *BucketMetadataTableEncryptionConfiguration) *BucketMetadataTableEncryptionConfigurationSseAlgorithm {
+		if v == nil {
+			return nil
+		}
+		return &v.SseAlgorithm
+	}).(BucketMetadataTableEncryptionConfigurationSseAlgorithmPtrOutput)
 }
 
 // A container specifying replication metrics-related settings enabling replication metrics and events.
@@ -5576,6 +6520,165 @@ func (o BucketQueueConfigurationArrayOutput) Index(i pulumi.IntInput) BucketQueu
 	}).(BucketQueueConfigurationOutput)
 }
 
+// The journal table record expiration settings for a journal table in an S3 Metadata configuration.
+type BucketRecordExpiration struct {
+	// If you enable journal table record expiration, you can set the number of days to retain your journal table records. Journal table records must be retained for a minimum of 7 days. To set this value, specify any whole number from ``7`` to ``2147483647``. For example, to retain your journal table records for one year, set this value to ``365``.
+	Days *int `pulumi:"days"`
+	// Specifies whether journal table record expiration is enabled or disabled.
+	Expiration BucketRecordExpirationExpiration `pulumi:"expiration"`
+}
+
+// BucketRecordExpirationInput is an input type that accepts BucketRecordExpirationArgs and BucketRecordExpirationOutput values.
+// You can construct a concrete instance of `BucketRecordExpirationInput` via:
+//
+//	BucketRecordExpirationArgs{...}
+type BucketRecordExpirationInput interface {
+	pulumi.Input
+
+	ToBucketRecordExpirationOutput() BucketRecordExpirationOutput
+	ToBucketRecordExpirationOutputWithContext(context.Context) BucketRecordExpirationOutput
+}
+
+// The journal table record expiration settings for a journal table in an S3 Metadata configuration.
+type BucketRecordExpirationArgs struct {
+	// If you enable journal table record expiration, you can set the number of days to retain your journal table records. Journal table records must be retained for a minimum of 7 days. To set this value, specify any whole number from ``7`` to ``2147483647``. For example, to retain your journal table records for one year, set this value to ``365``.
+	Days pulumi.IntPtrInput `pulumi:"days"`
+	// Specifies whether journal table record expiration is enabled or disabled.
+	Expiration BucketRecordExpirationExpirationInput `pulumi:"expiration"`
+}
+
+func (BucketRecordExpirationArgs) ElementType() reflect.Type {
+	return reflect.TypeOf((*BucketRecordExpiration)(nil)).Elem()
+}
+
+func (i BucketRecordExpirationArgs) ToBucketRecordExpirationOutput() BucketRecordExpirationOutput {
+	return i.ToBucketRecordExpirationOutputWithContext(context.Background())
+}
+
+func (i BucketRecordExpirationArgs) ToBucketRecordExpirationOutputWithContext(ctx context.Context) BucketRecordExpirationOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(BucketRecordExpirationOutput)
+}
+
+func (i BucketRecordExpirationArgs) ToBucketRecordExpirationPtrOutput() BucketRecordExpirationPtrOutput {
+	return i.ToBucketRecordExpirationPtrOutputWithContext(context.Background())
+}
+
+func (i BucketRecordExpirationArgs) ToBucketRecordExpirationPtrOutputWithContext(ctx context.Context) BucketRecordExpirationPtrOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(BucketRecordExpirationOutput).ToBucketRecordExpirationPtrOutputWithContext(ctx)
+}
+
+// BucketRecordExpirationPtrInput is an input type that accepts BucketRecordExpirationArgs, BucketRecordExpirationPtr and BucketRecordExpirationPtrOutput values.
+// You can construct a concrete instance of `BucketRecordExpirationPtrInput` via:
+//
+//	        BucketRecordExpirationArgs{...}
+//
+//	or:
+//
+//	        nil
+type BucketRecordExpirationPtrInput interface {
+	pulumi.Input
+
+	ToBucketRecordExpirationPtrOutput() BucketRecordExpirationPtrOutput
+	ToBucketRecordExpirationPtrOutputWithContext(context.Context) BucketRecordExpirationPtrOutput
+}
+
+type bucketRecordExpirationPtrType BucketRecordExpirationArgs
+
+func BucketRecordExpirationPtr(v *BucketRecordExpirationArgs) BucketRecordExpirationPtrInput {
+	return (*bucketRecordExpirationPtrType)(v)
+}
+
+func (*bucketRecordExpirationPtrType) ElementType() reflect.Type {
+	return reflect.TypeOf((**BucketRecordExpiration)(nil)).Elem()
+}
+
+func (i *bucketRecordExpirationPtrType) ToBucketRecordExpirationPtrOutput() BucketRecordExpirationPtrOutput {
+	return i.ToBucketRecordExpirationPtrOutputWithContext(context.Background())
+}
+
+func (i *bucketRecordExpirationPtrType) ToBucketRecordExpirationPtrOutputWithContext(ctx context.Context) BucketRecordExpirationPtrOutput {
+	return pulumi.ToOutputWithContext(ctx, i).(BucketRecordExpirationPtrOutput)
+}
+
+// The journal table record expiration settings for a journal table in an S3 Metadata configuration.
+type BucketRecordExpirationOutput struct{ *pulumi.OutputState }
+
+func (BucketRecordExpirationOutput) ElementType() reflect.Type {
+	return reflect.TypeOf((*BucketRecordExpiration)(nil)).Elem()
+}
+
+func (o BucketRecordExpirationOutput) ToBucketRecordExpirationOutput() BucketRecordExpirationOutput {
+	return o
+}
+
+func (o BucketRecordExpirationOutput) ToBucketRecordExpirationOutputWithContext(ctx context.Context) BucketRecordExpirationOutput {
+	return o
+}
+
+func (o BucketRecordExpirationOutput) ToBucketRecordExpirationPtrOutput() BucketRecordExpirationPtrOutput {
+	return o.ToBucketRecordExpirationPtrOutputWithContext(context.Background())
+}
+
+func (o BucketRecordExpirationOutput) ToBucketRecordExpirationPtrOutputWithContext(ctx context.Context) BucketRecordExpirationPtrOutput {
+	return o.ApplyTWithContext(ctx, func(_ context.Context, v BucketRecordExpiration) *BucketRecordExpiration {
+		return &v
+	}).(BucketRecordExpirationPtrOutput)
+}
+
+// If you enable journal table record expiration, you can set the number of days to retain your journal table records. Journal table records must be retained for a minimum of 7 days. To set this value, specify any whole number from “7“ to “2147483647“. For example, to retain your journal table records for one year, set this value to “365“.
+func (o BucketRecordExpirationOutput) Days() pulumi.IntPtrOutput {
+	return o.ApplyT(func(v BucketRecordExpiration) *int { return v.Days }).(pulumi.IntPtrOutput)
+}
+
+// Specifies whether journal table record expiration is enabled or disabled.
+func (o BucketRecordExpirationOutput) Expiration() BucketRecordExpirationExpirationOutput {
+	return o.ApplyT(func(v BucketRecordExpiration) BucketRecordExpirationExpiration { return v.Expiration }).(BucketRecordExpirationExpirationOutput)
+}
+
+type BucketRecordExpirationPtrOutput struct{ *pulumi.OutputState }
+
+func (BucketRecordExpirationPtrOutput) ElementType() reflect.Type {
+	return reflect.TypeOf((**BucketRecordExpiration)(nil)).Elem()
+}
+
+func (o BucketRecordExpirationPtrOutput) ToBucketRecordExpirationPtrOutput() BucketRecordExpirationPtrOutput {
+	return o
+}
+
+func (o BucketRecordExpirationPtrOutput) ToBucketRecordExpirationPtrOutputWithContext(ctx context.Context) BucketRecordExpirationPtrOutput {
+	return o
+}
+
+func (o BucketRecordExpirationPtrOutput) Elem() BucketRecordExpirationOutput {
+	return o.ApplyT(func(v *BucketRecordExpiration) BucketRecordExpiration {
+		if v != nil {
+			return *v
+		}
+		var ret BucketRecordExpiration
+		return ret
+	}).(BucketRecordExpirationOutput)
+}
+
+// If you enable journal table record expiration, you can set the number of days to retain your journal table records. Journal table records must be retained for a minimum of 7 days. To set this value, specify any whole number from “7“ to “2147483647“. For example, to retain your journal table records for one year, set this value to “365“.
+func (o BucketRecordExpirationPtrOutput) Days() pulumi.IntPtrOutput {
+	return o.ApplyT(func(v *BucketRecordExpiration) *int {
+		if v == nil {
+			return nil
+		}
+		return v.Days
+	}).(pulumi.IntPtrOutput)
+}
+
+// Specifies whether journal table record expiration is enabled or disabled.
+func (o BucketRecordExpirationPtrOutput) Expiration() BucketRecordExpirationExpirationPtrOutput {
+	return o.ApplyT(func(v *BucketRecordExpiration) *BucketRecordExpirationExpiration {
+		if v == nil {
+			return nil
+		}
+		return &v.Expiration
+	}).(BucketRecordExpirationExpirationPtrOutput)
+}
+
 // Specifies the redirect behavior of all requests to a website endpoint of an Amazon S3 bucket.
 type BucketRedirectAllRequestsTo struct {
 	// Name of the host where requests are redirected.
@@ -5837,7 +6940,7 @@ func (o BucketRedirectRuleOutput) ReplaceKeyWith() pulumi.StringPtrOutput {
 // A filter that you can specify for selection for modifications on replicas.
 type BucketReplicaModifications struct {
 	// Specifies whether Amazon S3 replicates modifications on replicas.
-	//   *Allowed values*: ``Enabled`` | ``Disabled``
+	//  *Allowed values*: ``Enabled`` | ``Disabled``
 	Status BucketReplicaModificationsStatus `pulumi:"status"`
 }
 
@@ -5855,7 +6958,7 @@ type BucketReplicaModificationsInput interface {
 // A filter that you can specify for selection for modifications on replicas.
 type BucketReplicaModificationsArgs struct {
 	// Specifies whether Amazon S3 replicates modifications on replicas.
-	//   *Allowed values*: ``Enabled`` | ``Disabled``
+	//  *Allowed values*: ``Enabled`` | ``Disabled``
 	Status BucketReplicaModificationsStatusInput `pulumi:"status"`
 }
 
@@ -6156,6 +7259,7 @@ type BucketReplicationDestination struct {
 	ReplicationTime *BucketReplicationTime `pulumi:"replicationTime"`
 	// The storage class to use when replicating objects, such as S3 Standard or reduced redundancy. By default, Amazon S3 uses the storage class of the source object to create the object replica.
 	//  For valid values, see the ``StorageClass`` element of the [PUT Bucket replication](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTreplication.html) action in the *Amazon S3 API Reference*.
+	//  ``FSX_OPENZFS`` is not an accepted value when replicating objects.
 	StorageClass *BucketReplicationDestinationStorageClass `pulumi:"storageClass"`
 }
 
@@ -6187,6 +7291,7 @@ type BucketReplicationDestinationArgs struct {
 	ReplicationTime BucketReplicationTimePtrInput `pulumi:"replicationTime"`
 	// The storage class to use when replicating objects, such as S3 Standard or reduced redundancy. By default, Amazon S3 uses the storage class of the source object to create the object replica.
 	//  For valid values, see the ``StorageClass`` element of the [PUT Bucket replication](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTreplication.html) action in the *Amazon S3 API Reference*.
+	//  ``FSX_OPENZFS`` is not an accepted value when replicating objects.
 	StorageClass BucketReplicationDestinationStorageClassPtrInput `pulumi:"storageClass"`
 }
 
@@ -6254,13 +7359,14 @@ func (o BucketReplicationDestinationOutput) ReplicationTime() BucketReplicationT
 // The storage class to use when replicating objects, such as S3 Standard or reduced redundancy. By default, Amazon S3 uses the storage class of the source object to create the object replica.
 //
 //	For valid values, see the ``StorageClass`` element of the [PUT Bucket replication](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTreplication.html) action in the *Amazon S3 API Reference*.
+//	``FSX_OPENZFS`` is not an accepted value when replicating objects.
 func (o BucketReplicationDestinationOutput) StorageClass() BucketReplicationDestinationStorageClassPtrOutput {
 	return o.ApplyT(func(v BucketReplicationDestination) *BucketReplicationDestinationStorageClass { return v.StorageClass }).(BucketReplicationDestinationStorageClassPtrOutput)
 }
 
 // Specifies which Amazon S3 objects to replicate and where to store the replicas.
 type BucketReplicationRule struct {
-	// Specifies whether Amazon S3 replicates delete markers. If you specify a ``Filter`` in your replication configuration, you must also include a ``DeleteMarkerReplication`` element. If your ``Filter`` includes a ``Tag`` element, the ``DeleteMarkerReplication`` ``Status`` must be set to Disabled, because Amazon S3 does not support replicating delete markers for tag-based rules. For an example configuration, see [Basic Rule Configuration](https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-add-config.html#replication-config-min-rule-config).
+	// Specifies whether Amazon S3 replicates delete markers. If you specify a ``Filter`` in your replication configuration, you must also include a ``DeleteMarkerReplication`` element. If your ``Filter`` includes a ``Tag`` element, the ``DeleteMarkerReplication````Status`` must be set to Disabled, because Amazon S3 does not support replicating delete markers for tag-based rules. For an example configuration, see [Basic Rule Configuration](https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-add-config.html#replication-config-min-rule-config).
 	//  For more information about delete marker replication, see [Basic Rule Configuration](https://docs.aws.amazon.com/AmazonS3/latest/dev/delete-marker-replication.html).
 	//   If you are using an earlier version of the replication configuration, Amazon S3 handles replication of delete markers differently. For more information, see [Backward Compatibility](https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-add-config.html#replication-backward-compat-considerations).
 	DeleteMarkerReplication *BucketDeleteMarkerReplication `pulumi:"deleteMarkerReplication"`
@@ -6296,7 +7402,7 @@ type BucketReplicationRuleInput interface {
 
 // Specifies which Amazon S3 objects to replicate and where to store the replicas.
 type BucketReplicationRuleArgs struct {
-	// Specifies whether Amazon S3 replicates delete markers. If you specify a ``Filter`` in your replication configuration, you must also include a ``DeleteMarkerReplication`` element. If your ``Filter`` includes a ``Tag`` element, the ``DeleteMarkerReplication`` ``Status`` must be set to Disabled, because Amazon S3 does not support replicating delete markers for tag-based rules. For an example configuration, see [Basic Rule Configuration](https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-add-config.html#replication-config-min-rule-config).
+	// Specifies whether Amazon S3 replicates delete markers. If you specify a ``Filter`` in your replication configuration, you must also include a ``DeleteMarkerReplication`` element. If your ``Filter`` includes a ``Tag`` element, the ``DeleteMarkerReplication````Status`` must be set to Disabled, because Amazon S3 does not support replicating delete markers for tag-based rules. For an example configuration, see [Basic Rule Configuration](https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-add-config.html#replication-config-min-rule-config).
 	//  For more information about delete marker replication, see [Basic Rule Configuration](https://docs.aws.amazon.com/AmazonS3/latest/dev/delete-marker-replication.html).
 	//   If you are using an earlier version of the replication configuration, Amazon S3 handles replication of delete markers differently. For more information, see [Backward Compatibility](https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-add-config.html#replication-backward-compat-considerations).
 	DeleteMarkerReplication BucketDeleteMarkerReplicationPtrInput `pulumi:"deleteMarkerReplication"`
@@ -6371,7 +7477,7 @@ func (o BucketReplicationRuleOutput) ToBucketReplicationRuleOutputWithContext(ct
 	return o
 }
 
-// Specifies whether Amazon S3 replicates delete markers. If you specify a “Filter“ in your replication configuration, you must also include a “DeleteMarkerReplication“ element. If your “Filter“ includes a “Tag“ element, the “DeleteMarkerReplication“ “Status“ must be set to Disabled, because Amazon S3 does not support replicating delete markers for tag-based rules. For an example configuration, see [Basic Rule Configuration](https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-add-config.html#replication-config-min-rule-config).
+// Specifies whether Amazon S3 replicates delete markers. If you specify a “Filter“ in your replication configuration, you must also include a “DeleteMarkerReplication“ element. If your “Filter“ includes a “Tag“ element, the “DeleteMarkerReplication````Status“ must be set to Disabled, because Amazon S3 does not support replicating delete markers for tag-based rules. For an example configuration, see [Basic Rule Configuration](https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-add-config.html#replication-config-min-rule-config).
 //
 //	For more information about delete marker replication, see [Basic Rule Configuration](https://docs.aws.amazon.com/AmazonS3/latest/dev/delete-marker-replication.html).
 //	 If you are using an earlier version of the replication configuration, Amazon S3 handles replication of delete markers differently. For more information, see [Backward Compatibility](https://docs.aws.amazon.com/AmazonS3/latest/dev/replication-add-config.html#replication-backward-compat-considerations).
@@ -7228,7 +8334,7 @@ type BucketRoutingRuleCondition struct {
 	// The HTTP error code when the redirect is applied. In the event of an error, if the error code equals this value, then the specified redirect is applied.
 	//  Required when parent element ``Condition`` is specified and sibling ``KeyPrefixEquals`` is not specified. If both are specified, then both must be true for the redirect to be applied.
 	HttpErrorCodeReturnedEquals *string `pulumi:"httpErrorCodeReturnedEquals"`
-	// The object key name prefix when the redirect is applied. For example, to redirect requests for ``ExamplePage.html``, the key prefix will be ``ExamplePage.html``. To redirect request for all pages with the prefix ``docs/``, the key prefix will be ``/docs``, which identifies all objects in the docs/ folder.
+	// The object key name prefix when the redirect is applied. For example, to redirect requests for ``ExamplePage.html``, the key prefix will be ``ExamplePage.html``. To redirect request for all pages with the prefix ``docs/``, the key prefix will be ``docs/``, which identifies all objects in the docs/ folder.
 	//  Required when the parent element ``Condition`` is specified and sibling ``HttpErrorCodeReturnedEquals`` is not specified. If both conditions are specified, both must be true for the redirect to be applied.
 	KeyPrefixEquals *string `pulumi:"keyPrefixEquals"`
 }
@@ -7249,7 +8355,7 @@ type BucketRoutingRuleConditionArgs struct {
 	// The HTTP error code when the redirect is applied. In the event of an error, if the error code equals this value, then the specified redirect is applied.
 	//  Required when parent element ``Condition`` is specified and sibling ``KeyPrefixEquals`` is not specified. If both are specified, then both must be true for the redirect to be applied.
 	HttpErrorCodeReturnedEquals pulumi.StringPtrInput `pulumi:"httpErrorCodeReturnedEquals"`
-	// The object key name prefix when the redirect is applied. For example, to redirect requests for ``ExamplePage.html``, the key prefix will be ``ExamplePage.html``. To redirect request for all pages with the prefix ``docs/``, the key prefix will be ``/docs``, which identifies all objects in the docs/ folder.
+	// The object key name prefix when the redirect is applied. For example, to redirect requests for ``ExamplePage.html``, the key prefix will be ``ExamplePage.html``. To redirect request for all pages with the prefix ``docs/``, the key prefix will be ``docs/``, which identifies all objects in the docs/ folder.
 	//  Required when the parent element ``Condition`` is specified and sibling ``HttpErrorCodeReturnedEquals`` is not specified. If both conditions are specified, both must be true for the redirect to be applied.
 	KeyPrefixEquals pulumi.StringPtrInput `pulumi:"keyPrefixEquals"`
 }
@@ -7339,7 +8445,7 @@ func (o BucketRoutingRuleConditionOutput) HttpErrorCodeReturnedEquals() pulumi.S
 	return o.ApplyT(func(v BucketRoutingRuleCondition) *string { return v.HttpErrorCodeReturnedEquals }).(pulumi.StringPtrOutput)
 }
 
-// The object key name prefix when the redirect is applied. For example, to redirect requests for “ExamplePage.html“, the key prefix will be “ExamplePage.html“. To redirect request for all pages with the prefix “docs/“, the key prefix will be “/docs“, which identifies all objects in the docs/ folder.
+// The object key name prefix when the redirect is applied. For example, to redirect requests for “ExamplePage.html“, the key prefix will be “ExamplePage.html“. To redirect request for all pages with the prefix “docs/“, the key prefix will be “docs/“, which identifies all objects in the docs/ folder.
 //
 //	Required when the parent element ``Condition`` is specified and sibling ``HttpErrorCodeReturnedEquals`` is not specified. If both conditions are specified, both must be true for the redirect to be applied.
 func (o BucketRoutingRuleConditionOutput) KeyPrefixEquals() pulumi.StringPtrOutput {
@@ -7382,7 +8488,7 @@ func (o BucketRoutingRuleConditionPtrOutput) HttpErrorCodeReturnedEquals() pulum
 	}).(pulumi.StringPtrOutput)
 }
 
-// The object key name prefix when the redirect is applied. For example, to redirect requests for “ExamplePage.html“, the key prefix will be “ExamplePage.html“. To redirect request for all pages with the prefix “docs/“, the key prefix will be “/docs“, which identifies all objects in the docs/ folder.
+// The object key name prefix when the redirect is applied. For example, to redirect requests for “ExamplePage.html“, the key prefix will be “ExamplePage.html“. To redirect request for all pages with the prefix “docs/“, the key prefix will be “docs/“, which identifies all objects in the docs/ folder.
 //
 //	Required when the parent element ``Condition`` is specified and sibling ``HttpErrorCodeReturnedEquals`` is not specified. If both conditions are specified, both must be true for the redirect to be applied.
 func (o BucketRoutingRuleConditionPtrOutput) KeyPrefixEquals() pulumi.StringPtrOutput {
@@ -7785,14 +8891,15 @@ func (o BucketS3KeyFilterPtrOutput) Rules() BucketFilterRuleArrayOutput {
 	}).(BucketFilterRuleArrayOutput)
 }
 
+// The destination information for a V1 S3 Metadata configuration. The destination table bucket must be in the same Region and AWS-account as the general purpose bucket. The specified metadata table name must be unique within the “aws_s3_metadata“ namespace in the destination table bucket.
 type BucketS3TablesDestination struct {
-	// The Amazon Resource Name (ARN) for the metadata table in the metadata table configuration. The specified metadata table name must be unique within the <code>aws_s3_metadata</code> namespace in the destination table bucket.
+	// The Amazon Resource Name (ARN) for the metadata table in the metadata table configuration. The specified metadata table name must be unique within the ``aws_s3_metadata`` namespace in the destination table bucket.
 	TableArn *string `pulumi:"tableArn"`
-	// The Amazon Resource Name (ARN) for the table bucket that's specified as the destination in the metadata table configuration. The destination table bucket must be in the same Region and AWS account as the general purpose bucket.
+	// The Amazon Resource Name (ARN) for the table bucket that's specified as the destination in the metadata table configuration. The destination table bucket must be in the same Region and AWS-account as the general purpose bucket.
 	TableBucketArn string `pulumi:"tableBucketArn"`
-	// The name for the metadata table in your metadata table configuration. The specified metadata table name must be unique within the <code>aws_s3_metadata</code> namespace in the destination table bucket.
+	// The name for the metadata table in your metadata table configuration. The specified metadata table name must be unique within the ``aws_s3_metadata`` namespace in the destination table bucket.
 	TableName string `pulumi:"tableName"`
-	// The table bucket namespace for the metadata table in your metadata table configuration. This value is always <code>aws_s3_metadata</code>.
+	// The table bucket namespace for the metadata table in your metadata table configuration. This value is always ``aws_s3_metadata``.
 	TableNamespace *string `pulumi:"tableNamespace"`
 }
 
@@ -7807,14 +8914,15 @@ type BucketS3TablesDestinationInput interface {
 	ToBucketS3TablesDestinationOutputWithContext(context.Context) BucketS3TablesDestinationOutput
 }
 
+// The destination information for a V1 S3 Metadata configuration. The destination table bucket must be in the same Region and AWS-account as the general purpose bucket. The specified metadata table name must be unique within the “aws_s3_metadata“ namespace in the destination table bucket.
 type BucketS3TablesDestinationArgs struct {
-	// The Amazon Resource Name (ARN) for the metadata table in the metadata table configuration. The specified metadata table name must be unique within the <code>aws_s3_metadata</code> namespace in the destination table bucket.
+	// The Amazon Resource Name (ARN) for the metadata table in the metadata table configuration. The specified metadata table name must be unique within the ``aws_s3_metadata`` namespace in the destination table bucket.
 	TableArn pulumi.StringPtrInput `pulumi:"tableArn"`
-	// The Amazon Resource Name (ARN) for the table bucket that's specified as the destination in the metadata table configuration. The destination table bucket must be in the same Region and AWS account as the general purpose bucket.
+	// The Amazon Resource Name (ARN) for the table bucket that's specified as the destination in the metadata table configuration. The destination table bucket must be in the same Region and AWS-account as the general purpose bucket.
 	TableBucketArn pulumi.StringInput `pulumi:"tableBucketArn"`
-	// The name for the metadata table in your metadata table configuration. The specified metadata table name must be unique within the <code>aws_s3_metadata</code> namespace in the destination table bucket.
+	// The name for the metadata table in your metadata table configuration. The specified metadata table name must be unique within the ``aws_s3_metadata`` namespace in the destination table bucket.
 	TableName pulumi.StringInput `pulumi:"tableName"`
-	// The table bucket namespace for the metadata table in your metadata table configuration. This value is always <code>aws_s3_metadata</code>.
+	// The table bucket namespace for the metadata table in your metadata table configuration. This value is always ``aws_s3_metadata``.
 	TableNamespace pulumi.StringPtrInput `pulumi:"tableNamespace"`
 }
 
@@ -7871,6 +8979,7 @@ func (i *bucketS3TablesDestinationPtrType) ToBucketS3TablesDestinationPtrOutputW
 	return pulumi.ToOutputWithContext(ctx, i).(BucketS3TablesDestinationPtrOutput)
 }
 
+// The destination information for a V1 S3 Metadata configuration. The destination table bucket must be in the same Region and AWS-account as the general purpose bucket. The specified metadata table name must be unique within the “aws_s3_metadata“ namespace in the destination table bucket.
 type BucketS3TablesDestinationOutput struct{ *pulumi.OutputState }
 
 func (BucketS3TablesDestinationOutput) ElementType() reflect.Type {
@@ -7895,22 +9004,22 @@ func (o BucketS3TablesDestinationOutput) ToBucketS3TablesDestinationPtrOutputWit
 	}).(BucketS3TablesDestinationPtrOutput)
 }
 
-// The Amazon Resource Name (ARN) for the metadata table in the metadata table configuration. The specified metadata table name must be unique within the <code>aws_s3_metadata</code> namespace in the destination table bucket.
+// The Amazon Resource Name (ARN) for the metadata table in the metadata table configuration. The specified metadata table name must be unique within the “aws_s3_metadata“ namespace in the destination table bucket.
 func (o BucketS3TablesDestinationOutput) TableArn() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v BucketS3TablesDestination) *string { return v.TableArn }).(pulumi.StringPtrOutput)
 }
 
-// The Amazon Resource Name (ARN) for the table bucket that's specified as the destination in the metadata table configuration. The destination table bucket must be in the same Region and AWS account as the general purpose bucket.
+// The Amazon Resource Name (ARN) for the table bucket that's specified as the destination in the metadata table configuration. The destination table bucket must be in the same Region and AWS-account as the general purpose bucket.
 func (o BucketS3TablesDestinationOutput) TableBucketArn() pulumi.StringOutput {
 	return o.ApplyT(func(v BucketS3TablesDestination) string { return v.TableBucketArn }).(pulumi.StringOutput)
 }
 
-// The name for the metadata table in your metadata table configuration. The specified metadata table name must be unique within the <code>aws_s3_metadata</code> namespace in the destination table bucket.
+// The name for the metadata table in your metadata table configuration. The specified metadata table name must be unique within the “aws_s3_metadata“ namespace in the destination table bucket.
 func (o BucketS3TablesDestinationOutput) TableName() pulumi.StringOutput {
 	return o.ApplyT(func(v BucketS3TablesDestination) string { return v.TableName }).(pulumi.StringOutput)
 }
 
-// The table bucket namespace for the metadata table in your metadata table configuration. This value is always <code>aws_s3_metadata</code>.
+// The table bucket namespace for the metadata table in your metadata table configuration. This value is always “aws_s3_metadata“.
 func (o BucketS3TablesDestinationOutput) TableNamespace() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v BucketS3TablesDestination) *string { return v.TableNamespace }).(pulumi.StringPtrOutput)
 }
@@ -7939,7 +9048,7 @@ func (o BucketS3TablesDestinationPtrOutput) Elem() BucketS3TablesDestinationOutp
 	}).(BucketS3TablesDestinationOutput)
 }
 
-// The Amazon Resource Name (ARN) for the metadata table in the metadata table configuration. The specified metadata table name must be unique within the <code>aws_s3_metadata</code> namespace in the destination table bucket.
+// The Amazon Resource Name (ARN) for the metadata table in the metadata table configuration. The specified metadata table name must be unique within the “aws_s3_metadata“ namespace in the destination table bucket.
 func (o BucketS3TablesDestinationPtrOutput) TableArn() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v *BucketS3TablesDestination) *string {
 		if v == nil {
@@ -7949,7 +9058,7 @@ func (o BucketS3TablesDestinationPtrOutput) TableArn() pulumi.StringPtrOutput {
 	}).(pulumi.StringPtrOutput)
 }
 
-// The Amazon Resource Name (ARN) for the table bucket that's specified as the destination in the metadata table configuration. The destination table bucket must be in the same Region and AWS account as the general purpose bucket.
+// The Amazon Resource Name (ARN) for the table bucket that's specified as the destination in the metadata table configuration. The destination table bucket must be in the same Region and AWS-account as the general purpose bucket.
 func (o BucketS3TablesDestinationPtrOutput) TableBucketArn() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v *BucketS3TablesDestination) *string {
 		if v == nil {
@@ -7959,7 +9068,7 @@ func (o BucketS3TablesDestinationPtrOutput) TableBucketArn() pulumi.StringPtrOut
 	}).(pulumi.StringPtrOutput)
 }
 
-// The name for the metadata table in your metadata table configuration. The specified metadata table name must be unique within the <code>aws_s3_metadata</code> namespace in the destination table bucket.
+// The name for the metadata table in your metadata table configuration. The specified metadata table name must be unique within the “aws_s3_metadata“ namespace in the destination table bucket.
 func (o BucketS3TablesDestinationPtrOutput) TableName() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v *BucketS3TablesDestination) *string {
 		if v == nil {
@@ -7969,7 +9078,7 @@ func (o BucketS3TablesDestinationPtrOutput) TableName() pulumi.StringPtrOutput {
 	}).(pulumi.StringPtrOutput)
 }
 
-// The table bucket namespace for the metadata table in your metadata table configuration. This value is always <code>aws_s3_metadata</code>.
+// The table bucket namespace for the metadata table in your metadata table configuration. This value is always “aws_s3_metadata“.
 func (o BucketS3TablesDestinationPtrOutput) TableNamespace() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v *BucketS3TablesDestination) *string {
 		if v == nil {
@@ -7985,8 +9094,8 @@ func (o BucketS3TablesDestinationPtrOutput) TableNamespace() pulumi.StringPtrOut
 //   - *Directory buckets* - For directory buckets, there are only two supported options for server-side encryption: SSE-S3 and SSE-KMS.
 type BucketServerSideEncryptionByDefault struct {
 	// AWS Key Management Service (KMS) customer managed key ID to use for the default encryption.
-	//    +   *General purpose buckets* - This parameter is allowed if and only if ``SSEAlgorithm`` is set to ``aws:kms`` or ``aws:kms:dsse``.
-	//   +   *Directory buckets* - This parameter is allowed if and only if ``SSEAlgorithm`` is set to ``aws:kms``.
+	//    +  *General purpose buckets* - This parameter is allowed if and only if ``SSEAlgorithm`` is set to ``aws:kms`` or ``aws:kms:dsse``.
+	//   +  *Directory buckets* - This parameter is allowed if and only if ``SSEAlgorithm`` is set to ``aws:kms``.
 	//
 	//   You can specify the key ID, key alias, or the Amazon Resource Name (ARN) of the KMS key.
 	//   +  Key ID: ``1234abcd-12ab-34cd-56ef-1234567890ab``
@@ -7994,8 +9103,8 @@ type BucketServerSideEncryptionByDefault struct {
 	//   +  Key Alias: ``alias/alias-name``
 	//
 	//  If you are using encryption with cross-account or AWS service operations, you must use a fully qualified KMS key ARN. For more information, see [Using encryption for cross-account operations](https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html#bucket-encryption-update-bucket-policy).
-	//    +   *General purpose buckets* - If you're specifying a customer managed KMS key, we recommend using a fully qualified KMS key ARN. If you use a KMS key alias instead, then KMS resolves the key within the requester’s account. This behavior can result in data that's encrypted with a KMS key that belongs to the requester, and not the bucket owner. Also, if you use a key ID, you can run into a LogDestination undeliverable error when creating a VPC flow log.
-	//   +   *Directory buckets* - When you specify an [customer managed key](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk) for encryption in your directory bucket, only use the key ID or key ARN. The key alias format of the KMS key isn't supported.
+	//    +  *General purpose buckets* - If you're specifying a customer managed KMS key, we recommend using a fully qualified KMS key ARN. If you use a KMS key alias instead, then KMS resolves the key within the requester’s account. This behavior can result in data that's encrypted with a KMS key that belongs to the requester, and not the bucket owner. Also, if you use a key ID, you can run into a LogDestination undeliverable error when creating a VPC flow log.
+	//   +  *Directory buckets* - When you specify an [customer managed key](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk) for encryption in your directory bucket, only use the key ID or key ARN. The key alias format of the KMS key isn't supported.
 	//
 	//    Amazon S3 only supports symmetric encryption KMS keys. For more information, see [Asymmetric keys in KMS](https://docs.aws.amazon.com//kms/latest/developerguide/symmetric-asymmetric.html) in the *Key Management Service Developer Guide*.
 	KmsMasterKeyId *string `pulumi:"kmsMasterKeyId"`
@@ -8021,8 +9130,8 @@ type BucketServerSideEncryptionByDefaultInput interface {
 //   - *Directory buckets* - For directory buckets, there are only two supported options for server-side encryption: SSE-S3 and SSE-KMS.
 type BucketServerSideEncryptionByDefaultArgs struct {
 	// AWS Key Management Service (KMS) customer managed key ID to use for the default encryption.
-	//    +   *General purpose buckets* - This parameter is allowed if and only if ``SSEAlgorithm`` is set to ``aws:kms`` or ``aws:kms:dsse``.
-	//   +   *Directory buckets* - This parameter is allowed if and only if ``SSEAlgorithm`` is set to ``aws:kms``.
+	//    +  *General purpose buckets* - This parameter is allowed if and only if ``SSEAlgorithm`` is set to ``aws:kms`` or ``aws:kms:dsse``.
+	//   +  *Directory buckets* - This parameter is allowed if and only if ``SSEAlgorithm`` is set to ``aws:kms``.
 	//
 	//   You can specify the key ID, key alias, or the Amazon Resource Name (ARN) of the KMS key.
 	//   +  Key ID: ``1234abcd-12ab-34cd-56ef-1234567890ab``
@@ -8030,8 +9139,8 @@ type BucketServerSideEncryptionByDefaultArgs struct {
 	//   +  Key Alias: ``alias/alias-name``
 	//
 	//  If you are using encryption with cross-account or AWS service operations, you must use a fully qualified KMS key ARN. For more information, see [Using encryption for cross-account operations](https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html#bucket-encryption-update-bucket-policy).
-	//    +   *General purpose buckets* - If you're specifying a customer managed KMS key, we recommend using a fully qualified KMS key ARN. If you use a KMS key alias instead, then KMS resolves the key within the requester’s account. This behavior can result in data that's encrypted with a KMS key that belongs to the requester, and not the bucket owner. Also, if you use a key ID, you can run into a LogDestination undeliverable error when creating a VPC flow log.
-	//   +   *Directory buckets* - When you specify an [customer managed key](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk) for encryption in your directory bucket, only use the key ID or key ARN. The key alias format of the KMS key isn't supported.
+	//    +  *General purpose buckets* - If you're specifying a customer managed KMS key, we recommend using a fully qualified KMS key ARN. If you use a KMS key alias instead, then KMS resolves the key within the requester’s account. This behavior can result in data that's encrypted with a KMS key that belongs to the requester, and not the bucket owner. Also, if you use a key ID, you can run into a LogDestination undeliverable error when creating a VPC flow log.
+	//   +  *Directory buckets* - When you specify an [customer managed key](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk) for encryption in your directory bucket, only use the key ID or key ARN. The key alias format of the KMS key isn't supported.
 	//
 	//    Amazon S3 only supports symmetric encryption KMS keys. For more information, see [Asymmetric keys in KMS](https://docs.aws.amazon.com//kms/latest/developerguide/symmetric-asymmetric.html) in the *Key Management Service Developer Guide*.
 	KmsMasterKeyId pulumi.StringPtrInput `pulumi:"kmsMasterKeyId"`
@@ -13922,14 +15031,24 @@ func init() {
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketIntelligentTieringConfigurationArrayInput)(nil)).Elem(), BucketIntelligentTieringConfigurationArray{})
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketInventoryConfigurationInput)(nil)).Elem(), BucketInventoryConfigurationArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketInventoryConfigurationArrayInput)(nil)).Elem(), BucketInventoryConfigurationArray{})
+	pulumi.RegisterInputType(reflect.TypeOf((*BucketInventoryTableConfigurationInput)(nil)).Elem(), BucketInventoryTableConfigurationArgs{})
+	pulumi.RegisterInputType(reflect.TypeOf((*BucketInventoryTableConfigurationPtrInput)(nil)).Elem(), BucketInventoryTableConfigurationArgs{})
+	pulumi.RegisterInputType(reflect.TypeOf((*BucketJournalTableConfigurationInput)(nil)).Elem(), BucketJournalTableConfigurationArgs{})
+	pulumi.RegisterInputType(reflect.TypeOf((*BucketJournalTableConfigurationPtrInput)(nil)).Elem(), BucketJournalTableConfigurationArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketLambdaConfigurationInput)(nil)).Elem(), BucketLambdaConfigurationArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketLambdaConfigurationArrayInput)(nil)).Elem(), BucketLambdaConfigurationArray{})
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketLifecycleConfigurationInput)(nil)).Elem(), BucketLifecycleConfigurationArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketLifecycleConfigurationPtrInput)(nil)).Elem(), BucketLifecycleConfigurationArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketLoggingConfigurationInput)(nil)).Elem(), BucketLoggingConfigurationArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketLoggingConfigurationPtrInput)(nil)).Elem(), BucketLoggingConfigurationArgs{})
+	pulumi.RegisterInputType(reflect.TypeOf((*BucketMetadataConfigurationInput)(nil)).Elem(), BucketMetadataConfigurationArgs{})
+	pulumi.RegisterInputType(reflect.TypeOf((*BucketMetadataConfigurationPtrInput)(nil)).Elem(), BucketMetadataConfigurationArgs{})
+	pulumi.RegisterInputType(reflect.TypeOf((*BucketMetadataDestinationInput)(nil)).Elem(), BucketMetadataDestinationArgs{})
+	pulumi.RegisterInputType(reflect.TypeOf((*BucketMetadataDestinationPtrInput)(nil)).Elem(), BucketMetadataDestinationArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketMetadataTableConfigurationInput)(nil)).Elem(), BucketMetadataTableConfigurationArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketMetadataTableConfigurationPtrInput)(nil)).Elem(), BucketMetadataTableConfigurationArgs{})
+	pulumi.RegisterInputType(reflect.TypeOf((*BucketMetadataTableEncryptionConfigurationInput)(nil)).Elem(), BucketMetadataTableEncryptionConfigurationArgs{})
+	pulumi.RegisterInputType(reflect.TypeOf((*BucketMetadataTableEncryptionConfigurationPtrInput)(nil)).Elem(), BucketMetadataTableEncryptionConfigurationArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketMetricsInput)(nil)).Elem(), BucketMetricsArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketMetricsPtrInput)(nil)).Elem(), BucketMetricsArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketMetricsConfigurationInput)(nil)).Elem(), BucketMetricsConfigurationArgs{})
@@ -13955,6 +15074,8 @@ func init() {
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketPublicAccessBlockConfigurationPtrInput)(nil)).Elem(), BucketPublicAccessBlockConfigurationArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketQueueConfigurationInput)(nil)).Elem(), BucketQueueConfigurationArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketQueueConfigurationArrayInput)(nil)).Elem(), BucketQueueConfigurationArray{})
+	pulumi.RegisterInputType(reflect.TypeOf((*BucketRecordExpirationInput)(nil)).Elem(), BucketRecordExpirationArgs{})
+	pulumi.RegisterInputType(reflect.TypeOf((*BucketRecordExpirationPtrInput)(nil)).Elem(), BucketRecordExpirationArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketRedirectAllRequestsToInput)(nil)).Elem(), BucketRedirectAllRequestsToArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketRedirectAllRequestsToPtrInput)(nil)).Elem(), BucketRedirectAllRequestsToArgs{})
 	pulumi.RegisterInputType(reflect.TypeOf((*BucketRedirectRuleInput)(nil)).Elem(), BucketRedirectRuleArgs{})
@@ -14096,14 +15217,24 @@ func init() {
 	pulumi.RegisterOutputType(BucketIntelligentTieringConfigurationArrayOutput{})
 	pulumi.RegisterOutputType(BucketInventoryConfigurationOutput{})
 	pulumi.RegisterOutputType(BucketInventoryConfigurationArrayOutput{})
+	pulumi.RegisterOutputType(BucketInventoryTableConfigurationOutput{})
+	pulumi.RegisterOutputType(BucketInventoryTableConfigurationPtrOutput{})
+	pulumi.RegisterOutputType(BucketJournalTableConfigurationOutput{})
+	pulumi.RegisterOutputType(BucketJournalTableConfigurationPtrOutput{})
 	pulumi.RegisterOutputType(BucketLambdaConfigurationOutput{})
 	pulumi.RegisterOutputType(BucketLambdaConfigurationArrayOutput{})
 	pulumi.RegisterOutputType(BucketLifecycleConfigurationOutput{})
 	pulumi.RegisterOutputType(BucketLifecycleConfigurationPtrOutput{})
 	pulumi.RegisterOutputType(BucketLoggingConfigurationOutput{})
 	pulumi.RegisterOutputType(BucketLoggingConfigurationPtrOutput{})
+	pulumi.RegisterOutputType(BucketMetadataConfigurationOutput{})
+	pulumi.RegisterOutputType(BucketMetadataConfigurationPtrOutput{})
+	pulumi.RegisterOutputType(BucketMetadataDestinationOutput{})
+	pulumi.RegisterOutputType(BucketMetadataDestinationPtrOutput{})
 	pulumi.RegisterOutputType(BucketMetadataTableConfigurationOutput{})
 	pulumi.RegisterOutputType(BucketMetadataTableConfigurationPtrOutput{})
+	pulumi.RegisterOutputType(BucketMetadataTableEncryptionConfigurationOutput{})
+	pulumi.RegisterOutputType(BucketMetadataTableEncryptionConfigurationPtrOutput{})
 	pulumi.RegisterOutputType(BucketMetricsOutput{})
 	pulumi.RegisterOutputType(BucketMetricsPtrOutput{})
 	pulumi.RegisterOutputType(BucketMetricsConfigurationOutput{})
@@ -14129,6 +15260,8 @@ func init() {
 	pulumi.RegisterOutputType(BucketPublicAccessBlockConfigurationPtrOutput{})
 	pulumi.RegisterOutputType(BucketQueueConfigurationOutput{})
 	pulumi.RegisterOutputType(BucketQueueConfigurationArrayOutput{})
+	pulumi.RegisterOutputType(BucketRecordExpirationOutput{})
+	pulumi.RegisterOutputType(BucketRecordExpirationPtrOutput{})
 	pulumi.RegisterOutputType(BucketRedirectAllRequestsToOutput{})
 	pulumi.RegisterOutputType(BucketRedirectAllRequestsToPtrOutput{})
 	pulumi.RegisterOutputType(BucketRedirectRuleOutput{})

@@ -11,14 +11,10 @@ type openshiftRequest struct {
 	bundleURL string
 	shasumURL string
 	arch      string
+	regions   []string
 }
 
 func (r *openshiftRequest) runFunc(ctx *pulumi.Context) error {
-	extractCmd, err := bundle.Extract(ctx, r.bundleURL, r.shasumURL, "azure")
-	if err != nil {
-		return err
-	}
-
 	bundleName, err := bundle.GetBundleNameFromURI(r.bundleURL)
 	if err != nil {
 		return err
@@ -35,21 +31,6 @@ func (r *openshiftRequest) runFunc(ctx *pulumi.Context) error {
 	}
 	imageName := fmt.Sprintf("%s-%s", *imageBaseName, r.arch)
 
-	container, storageAcc, rg, err := CreateEphemeralStorageAccount(ctx)
-	if err != nil {
-		return err
-	}
-
-	sas := GetStorageAccSAS(ctx, storageAcc.Name, rg.Name)
-
-	sasURL := pulumi.Sprintf(sasURLBase, storageAcc.Name, container.Name, blobName, sas.AccountSasToken())
-	blobURL := pulumi.Sprintf(blobURLBase, storageAcc.Name, container.Name, blobName)
-
-	cmd, err := UploadVHD(ctx, bundle.ExtractedVHDDiskFileName, sasURL, pulumi.DependsOn([]pulumi.Resource{rg, storageAcc, container, extractCmd}))
-	if err != nil {
-		return err
-	}
-
 	req := vhdRequest{
 		imageName:     imageName,
 		arch:          r.arch,
@@ -57,7 +38,32 @@ func (r *openshiftRequest) runFunc(ctx *pulumi.Context) error {
 		version:       info.Version,
 		galleryName:   sncGalleryName,
 		resourceGroup: sncGalleryRGName,
+		regions:       r.regions,
 	}
 
-	return RegisterImage(ctx, storageAcc, req, blobURL, pulumi.DependsOn([]pulumi.Resource{rg, storageAcc, container, cmd}))
+	// check if gallery image already exists in the resource group
+	if !CheckGalleryImageExists(ctx, req) {
+		extractCmd, err := bundle.Extract(ctx, r.bundleURL, r.shasumURL, "azure")
+		if err != nil {
+			return err
+		}
+
+		container, storageAcc, rg, err := CreateEphemeralStorageAccount(ctx)
+		if err != nil {
+			return err
+		}
+
+		sas := GetStorageAccSAS(ctx, storageAcc.Name, rg.Name)
+
+		sasURL := pulumi.Sprintf(sasURLBase, storageAcc.Name, container.Name, blobName, sas.AccountSasToken())
+		blobURL := pulumi.Sprintf(blobURLBase, storageAcc.Name, container.Name, blobName)
+
+		cmd, err := UploadVHD(ctx, bundle.ExtractedVHDDiskFileName, sasURL, pulumi.DependsOn([]pulumi.Resource{rg, storageAcc, container, extractCmd}))
+		if err != nil {
+			return err
+		}
+
+		return RegisterImage(ctx, storageAcc, req, blobURL, pulumi.DependsOn([]pulumi.Resource{rg, storageAcc, container, cmd}))
+	}
+	return ReplicateGalleryImageVersion(ctx, req)
 }

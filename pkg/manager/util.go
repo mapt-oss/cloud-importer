@@ -7,6 +7,7 @@ import (
 
 	ac "github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
 	providerAPI "github.com/devtools-qe-incubator/cloud-importer/pkg/manager/provider/api"
+	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/provider/credentials"
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/util/logging"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/debug"
@@ -123,6 +124,10 @@ func getOpts(target providerAPI.Stack) []auto.LocalWorkspaceOption {
 }
 
 func postStack(ctx context.Context, target providerAPI.Stack, stack *auto.Stack) (err error) {
+	// Set credentials
+	if err = credentials.SetProviderCredentials(ctx, stack, target.ProviderCredentials); err != nil {
+		return
+	}
 	_, err = stack.Refresh(ctx)
 	return
 }
