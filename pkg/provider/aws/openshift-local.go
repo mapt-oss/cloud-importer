@@ -24,7 +24,7 @@ var (
 		&ARM64: &bundle.ARM64}
 )
 
-func (a *aws) OpenshiftLocal(bundleURL, shasumURL, arch string) (pulumi.RunFunc, error) {
+func (a *aws) OpenshiftLocal(bundleURL, shasumURL, arch string, _ []string) (pulumi.RunFunc, error) {
 
 	r := openshiftRequest{
 		bundleURL,

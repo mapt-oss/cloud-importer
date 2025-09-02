@@ -815,12 +815,15 @@ type Bucket struct {
 	DualStackDomainName pulumi.StringOutput `pulumi:"dualStackDomainName"`
 	// Defines how Amazon S3 handles Intelligent-Tiering storage.
 	IntelligentTieringConfigurations BucketIntelligentTieringConfigurationArrayOutput `pulumi:"intelligentTieringConfigurations"`
-	// Specifies the inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
+	// Specifies the S3 Inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
 	InventoryConfigurations BucketInventoryConfigurationArrayOutput `pulumi:"inventoryConfigurations"`
 	// Specifies the lifecycle configuration for objects in an Amazon S3 bucket. For more information, see [Object Lifecycle Management](https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lifecycle-mgmt.html) in the *Amazon S3 User Guide*.
 	LifecycleConfiguration BucketLifecycleConfigurationPtrOutput `pulumi:"lifecycleConfiguration"`
 	// Settings that define where logs are stored.
-	LoggingConfiguration       BucketLoggingConfigurationPtrOutput       `pulumi:"loggingConfiguration"`
+	LoggingConfiguration BucketLoggingConfigurationPtrOutput `pulumi:"loggingConfiguration"`
+	// The S3 Metadata configuration for a general purpose bucket.
+	MetadataConfiguration BucketMetadataConfigurationPtrOutput `pulumi:"metadataConfiguration"`
+	// The metadata table configuration of an S3 general purpose bucket.
 	MetadataTableConfiguration BucketMetadataTableConfigurationPtrOutput `pulumi:"metadataTableConfiguration"`
 	// Specifies a metrics configuration for the CloudWatch request metrics (specified by the metrics configuration ID) from an Amazon S3 bucket. If you're updating an existing metrics configuration, note that this is a full replacement of the existing metrics configuration. If you don't include the elements you want to keep, they are erased. For more information, see [PutBucketMetricsConfiguration](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTMetricConfiguration.html).
 	MetricsConfigurations BucketMetricsConfigurationArrayOutput `pulumi:"metricsConfigurations"`
@@ -869,6 +872,7 @@ func NewBucket(ctx *pulumi.Context,
 
 	replaceOnChanges := pulumi.ReplaceOnChanges([]string{
 		"bucketName",
+		"metadataConfiguration.journalTableConfiguration.encryptionConfiguration",
 	})
 	opts = append(opts, replaceOnChanges)
 	opts = internal.PkgResourceDefaultOpts(opts)
@@ -922,12 +926,15 @@ type bucketArgs struct {
 	CorsConfiguration *BucketCorsConfiguration `pulumi:"corsConfiguration"`
 	// Defines how Amazon S3 handles Intelligent-Tiering storage.
 	IntelligentTieringConfigurations []BucketIntelligentTieringConfiguration `pulumi:"intelligentTieringConfigurations"`
-	// Specifies the inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
+	// Specifies the S3 Inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
 	InventoryConfigurations []BucketInventoryConfiguration `pulumi:"inventoryConfigurations"`
 	// Specifies the lifecycle configuration for objects in an Amazon S3 bucket. For more information, see [Object Lifecycle Management](https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lifecycle-mgmt.html) in the *Amazon S3 User Guide*.
 	LifecycleConfiguration *BucketLifecycleConfiguration `pulumi:"lifecycleConfiguration"`
 	// Settings that define where logs are stored.
-	LoggingConfiguration       *BucketLoggingConfiguration       `pulumi:"loggingConfiguration"`
+	LoggingConfiguration *BucketLoggingConfiguration `pulumi:"loggingConfiguration"`
+	// The S3 Metadata configuration for a general purpose bucket.
+	MetadataConfiguration *BucketMetadataConfiguration `pulumi:"metadataConfiguration"`
+	// The metadata table configuration of an S3 general purpose bucket.
 	MetadataTableConfiguration *BucketMetadataTableConfiguration `pulumi:"metadataTableConfiguration"`
 	// Specifies a metrics configuration for the CloudWatch request metrics (specified by the metrics configuration ID) from an Amazon S3 bucket. If you're updating an existing metrics configuration, note that this is a full replacement of the existing metrics configuration. If you don't include the elements you want to keep, they are erased. For more information, see [PutBucketMetricsConfiguration](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTMetricConfiguration.html).
 	MetricsConfigurations []BucketMetricsConfiguration `pulumi:"metricsConfigurations"`
@@ -977,12 +984,15 @@ type BucketArgs struct {
 	CorsConfiguration BucketCorsConfigurationPtrInput
 	// Defines how Amazon S3 handles Intelligent-Tiering storage.
 	IntelligentTieringConfigurations BucketIntelligentTieringConfigurationArrayInput
-	// Specifies the inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
+	// Specifies the S3 Inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
 	InventoryConfigurations BucketInventoryConfigurationArrayInput
 	// Specifies the lifecycle configuration for objects in an Amazon S3 bucket. For more information, see [Object Lifecycle Management](https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lifecycle-mgmt.html) in the *Amazon S3 User Guide*.
 	LifecycleConfiguration BucketLifecycleConfigurationPtrInput
 	// Settings that define where logs are stored.
-	LoggingConfiguration       BucketLoggingConfigurationPtrInput
+	LoggingConfiguration BucketLoggingConfigurationPtrInput
+	// The S3 Metadata configuration for a general purpose bucket.
+	MetadataConfiguration BucketMetadataConfigurationPtrInput
+	// The metadata table configuration of an S3 general purpose bucket.
 	MetadataTableConfiguration BucketMetadataTableConfigurationPtrInput
 	// Specifies a metrics configuration for the CloudWatch request metrics (specified by the metrics configuration ID) from an Amazon S3 bucket. If you're updating an existing metrics configuration, note that this is a full replacement of the existing metrics configuration. If you don't include the elements you want to keep, they are erased. For more information, see [PutBucketMetricsConfiguration](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTMetricConfiguration.html).
 	MetricsConfigurations BucketMetricsConfigurationArrayInput
@@ -1115,7 +1125,7 @@ func (o BucketOutput) IntelligentTieringConfigurations() BucketIntelligentTierin
 	}).(BucketIntelligentTieringConfigurationArrayOutput)
 }
 
-// Specifies the inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
+// Specifies the S3 Inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
 func (o BucketOutput) InventoryConfigurations() BucketInventoryConfigurationArrayOutput {
 	return o.ApplyT(func(v *Bucket) BucketInventoryConfigurationArrayOutput { return v.InventoryConfigurations }).(BucketInventoryConfigurationArrayOutput)
 }
@@ -1130,6 +1140,12 @@ func (o BucketOutput) LoggingConfiguration() BucketLoggingConfigurationPtrOutput
 	return o.ApplyT(func(v *Bucket) BucketLoggingConfigurationPtrOutput { return v.LoggingConfiguration }).(BucketLoggingConfigurationPtrOutput)
 }
 
+// The S3 Metadata configuration for a general purpose bucket.
+func (o BucketOutput) MetadataConfiguration() BucketMetadataConfigurationPtrOutput {
+	return o.ApplyT(func(v *Bucket) BucketMetadataConfigurationPtrOutput { return v.MetadataConfiguration }).(BucketMetadataConfigurationPtrOutput)
+}
+
+// The metadata table configuration of an S3 general purpose bucket.
 func (o BucketOutput) MetadataTableConfiguration() BucketMetadataTableConfigurationPtrOutput {
 	return o.ApplyT(func(v *Bucket) BucketMetadataTableConfigurationPtrOutput { return v.MetadataTableConfiguration }).(BucketMetadataTableConfigurationPtrOutput)
 }

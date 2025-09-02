@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	openshiftlocal "github.com/devtools-qe-incubator/cloud-importer/cmd/importer/cmd/openshift-local"
+	"github.com/devtools-qe-incubator/cloud-importer/cmd/importer/cmd/replicate"
 	"github.com/devtools-qe-incubator/cloud-importer/cmd/importer/cmd/rhelai"
 	"github.com/devtools-qe-incubator/cloud-importer/cmd/importer/cmd/share"
 	params "github.com/devtools-qe-incubator/cloud-importer/cmd/importer/params"
@@ -62,6 +63,7 @@ func init() {
 		openshiftlocal.GetCmd(),
 		rhelai.GetCmd(),
 		share.GetCmd(),
+		replicate.GetCmd(),
 	)
 }
 

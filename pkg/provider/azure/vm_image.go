@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/util/logging"
@@ -194,7 +193,7 @@ func CreateGalleryImageDefinition(ctx *pulumi.Context, rg *resources.ResourceGro
 	return imageDefinition, err
 }
 
-func CreateGalleryImageVersion(ctx *pulumi.Context, regions []string, rg *resources.ResourceGroup, sa *storage.StorageAccount, req vhdRequest, blobURL pulumi.StringInput, opts pulumi.ResourceOrInvokeOption) (*compute.GalleryImageVersion, error) {
+func CreateGalleryImageVersion(ctx *pulumi.Context, rg *resources.ResourceGroup, sa *storage.StorageAccount, req vhdRequest, blobURL pulumi.StringInput, opts pulumi.ResourceOrInvokeOption) (*compute.GalleryImageVersion, error) {
 	_, err := compute.LookupGalleryImageVersion(ctx, &compute.LookupGalleryImageVersionArgs{
 		GalleryImageVersionName: req.version,
 		GalleryImageName:        req.imageName,
@@ -214,7 +213,7 @@ func CreateGalleryImageVersion(ctx *pulumi.Context, regions []string, rg *resour
 		PublishingProfile: compute.GalleryImageVersionPublishingProfileArgs{
 			StorageAccountType: compute.StorageAccountType_Premium_LRS,
 			ReplicationMode:    compute.ReplicationModeFull,
-			TargetRegions:      genTargetRegionsArray(regions),
+			TargetRegions:      genTargetRegionsArray(req.regions),
 		},
 		StorageProfile: compute.GalleryImageVersionStorageProfileArgs{
 			OsDiskImage: &compute.GalleryOSDiskImageArgs{
@@ -231,20 +230,78 @@ func CreateGalleryImageVersion(ctx *pulumi.Context, regions []string, rg *resour
 	return galleryImageVersion, err
 }
 
+func CheckGalleryImageExists(ctx *pulumi.Context, req vhdRequest) bool {
+	_, err := compute.LookupGalleryImageVersion(ctx, &compute.LookupGalleryImageVersionArgs{
+		GalleryImageVersionName: req.version,
+		GalleryImageName:        req.imageName,
+		GalleryName:             req.galleryName,
+		ResourceGroupName:       req.resourceGroup,
+	})
+	if err != nil {
+		logging.Debugf("Unable to find the image: %s: %v",
+			fmt.Sprintf("%s/%s/%s", req.galleryName, req.imageName, req.version), err)
+		return false
+	}
+	return true
+}
+
+func ReplicateGalleryImageVersion(ctx *pulumi.Context, req vhdRequest) error {
+	imgVer, err := compute.LookupGalleryImageVersion(ctx, &compute.LookupGalleryImageVersionArgs{
+		GalleryImageVersionName: req.version,
+		GalleryImageName:        req.imageName,
+		GalleryName:             req.galleryName,
+		ResourceGroupName:       req.resourceGroup,
+	})
+	if err != nil {
+		return fmt.Errorf("Unable to find the image: %s: %w",
+			fmt.Sprintf("%s/%s/%s", req.galleryName, req.imageName, req.version), err)
+	}
+
+	var rg *resources.ResourceGroup
+	r, err := resources.LookupResourceGroup(ctx, &resources.LookupResourceGroupArgs{
+		ResourceGroupName: req.resourceGroup,
+	})
+	if err == nil {
+		rg, err = resources.GetResourceGroup(ctx, req.resourceGroup, pulumi.ID(r.Id), nil)
+		if err != nil {
+			return err
+		}
+	}
+
+	var regions = req.regions
+	for _, reg := range imgVer.PublishingProfile.TargetRegions {
+		regions = append(regions, reg.Name)
+	}
+
+	_, err = compute.NewGalleryImageVersion(ctx, "GalleryImageVer", &compute.GalleryImageVersionArgs{
+		GalleryName:             pulumi.String(req.galleryName),
+		GalleryImageName:        pulumi.String(req.imageName),
+		GalleryImageVersionName: pulumi.String(req.version),
+		ResourceGroupName:       rg.Name,
+		Location:                rg.Location,
+		PublishingProfile: compute.GalleryImageVersionPublishingProfileArgs{
+			StorageAccountType: compute.StorageAccountType_Premium_LRS,
+			ReplicationMode:    compute.ReplicationModeFull,
+			TargetRegions:      genTargetRegionsArray(regions),
+		},
+		StorageProfile: compute.GalleryImageVersionStorageProfileArgs{
+			OsDiskImage: &compute.GalleryOSDiskImageArgs{
+				Source: &compute.GalleryDiskImageSourceArgs{
+					StorageAccountId: pulumi.String(*imgVer.StorageProfile.OsDiskImage.Source.StorageAccountId),
+					Uri:              pulumi.String(*imgVer.StorageProfile.OsDiskImage.Source.Uri),
+				},
+			},
+		},
+	}, pulumi.RetainOnDelete(true), pulumi.Import(pulumi.ID(imgVer.Id)))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func genTargetRegionsArray(regions []string) compute.TargetRegionArray {
 	var targetRegions = compute.TargetRegionArray{}
-	var availableRegions []string
-	var err error
-
-	if slices.Contains(regions, "all") {
-		availableRegions, err = Locations()
-		if err != nil {
-			logging.Debugf("Unable to get list of all locations: %v", err)
-			return targetRegions
-		}
-	} else {
-		availableRegions = regions
-	}
+	var availableRegions = regions
 
 	for _, reg := range availableRegions {
 		targetRegions = append(targetRegions, &compute.TargetRegionArgs{
@@ -302,7 +359,7 @@ func RegisterImage(ctx *pulumi.Context, sa *storage.StorageAccount, req vhdReque
 		return err
 	}
 
-	_, err = CreateGalleryImageVersion(ctx, []string{}, rg, sa, req, blobURL, pulumi.DependsOn([]pulumi.Resource{def, sa}))
+	_, err = CreateGalleryImageVersion(ctx, rg, sa, req, blobURL, pulumi.DependsOn([]pulumi.Resource{def, sa}))
 	if err != nil {
 		return err
 	}

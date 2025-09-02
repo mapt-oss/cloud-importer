@@ -8,7 +8,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
 )
 
-const ENV_AZURE_SUBSCRIPTION_ID = "AZURE_SUBSCRIPTION_ID"
+const ENV_AZURE_SUBSCRIPTION_ID = "ARM_SUBSCRIPTION_ID"
 
 func Locations() ([]string, error) {
 	cred, subscriptionID, err := getCredentials()
@@ -21,7 +21,11 @@ func Locations() ([]string, error) {
 		return nil, err
 	}
 	var locations []string
-	pager := client.NewListLocationsPager(*subscriptionID, nil)
+	var noExtendedLocations = false
+
+	pager := client.NewListLocationsPager(*subscriptionID, &armsubscriptions.ClientListLocationsOptions{
+		IncludeExtendedLocations: &noExtendedLocations,
+	})
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
