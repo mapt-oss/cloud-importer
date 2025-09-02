@@ -58,6 +58,7 @@ func aws() *cobra.Command {
 				viper.GetString(paramBundleURL),
 				viper.GetString(paramShasumURL),
 				viper.GetString(paramArch),
+				viper.GetStringSlice(params.ParamReplicate),
 				manager.AWS); err != nil {
 				return err
 			}
@@ -69,6 +70,7 @@ func aws() *cobra.Command {
 	flagSet.StringP(paramBundleURL, "", "", paramBundleURLDesc)
 	flagSet.StringP(paramShasumURL, "", "", paramShasumURLDesc)
 	flagSet.StringP(paramArch, "", "", paramArchDesc)
+	flagSet.StringSliceP(params.ParamReplicate, "", []string{}, params.ParamReplicateDesc)
 	c.PersistentFlags().AddFlagSet(flagSet)
 	return c
 }
@@ -91,17 +93,19 @@ func azure() *cobra.Command {
 				viper.GetString(paramBundleURL),
 				viper.GetString(paramShasumURL),
 				viper.GetString(paramArch),
+				viper.GetStringSlice(params.ParamReplicate),
 				manager.AZURE); err != nil {
 				return err
 			}
 			return nil
 		},
 	}
-	flagSet := pflag.NewFlagSet(awsCMD, pflag.ExitOnError)
+	flagSet := pflag.NewFlagSet(azureCMD, pflag.ExitOnError)
 	flagSet.StringP(params.Output, "", "", params.OutputDesc)
 	flagSet.StringP(paramBundleURL, "", "", paramBundleURLDesc)
 	flagSet.StringP(paramShasumURL, "", "", paramShasumURLDesc)
 	flagSet.StringP(paramArch, "", "", paramArchDesc)
+	flagSet.StringSliceP(params.ParamReplicate, "", []string{}, params.ParamReplicateDesc)
 	c.PersistentFlags().AddFlagSet(flagSet)
 	return c
 }
