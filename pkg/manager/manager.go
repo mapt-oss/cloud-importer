@@ -12,7 +12,7 @@ import (
 const (
 	stackRHELAI             string = "rhelai"
 	stackOpenshiftLocal     string = "openshiftloca"
-	stackShare              string = "share"
+	stackShare              string = "shareStack"
 	stackReplicate          string = "replicate"
 	azureReplicateStackName string = "az-replicate"
 
@@ -24,6 +24,10 @@ const (
 
 func getUniqueStackNameForReplicate(prefix, region string) string {
 	return fmt.Sprintf("replicate-%s-%s", prefix, region)
+}
+
+func getUniqueStackNameForShare(prefix, region string) string {
+	return fmt.Sprintf("share-%s-%s", prefix, region)
 }
 
 func RHELAI(ctx *context.ContextArgs,
@@ -96,7 +100,7 @@ func OpenshiftLocal(ctx *context.ContextArgs,
 }
 
 func ShareImage(ctx *context.ContextArgs,
-	imageID, targetAccountID string,
+	imageID, targetAccountID, arch, orgARN string,
 	provider Provider) error {
 	// Initialize context
 	context.Init(ctx)
@@ -105,21 +109,35 @@ func ShareImage(ctx *context.ContextArgs,
 	if err != nil {
 		return err
 	}
-	shareFunc, err := p.Share(imageID, targetAccountID)
+	shareFunc, regions, err := p.Share(imageID, arch, targetAccountID, orgARN)
 	if err != nil {
 		return err
 	}
-	// Create a stack based on the import function and create it
-	stack := providerAPI.Stack{
-		// TODO add random ID
-		ProjectName: context.ProjectName(),
-		StackName:   stackShare,
-		BackedURL:   context.BackedURL(),
-		DeployFunc:  shareFunc}
-	_, err = upStack(stack)
-	if err != nil {
-		return err
+	var wg sync.WaitGroup
+	for _, region := range regions {
+		wg.Add(1)
+		go func(ctx *context.ContextArgs, amiName, region string) {
+			stack := providerAPI.Stack{
+				// TODO add random ID
+				ProjectName: context.ProjectName(),
+				StackName:   getUniqueStackNameForShare(context.ProjectName(), region),
+				BackedURL:   context.BackedURL(),
+				ProviderCredentials: p.GetProviderCredentials(
+					map[string]string{
+						CONFIG_AWS_REGION: region,
+					}),
+				DeployFunc: shareFunc,
+			}
+
+			_, err = upStack(stack)
+			if err != nil {
+				logging.Debugf("Error while trying to share AMI in: %s: %v", region, err)
+			}
+			wg.Done()
+		}(ctx, imageID, region)
 	}
+	wg.Wait()
+
 	return nil
 }
 

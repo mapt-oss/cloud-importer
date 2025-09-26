@@ -35,9 +35,9 @@ func (p *azureProvider) RHELAI(rawImageFilePath, amiName string) (pulumi.RunFunc
 	return rhelAIReq.runFunc, nil
 }
 
-func (p *azureProvider) Share(imageID string, targetAccountID string) (pulumi.RunFunc, error) {
+func (p *azureProvider) Share(imageID, targetAccountID, arch, organizationARN string) (pulumi.RunFunc, []string, error) {
 	// Not implemented for Azure
-	return nil, nil
+	return nil, nil, nil
 }
 
 func (p *azureProvider) OpenshiftLocal(bundleURL, shasumURL, arch string, regions []string) (pulumi.RunFunc, error) {
