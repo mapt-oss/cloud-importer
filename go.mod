@@ -8,7 +8,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.11.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions v1.3.0
 	github.com/pulumi/pulumi-aws-native/sdk v1.32.0
-	github.com/pulumi/pulumi-aws/sdk/v6 v6.70.0
+	github.com/pulumi/pulumi-aws/sdk/v6 v6.83.0
 	github.com/pulumi/pulumi-azure-native-sdk/compute/v3 v3.7.1
 	github.com/pulumi/pulumi-azure-native-sdk/resources/v3 v3.7.1
 	github.com/pulumi/pulumi-azure-native-sdk/storage/v3 v3.7.1

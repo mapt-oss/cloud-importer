@@ -30,11 +30,15 @@ func GetCmd() *cobra.Command {
 }
 
 var (
-	awsCMD                   = "aws"
-	paramImageID             = "image-id"
-	paramImageIDDesc         = "image id to be shared"
-	paramTargetAccountID     = "account-id"
-	paramTargetAccountIDDesc = "target account id"
+	awsCMD                         = "aws"
+	paramImageID                   = "image-id"
+	paramImageIDDesc               = "image id to be shared"
+	paramTargetAccountID           = "account-id"
+	paramTargetAccountIDDesc       = "target account id to share the AMI to (mutually exclusive with organization-arn)"
+	paramTargetOrganizationARN     = "organization-arn"
+	paramTargetOrganizationARNDesc = "organization to share the AMI to (mutually exclusive with account-id)"
+	paramArch                      = "arch"
+	paramArchDesc                  = "image arch (x86_64 or arm64)"
 )
 
 func aws() *cobra.Command {
@@ -53,6 +57,8 @@ func aws() *cobra.Command {
 				},
 				viper.GetString(paramImageID),
 				viper.GetString(paramTargetAccountID),
+				viper.GetString(paramArch),
+				viper.GetString(paramTargetOrganizationARN),
 				manager.AWS); err != nil {
 				return err
 			}
@@ -62,6 +68,8 @@ func aws() *cobra.Command {
 	flagSet := pflag.NewFlagSet(awsCMD, pflag.ExitOnError)
 	flagSet.StringP(paramImageID, "", "", paramImageIDDesc)
 	flagSet.StringP(paramTargetAccountID, "", "", paramTargetAccountIDDesc)
+	flagSet.String(paramArch, "x86_64", paramArchDesc)
+	flagSet.String(paramTargetOrganizationARN, "", paramTargetOrganizationARNDesc)
 	c.PersistentFlags().AddFlagSet(flagSet)
 	return c
 }
