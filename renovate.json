@@ -1,0 +1,49 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":maintainLockFilesWeekly",
+    ":enablePreCommit",
+    "group:all",
+    "customManagers:dockerfileVersions",
+    "schedule:weekly",
+    "docker:pinDigests",
+    "workarounds:supportRedHatImageVersion"
+  ],
+  "packageRules": [
+    {
+      "description": "Enable go indirect dependencies",
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchDepTypes": [
+        "indirect"
+      ],
+      "enabled": true
+    },
+    {
+      "description": "Group go major upgrades",
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "groupName": "go major updates"
+    },
+    {
+      "description": "Group patch updates",
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "groupName": "Patch updates",
+      "automerge": true,
+      "platformAutomerge": true
+    }
+  ],
+  "postUpdateOptions": [
+    "gomodUpdateImportPaths",
+    "gomodTidy"
+  ],
+  "configMigration": true
+}
