@@ -104,9 +104,8 @@ func azure() *cobra.Command {
 	flagSet.StringP(params.Output, "", "", params.OutputDesc)
 	flagSet.StringP(paramBundleURL, "", "", paramBundleURLDesc)
 	flagSet.StringP(paramShasumURL, "", "", paramShasumURLDesc)
-	flagSet.StringP(paramArch, "", "", paramArchDesc)
-	flagSet.StringSliceP(params.ParamReplicate, "", []string{}, params.ParamReplicateDesc)
 	flagSet.StringP(paramArch, "", "x86_64", paramArchDesc)
+	flagSet.StringSliceP(params.ParamReplicate, "", []string{}, params.ParamReplicateDesc)
 	c.PersistentFlags().AddFlagSet(flagSet)
 	return c
 }
