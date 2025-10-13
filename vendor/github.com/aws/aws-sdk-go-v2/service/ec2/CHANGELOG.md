@@ -1,3 +1,67 @@
+# v1.254.1 (2025-09-26)
+
+* **Documentation**: This release includes documentation updates for Amazon EBS General Purpose SSD (gp3) volumes with larger size and higher IOPS and throughput.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.254.0 (2025-09-23)
+
+* **Feature**: Add Amazon EC2 R8gn instance types
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.253.0 (2025-09-18)
+
+* **Feature**: Allowed AMIs adds support for four new parameters - marketplaceProductCodes, deprecationTimeCondition, creationDateCondition and imageNames
+
+# v1.252.0 (2025-09-17)
+
+* **Feature**: Add mac-m4.metal and mac-m4pro.metal instance types.
+
+# v1.251.2 (2025-09-10)
+
+* No change notes available for this release.
+
+# v1.251.1 (2025-09-08)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.251.0 (2025-09-04)
+
+* **Feature**: Add m8i, m8i-flex and i8ge instance types.
+
+# v1.250.0 (2025-09-02)
+
+* **Feature**: MaximumEbsAttachments and AttachmentLimitType fields added to DescribeInstanceTypesResponse. G6f, Gr6f, R8i, R8i-flex and p5.4xlarge instance types added to InstanceTypes enum.
+
+# v1.249.0 (2025-08-29)
+
+* **Feature**: Release shows new route types such as filtered and advertisement.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.248.0 (2025-08-28)
+
+* **Feature**: This release adds support for copying Amazon EBS snapshot and AMIs to and from Local Zones.
+
+# v1.247.1 (2025-08-27)
+
+* **Dependency Update**: Update to smithy-go v1.23.0.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.247.0 (2025-08-26)
+
+* **Feature**: Add new APIs for viewing how your shared AMIs are used by other accounts, and identify resources in your account that are dependent on particular AMIs
+
+# v1.246.0 (2025-08-25)
+
+* **Feature**: Added IPv6 support for AWS Client VPN.
+
+# v1.245.2 (2025-08-21)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.245.1 (2025-08-20)
+
+* **Bug Fix**: Remove unused deserialization code.
+
 # v1.245.0 (2025-08-19)
 
 * **Feature**: Add support for "warning" volume status.
