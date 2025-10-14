@@ -1,3 +1,45 @@
+# v1.64.2 (2025-09-26)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.64.1 (2025-09-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.64.0 (2025-09-11)
+
+* **Feature**: This release supports hook details for Amazon ECS lifecycle hooks.
+
+# v1.63.7 (2025-09-10)
+
+* No change notes available for this release.
+
+# v1.63.6 (2025-09-08)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.63.5 (2025-09-05)
+
+* **Documentation**: This is a documentation only release that adds additional information for Amazon ECS Availability Zone rebalancing.
+
+# v1.63.4 (2025-08-29)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.63.3 (2025-08-27)
+
+* **Dependency Update**: Update to smithy-go v1.23.0.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.63.2 (2025-08-21)
+
+* **Documentation**: This is a documentation only release that adds additional information for the update-service request parameters.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.63.1 (2025-08-20)
+
+* **Bug Fix**: Remove unused deserialization code.
+
 # v1.63.0 (2025-08-11)
 
 * **Feature**: Add support for configuring per-service Options via callback on global config.
