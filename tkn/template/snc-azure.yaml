@@ -1,0 +1,94 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: cloud-importer-openshift-local-azure
+  labels:
+    app.kubernetes.io/version: "<VERSION>"
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.44.x"
+    tekton.dev/categories: infrastructure
+    tekton.dev/tags: infrastructure, azure, crc-bundle
+    tekton.dev/displayName: "CloudImporter OpenShift-Local Azure"
+    tekton.dev/platforms: "linux/amd64"
+spec:
+  description: >-
+    This Task imports an OpenShift Local bundle to Azure using the cloud-importer tool.
+  params:
+    - name: bundle-uri
+      description: Accessible URL to get the bundle.
+    - name: shasum-uri
+      description: Accessible URL to get the shasum file to check bundle.
+    - name: arch
+      description: Architecture for the machine (x86_64 or arm64).
+      default: "x86_64"
+    - name: share-orgs-ids
+      description: "A comma-separated list of organization ARNs to share the AMI with."
+      default: ""
+    - name: replicate-to-regions
+      description: "A comma-separated list of regions to replicate the AMI to."
+      default: "all"
+    - name: id
+      description: identifier for the taskrun
+    - name: debug
+      description: run with deug logs
+  workspaces:
+    - name: credentials
+      description: A workspace containing the cloud provider credentials.
+      mountPath: /opt/az-credentials
+  steps:
+    - name: run-cloud-importer
+      image: <IMAGE>
+      script: |
+        #!/bin/sh
+
+        set -euo pipefail
+
+        # Function to mask credentials (show first and last char, hide middle)
+        mask_credential() {
+          local cred="$1"
+          local len=${#cred}
+          if [ $len -le 2 ]; then
+            echo "***"
+          else
+            echo "${cred:0:1}***${cred: -1}"
+          fi
+        }
+
+        # Credentials - set these BEFORE enabling debug mode
+        export ARM_TENANT_ID=$(cat /opt/az-credentials/tenant_id)
+        export ARM_SUBSCRIPTION_ID=$(cat /opt/az-credentials/subscription_id)
+        export ARM_CLIENT_ID=$(cat /opt/az-credentials/client_id)
+        export ARM_CLIENT_SECRET=$(cat /opt/az-credentials/client_secret)
+        export AZURE_STORAGE_ACCOUNT=$(cat /opt/az-credentials/storage_account)
+        export AZURE_STORAGE_KEY=$(cat /opt/az-credentials/storage_key)
+        BLOB=$(cat /opt/az-credentials/blob)
+
+        # If debug add verbosity and print masked credentials
+        if [[ "$(params.debug)" == "true" ]]; then
+          echo "ARM_TENANT_ID=$(mask_credential "$ARM_TENANT_ID")"
+          echo "ARM_SUBSCRIPTION_ID=$(mask_credential "$ARM_SUBSCRIPTION_ID")"
+          echo "ARM_CLIENT_ID=$(mask_credential "$ARM_CLIENT_ID")"
+          echo "ARM_CLIENT_SECRET=$(mask_credential "$ARM_CLIENT_SECRET")"
+          echo "AZURE_STORAGE_ACCOUNT=$(mask_credential "$AZURE_STORAGE_ACCOUNT")"
+          echo "AZURE_STORAGE_KEY=$(mask_credential "$AZURE_STORAGE_KEY")"
+          echo "BLOB=$BLOB"
+          set -xeuo pipefail
+        fi
+
+        cmd="cloud-importer snc az --arch $(params.arch) "
+        cmd+="--bundle-uri \"$(params.bundle-uri)\" --shasum-uri \"$(params.shasum-uri)\" "
+        cmd+="--backed-url azblob://${BLOB}/cloud-importer-crc-bundle-$(params.id) "
+
+        if [ -n "$(params.share-orgs-ids)" ]; then
+          cmd+="--share-orgs-ids=$(params.share-orgs-ids) "
+        fi
+
+        if [ -n "$(params.replicate-to-regions)" ]; then
+          cmd+="--replicate=$(params.replicate-to-regions) "
+        fi
+
+        if [[ "$(params.debug)" == "true" ]]; then
+          cmd+="--debug"
+        fi
+
+        eval ${cmd}

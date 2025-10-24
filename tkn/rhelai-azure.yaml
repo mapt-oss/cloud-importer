@@ -1,0 +1,89 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: cloud-importer-azure
+  labels:
+    app.kubernetes.io/version: "1.0.0-dev"
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.44.x"
+    tekton.dev/categories: infrastructure
+    tekton.dev/tags: infrastructure, azure, rhelai
+    tekton.dev/displayName: "CloudImporter Azure"
+    tekton.dev/platforms: "linux/amd64"
+spec:
+  description: >-
+    This Task imports a RAW image to Azure using the cloud-importer tool.
+  params:
+    - name: raw-image-path
+      description: Local path to the raw image.
+    - name: image-name
+      description: The name for the image in Azure.
+    - name: replicate-to-regions
+      description: "A comma-separated list of regions to replicate the image to."
+      default: "all"
+    - name: share-orgs-ids
+      description: "A comma-separated list of organization ARNs to share the AMI with."
+      default: ""
+    - name: id
+      description: identifier for the taskrun
+    - name: debug
+      description: run with deug logs
+  workspaces:
+    - name: credentials
+      description: A workspace containing the cloud provider credentials.
+      mountPath: /opt/azure-credentials
+    - name: data
+      description: A workspace for the raw image.
+      mountPath: /data
+  steps:
+    - name: run-cloud-importer
+      image: quay.io/mapt-oss/cloud-importer:v1.0.0-dev
+      script: |
+        #!/bin/sh
+
+        set -euo pipefail
+
+        # Function to mask credentials (show first and last char, hide middle)
+        mask_credential() {
+          local cred="$1"
+          local len=${#cred}
+          if [ $len -le 2 ]; then
+            echo "***"
+          else
+            echo "${cred:0:1}***${cred: -1}"
+          fi
+        }
+
+        # Credentials - set these BEFORE enabling debug mode
+        export AZURE_CLIENT_ID=$(cat /opt/azure-credentials/client-id)
+        export AZURE_CLIENT_SECRET=$(cat /opt/azure-credentials/client-secret)
+        export AZURE_TENANT_ID=$(cat /opt/azure-credentials/tenant-id)
+        export AZURE_SUBSCRIPTION_ID=$(cat /opt/azure-credentials/subscription-id)
+        export AZURE_STORAGE_ACCOUNT_NAME=$(cat /opt/azure-credentials/storage-account)
+
+
+        # If debug add verbosity and print masked credentials
+        if [[ "$(params.debug)" == "true" ]]; then
+          echo "AZURE_CLIENT_ID=$(mask_credential "$AZURE_CLIENT_ID")"
+          echo "AZURE_CLIENT_SECRET=$(mask_credential "$AZURE_CLIENT_SECRET")"
+          echo "AZURE_TENANT_ID=$AZURE_TENANT_ID"
+          echo "AZURE_SUBSCRIPTION_ID"=$AZURE_SUBSCRIPTION_ID
+          echo "AZURE_STORAGE_ACCOUNT_NAME"=$AZURE_STORAGE_ACCOUNT_NAME
+          set -xeuo pipefail
+        fi
+
+        cmd="cloud-importer rhelai az --output /data/output.json --image-path /data/$(params.raw-image-path) "
+        cmd+="--image-name $(params.image-name) "
+        cmd+="--backed-url azblob://${AZURE_STORAGE_ACCOUNT_NAME}/cloud-importer/$(params.id) "
+        if [[ "$(params.debug)" == "true" ]]; then
+          cmd+="--debug"
+        fi
+        if [ -n "$(params.replicate-to-regions)" ]; then
+          cmd+=" --replicate=$(params.replicate-to-regions)"
+        fi
+        if [ -n "$(params.share-orgs-ids)" ]; then
+          cmd+=" --replicate=$(params.share-orgs-ids)"
+        fi
+
+        eval ${cmd}
+
