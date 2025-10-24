@@ -577,7 +577,7 @@ github.com/pulumi/pulumi-aws-native/sdk/go/aws
 github.com/pulumi/pulumi-aws-native/sdk/go/aws/iam
 github.com/pulumi/pulumi-aws-native/sdk/go/aws/internal
 github.com/pulumi/pulumi-aws-native/sdk/go/aws/s3
-# github.com/pulumi/pulumi-aws/sdk/v6 v6.83.0
+# github.com/pulumi/pulumi-aws/sdk/v6 v6.83.1
 ## explicit; go 1.23.0
 github.com/pulumi/pulumi-aws/sdk/v6/go/aws/ebs
 github.com/pulumi/pulumi-aws/sdk/v6/go/aws/ec2
