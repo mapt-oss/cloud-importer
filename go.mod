@@ -2,14 +2,14 @@ module github.com/devtools-qe-incubator/cloud-importer
 
 go 1.24.6
 
-toolchain go1.24.7
+toolchain go1.25.3
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions v1.3.0
 	github.com/pulumi/pulumi-aws-native/sdk v1.37.0
 	github.com/pulumi/pulumi-aws/sdk/v6 v6.83.1
-	github.com/pulumi/pulumi-azure-native-sdk/compute/v3 v3.8.0
+	github.com/pulumi/pulumi-azure-native-sdk/compute/v3 v3.10.0
 	github.com/pulumi/pulumi-azure-native-sdk/resources/v3 v3.10.0
 	github.com/pulumi/pulumi-azure-native-sdk/storage/v3 v3.10.0
 	github.com/pulumi/pulumi-command/sdk v1.1.3
@@ -64,7 +64,8 @@ require (
 	github.com/charmbracelet/x/cellbuf v0.0.13 // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/cheggaaa/pb v1.0.29 // indirect
-	github.com/clipperhouse/uax29/v2 v2.2.0 // indirect
+	github.com/clipperhouse/stringish v0.1.1 // indirect
+	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect
 	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/cyphar/filepath-securejoin v0.5.0 // indirect
 	github.com/djherbis/times v1.6.0 // indirect
