@@ -124,8 +124,10 @@ github.com/cheggaaa/pb v1.0.18/go.mod h1:pQciLPpbU0oxA0h+VJYYLxO+XeDQb5pZijXscXH
 github.com/cheggaaa/pb v1.0.29 h1:FckUN5ngEk2LpvuG0fw1GEFx6LtyY2pWI/Z2QgCnEYo=
 github.com/cheggaaa/pb v1.0.29/go.mod h1:W40334L7FMC5JKWldsTWbdGjLo0RxUKK73K+TuPxX30=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
-github.com/clipperhouse/uax29/v2 v2.2.0 h1:ChwIKnQN3kcZteTXMgb1wztSgaU+ZemkgWdohwgs8tY=
-github.com/clipperhouse/uax29/v2 v2.2.0/go.mod h1:EFJ2TJMRUaplDxHKj1qAEhCtQPW2tJSwu5BF98AuoVM=
+github.com/clipperhouse/stringish v0.1.1 h1:+NSqMOr3GR6k1FdRhhnXrLfztGzuG+VuFDfatpWHKCs=
+github.com/clipperhouse/stringish v0.1.1/go.mod h1:v/WhFtE1q0ovMta2+m+UbpZ+2/HEXNWYXQgCt4hdOzA=
+github.com/clipperhouse/uax29/v2 v2.3.0 h1:SNdx9DVUqMoBuBoW3iLOj4FQv3dN5mDtuqwuhIGpJy4=
+github.com/clipperhouse/uax29/v2 v2.3.0/go.mod h1:Wn1g7MK6OoeDT0vL+Q0SQLDz/KpfsVRgg6W7ihQeh4g=
 github.com/cloudflare/circl v1.6.1 h1:zqIqSPIndyBh1bjLVVDHMPpVKqp8Su/V+6MeDzzQBQ0=
 github.com/cloudflare/circl v1.6.1/go.mod h1:uddAzsPgqdMAYatqJ0lsjX1oECcQLIlRpzZh3pJrofs=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
@@ -373,8 +375,8 @@ github.com/pulumi/pulumi-aws-native/sdk v1.37.0 h1:pM31t2HBTwpKQb84SQgWdzUGah18K
 github.com/pulumi/pulumi-aws-native/sdk v1.37.0/go.mod h1:Jzds3Q+YZu9Kd6xLw/yDzAKbDcHlT2nV5tpVljqa9co=
 github.com/pulumi/pulumi-aws/sdk/v6 v6.83.1 h1:46AF76KQV+1ER+Mg47Ke+0ONiNf1q0qKdIMVQcPmuPs=
 github.com/pulumi/pulumi-aws/sdk/v6 v6.83.1/go.mod h1:520DDoW2zBYVWwwAT8qt/9VhNoBcDIslDljzE8/O080=
-github.com/pulumi/pulumi-azure-native-sdk/compute/v3 v3.8.0 h1:2l99EkcmhewcqZD/am2eDJPk3K/kWh2BiPhiPlL+GPM=
-github.com/pulumi/pulumi-azure-native-sdk/compute/v3 v3.8.0/go.mod h1:cSNgHrlZLUyDiL0AwwyrFbbVGAcNIzA2vCD/GEXuVx8=
+github.com/pulumi/pulumi-azure-native-sdk/compute/v3 v3.10.0 h1:LEKxTw6YTG/lRZ0XX6CnbFjT4zwJlQOZKykMJDiYvo0=
+github.com/pulumi/pulumi-azure-native-sdk/compute/v3 v3.10.0/go.mod h1:Cq1zgl8g3YKI6fSdDxWzMIZafkbdp0KW21MGqKYOm/0=
 github.com/pulumi/pulumi-azure-native-sdk/resources/v3 v3.10.0 h1:O/kL45I5AmXvkCeC//6afYWdcX4sz/yd/HYszh+YnAw=
 github.com/pulumi/pulumi-azure-native-sdk/resources/v3 v3.10.0/go.mod h1:Nm4qXL6nhlWfOqcThCyK1lHE5Dyl56NOBrTTBn+Oz2c=
 github.com/pulumi/pulumi-azure-native-sdk/storage/v3 v3.10.0 h1:M2wYx2qIu7+4Yv5d0eKAzQtOUizj3OHwiM/RJVTglqA=
