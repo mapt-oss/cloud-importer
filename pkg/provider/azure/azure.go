@@ -2,12 +2,9 @@ package azure
 
 import (
 	"context"
-	"strings"
 
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/provider/credentials"
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/util/logging"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
-	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
 const (
@@ -25,52 +22,6 @@ type azureProvider struct{}
 
 func Provider() *azureProvider {
 	return &azureProvider{}
-}
-
-func (p *azureProvider) RHELAI(rawImageFilePath, amiName string) (pulumi.RunFunc, error) {
-	rhelAIReq := rhelAIRequest{
-		vhdPath:   rawImageFilePath,
-		imageName: amiName,
-	}
-	return rhelAIReq.runFunc, nil
-}
-
-func (p *azureProvider) Share(imageID, targetAccountID, arch, organizationARN string) (pulumi.RunFunc, []string, error) {
-	// Not implemented for Azure
-	return nil, nil, nil
-}
-
-func (p *azureProvider) OpenshiftLocal(bundleURL, shasumURL, arch string, regions []string) (pulumi.RunFunc, error) {
-	ocpReq := openshiftRequest{
-		bundleURL: bundleURL,
-		shasumURL: shasumURL,
-		arch:      arch,
-		regions:   regions,
-	}
-	return ocpReq.runFunc, nil
-}
-
-func (p *azureProvider) Replicate(amiName string, targetRegions []string) (pulumi.RunFunc, []string, error) {
-	var availableRegions []string
-	var err error
-
-	if len(targetRegions) > 0 {
-		if strings.Contains(targetRegions[0], "all") {
-			availableRegions, err = Locations()
-			if err != nil {
-				logging.Debugf("Unable to get list of all locations: %v", err)
-				return nil, []string{}, err
-			}
-		} else {
-			availableRegions = targetRegions
-		}
-	}
-
-	req := replicateRequest{
-		galleryImageName: amiName,
-		targetRegions:    availableRegions,
-	}
-	return req.runFunc, availableRegions, nil
 }
 
 func (p *azureProvider) GetProviderCredentials(customCredentials map[string]string) credentials.ProviderCredentials {

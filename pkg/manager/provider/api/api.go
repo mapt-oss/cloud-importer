@@ -2,13 +2,9 @@ package api
 
 import (
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/provider/credentials"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
-
-// const (
-// 	OutputImageID   string = "ami-image-id"
-// 	OutputImageName string = "ami-name"
-// )
 
 type Stack struct {
 	ProjectName         string
@@ -19,9 +15,12 @@ type Stack struct {
 }
 
 type Provider interface {
-	RHELAI(rawImageFilePath, amiName string) (pulumi.RunFunc, error)
-	Share(imageID string, arch, targetAccountID, organizationARN string) (pulumi.RunFunc, []string, error)
-	OpenshiftLocal(bundleURL, shasumURL, arch string, targeRegions []string) (pulumi.RunFunc, error)
-	Replicate(amiName string, targetRegions []string) (pulumi.RunFunc, []string, error)
+	// Manage ephemeral assets
+	RHELAIEphemeral(imageFilePath, imageName string) pulumi.RunFunc
+	// Manage ephemeral assets
+	SNCEphemeral(bundleURI, shasumURI, arch string) pulumi.RunFunc
+	// Register AMI and keep state
+	ImageRegister(ephemeralResults auto.UpResult, replicate bool, orgId string) (pulumi.RunFunc, error)
+	// Manage Provider Credentials
 	GetProviderCredentials(customCreds map[string]string) credentials.ProviderCredentials
 }

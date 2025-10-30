@@ -4,34 +4,40 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-type rhelAIRequest struct {
+const (
+	rhelAIOffer     = "rhelai"
+	rhelAIPublisher = "aipcc-cicd"
+	rhelAISKU       = "rhelai"
+)
+
+type rhelaiEphemeralRequest struct {
 	vhdPath   string
 	imageName string
 }
 
-func (r *rhelAIRequest) runFunc(ctx *pulumi.Context) error {
-	container, storageAcc, rg, err := CreateEphemeralStorageAccount(ctx)
+func (a *azureProvider) RHELAIEphemeral(imageFilePath, imageName string) pulumi.RunFunc {
+	r := rhelaiEphemeralRequest{
+		imageFilePath,
+		imageName}
+	return r.rhelaiEphemeralRunFunc
+}
+
+// This func should add all outputs
+func (r rhelaiEphemeralRequest) rhelaiEphemeralRunFunc(ctx *pulumi.Context) error {
+	ctx.Export(outOffer, pulumi.String(rhelAIOffer))
+	ctx.Export(outPublisher, pulumi.String(rhelAIPublisher))
+	ctx.Export(outSKU, pulumi.String(rhelAISKU))
+	container, storageAcc, rg, err := storageAccount(ctx)
 	if err != nil {
 		return err
 	}
-
-	sas := GetStorageAccSAS(ctx, storageAcc.Name, rg.Name)
-
+	ctx.Export(outServiceAccountId, storageAcc.ID())
+	blobName := blobName()
+	sas := storageAccSAS(ctx, storageAcc.Name, rg.Name)
 	sasURL := pulumi.Sprintf(sasURLBase, storageAcc.Name, container.Name, blobName, sas.AccountSasToken())
-	blobURL := pulumi.Sprintf(blobURLBase, storageAcc.Name, container.Name, blobName)
+	blobURI := pulumi.Sprintf(blobURLBase, storageAcc.Name, container.Name, blobName)
+	ctx.Export(outBlobURI, blobURI)
+	_, err = uploadVHD(ctx, r.vhdPath, sasURL, pulumi.DependsOn([]pulumi.Resource{rg, storageAcc, container}))
+	return err
 
-	cmd, err := UploadVHD(ctx, r.vhdPath, sasURL, pulumi.DependsOn([]pulumi.Resource{rg, storageAcc, container}))
-	if err != nil {
-		return err
-	}
-	vhdRequest := vhdRequest{
-		imageName:     r.imageName,
-		arch:          "x86_64",
-		imageType:     imageTypeRhelAI,
-		version:       "10",
-		galleryName:   rhelAIGalleryName,
-		resourceGroup: rhelAIGalleryRGName,
-	}
-
-	return RegisterImage(ctx, storageAcc, vhdRequest, blobURL, pulumi.DependsOn([]pulumi.Resource{rg, storageAcc, container, cmd}))
 }

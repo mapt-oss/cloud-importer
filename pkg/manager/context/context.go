@@ -1,7 +1,6 @@
 package context
 
 import (
-	"crypto/rand"
 	"fmt"
 
 	"github.com/pulumi/pulumi-aws-native/sdk/go/aws"
@@ -14,17 +13,16 @@ const (
 )
 
 type ContextArgs struct {
-	BackedURL  string
-	Output     string
-	Debug      bool
-	DebugLevel uint
-	Tags       map[string]string
+	ProjectName string
+	BackedURL   string
+	Debug       bool
+	DebugLevel  uint
+	Tags        map[string]string
 }
 
 type context struct {
 	projectName string
 	backedURL   string
-	output      string
 	debug       bool
 	debugLevel  uint
 	tags        aws.TagArray
@@ -34,9 +32,8 @@ var c *context
 
 func Init(ca *ContextArgs) {
 	c = &context{
-		projectName: randomID(),
+		projectName: ca.ProjectName,
 		backedURL:   ca.BackedURL,
-		output:      ca.Output,
 		debug:       ca.Debug,
 		debugLevel:  ca.DebugLevel,
 	}
@@ -51,12 +48,11 @@ func ProjectName() string {
 	return c.projectName
 }
 
+// Backed url is composed from the base backed url / project name
+// this can help us in case we want to automate some destroy only based on
+// backed url base....it can check each folder and use it as project name
 func BackedURL() string {
-	return c.backedURL
-}
-
-func Output() string {
-	return c.output
+	return fmt.Sprintf("%s/%s", c.backedURL, c.projectName)
 }
 
 func Debug() bool {
@@ -72,11 +68,4 @@ func addCommonTags() {
 		Key:   pulumi.String(originTagName),
 		Value: pulumi.String(originTagValue),
 	})
-}
-
-// // random name for temporary assets required for importing the image
-func randomID() string {
-	b := make([]byte, 4)
-	_, _ = rand.Read(b)
-	return fmt.Sprintf("cloud-importer-%x", b)
 }

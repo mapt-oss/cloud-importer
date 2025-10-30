@@ -2,6 +2,8 @@ package aws
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/provider/credentials"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
@@ -43,4 +45,16 @@ func (p *aws) GetProviderCredentials(customCredentials map[string]string) creden
 
 func SetAWSCredentials(ctx context.Context, stack auto.Stack, customCredentials map[string]string) error {
 	return credentials.SetCredentials(ctx, stack, customCredentials, envCredentials)
+}
+
+func sourceHostingPlace() (*string, error) {
+	hp := os.Getenv("AWS_DEFAULT_REGION")
+	if len(hp) > 0 {
+		return &hp, nil
+	}
+	hp = os.Getenv("AWS_REGION")
+	if len(hp) > 0 {
+		return &hp, nil
+	}
+	return nil, fmt.Errorf("missing default value for AWS Region")
 }
