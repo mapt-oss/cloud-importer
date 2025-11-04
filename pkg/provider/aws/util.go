@@ -7,8 +7,6 @@ import (
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
 	"github.com/pulumi/pulumi-aws-native/sdk/go/aws/iam"
 	"github.com/pulumi/pulumi-aws-native/sdk/go/aws/s3"
-	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws/ebs"
-	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws/ec2"
 	"github.com/pulumi/pulumi-command/sdk/go/command/local"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
@@ -88,58 +86,6 @@ func uploadDisk(ctx *pulumi.Context, rawImageFilePath, bucketName *string,
 				Update: "90m",
 				Delete: "90m"}),
 		pulumi.DependsOn(dependecies))
-}
-
-// from an image as a raw on a s3 bucket this function will import it as a snapshot
-// and the register the snapshot as an AMI
-func registerAMI(ctx *pulumi.Context, amiName *string, arch *string,
-	bucketName *string, vmieRole *iam.Role,
-	dependsOn []pulumi.Resource) (*ec2.Ami, error) {
-	snapshot, err := ebs.NewSnapshotImport(ctx,
-		"snapshot",
-		&ebs.SnapshotImportArgs{
-			Description: pulumi.String(*amiName),
-			DiskContainer: &ebs.SnapshotImportDiskContainerArgs{
-				Format: pulumi.String("RAW"),
-				UserBucket: &ebs.SnapshotImportDiskContainerUserBucketArgs{
-					S3Bucket: pulumi.String(*bucketName),
-					S3Key:    pulumi.String("disk.raw"),
-				},
-			},
-			RoleName: vmieRole.RoleName,
-		},
-		pulumi.DependsOn(dependsOn),
-		// This allows to mask the import operation with a create and destroy
-		// keeping only the AMI the other resources are ephermeral only tied to
-		// the execution
-		pulumi.RetainOnDelete(true))
-	if err != nil {
-		return nil, err
-	}
-	return ec2.NewAmi(ctx,
-		"ami",
-		&ec2.AmiArgs{
-			EbsBlockDevices: ec2.AmiEbsBlockDeviceArray{
-				&ec2.AmiEbsBlockDeviceArgs{
-					DeviceName: pulumi.String("/dev/xvda"),
-					SnapshotId: snapshot.ID(),
-					VolumeSize: pulumi.Int(1000),
-					VolumeType: pulumi.String("gp3"),
-					Iops: pulumi.Int(3000),
-				},
-			},
-			Name:               pulumi.String(*amiName),
-			Description:        pulumi.String(*amiName),
-			RootDeviceName:     pulumi.String("/dev/xvda"),
-			VirtualizationType: pulumi.String("hvm"),
-			Architecture:       pulumi.String(*arch),
-			// Required by c6a instances
-			EnaSupport: pulumi.Bool(true),
-		},
-		// This allows to mask the import operation with a create and destroy
-		// keeping only the AMI the other resources are ephermeral only tied to
-		// the execution
-		pulumi.RetainOnDelete(true))
 }
 
 func trustPolicyContent() map[string]interface{} {

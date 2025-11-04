@@ -6,12 +6,6 @@ import (
 	"os"
 	"strings"
 
-	openshiftlocal "github.com/devtools-qe-incubator/cloud-importer/cmd/importer/cmd/openshift-local"
-	"github.com/devtools-qe-incubator/cloud-importer/cmd/importer/cmd/replicate"
-	"github.com/devtools-qe-incubator/cloud-importer/cmd/importer/cmd/rhelai"
-	"github.com/devtools-qe-incubator/cloud-importer/cmd/importer/cmd/share"
-	params "github.com/devtools-qe-incubator/cloud-importer/cmd/importer/params"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -23,11 +17,6 @@ const (
 
 	defaultErrorExitCode = 1
 )
-
-// var (
-// 	baseDir = filepath.Join(os.Getenv("HOME"), ".ci")
-// 	logFile = "ci.log"
-// )
 
 var rootCmd = &cobra.Command{
 	Use:   commandName,
@@ -56,15 +45,13 @@ func runRoot() {
 func init() {
 	// Common flags
 	flagSet := pflag.NewFlagSet(commandName, pflag.ExitOnError)
-	params.AddCommonFlags(flagSet)
+	contextArgsFlags(flagSet)
 	rootCmd.PersistentFlags().AddFlagSet(flagSet)
 	// Subcommands
 	rootCmd.AddCommand(
-		openshiftlocal.GetCmd(),
-		rhelai.GetCmd(),
-		share.GetCmd(),
-		replicate.GetCmd(),
-	)
+		sncCmds(),
+		rhelaiCmds(),
+		destroy())
 }
 
 func Execute() {

@@ -4,34 +4,44 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-type rhelAIRequest struct {
+const (
+	rhelAIOffer     = "rhelai"
+	rhelAIPublisher = "aipcc-cicd"
+	rhelAISKU       = "rhelai"
+)
+
+type rhelaiEphemeralRequest struct {
 	vhdPath   string
 	imageName string
 }
 
-func (r *rhelAIRequest) runFunc(ctx *pulumi.Context) error {
-	container, storageAcc, rg, err := CreateEphemeralStorageAccount(ctx)
+func (a *azureProvider) RHELAIEphemeral(imageFilePath, imageName string) pulumi.RunFunc {
+	r := rhelaiEphemeralRequest{
+		imageFilePath,
+		imageName}
+	return r.rhelaiEphemeralRunFunc
+}
+
+// This func should add all outputs
+func (r rhelaiEphemeralRequest) rhelaiEphemeralRunFunc(ctx *pulumi.Context) error {
+	ctx.Export(outOffer, pulumi.String(rhelAIOffer))
+	ctx.Export(outPublisher, pulumi.String(rhelAIPublisher))
+	ctx.Export(outSKU, pulumi.String(rhelAISKU))
+	ctx.Export(outName, pulumi.String(r.imageName))
+	ctx.Export(outArch, pulumi.String("x86_64"))
+	location, err := sourceHostingPlace()
 	if err != nil {
 		return err
 	}
-
-	sas := GetStorageAccSAS(ctx, storageAcc.Name, rg.Name)
-
-	sasURL := pulumi.Sprintf(sasURLBase, storageAcc.Name, container.Name, blobName, sas.AccountSasToken())
-	blobURL := pulumi.Sprintf(blobURLBase, storageAcc.Name, container.Name, blobName)
-
-	cmd, err := UploadVHD(ctx, r.vhdPath, sasURL, pulumi.DependsOn([]pulumi.Resource{rg, storageAcc, container}))
+	container, sa, rg, err := storageAccount(ctx, location, &r.imageName)
 	if err != nil {
 		return err
 	}
-	vhdRequest := vhdRequest{
-		imageName:     r.imageName,
-		arch:          "x86_64",
-		imageType:     imageTypeRhelAI,
-		version:       "10",
-		galleryName:   rhelAIGalleryName,
-		resourceGroup: rhelAIGalleryRGName,
-	}
-
-	return RegisterImage(ctx, storageAcc, vhdRequest, blobURL, pulumi.DependsOn([]pulumi.Resource{rg, storageAcc, container, cmd}))
+	ctx.Export(outServiceAccountId, sa.ID())
+	blobName := "disk.vhd"
+	sas := storageAccSAS(ctx, sa.Name, rg.Name)
+	sasURL := pulumi.Sprintf(sasURLBase, sa.Name, container.Name, blobName, sas.AccountSasToken())
+	blobURI := pulumi.Sprintf(blobURLBase, sa.Name, container.Name, blobName)
+	ctx.Export(outBlobURI, blobURI)
+	return uploadVHD(ctx, r.vhdPath, sasURL, pulumi.DependsOn([]pulumi.Resource{container}))
 }

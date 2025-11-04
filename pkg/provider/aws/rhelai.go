@@ -4,7 +4,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-type importRequest struct {
+type rhelaiEphemeralRequest struct {
 	rawImageFilePath string
 	amiName          string
 }
@@ -14,30 +14,28 @@ var (
 	rhelaiArch = "x86_64"
 )
 
-func (a *aws) RHELAI(rawImageFilePath, amiName string) (pulumi.RunFunc, error) {
-	r := importRequest{
-		rawImageFilePath,
-		amiName}
-	return r.runFunc, nil
+func (a *aws) RHELAIEphemeral(imageFilePath, imageName string) pulumi.RunFunc {
+	r := rhelaiEphemeralRequest{
+		imageFilePath,
+		imageName}
+	return r.rhelaiEphemeralRunFunc
 }
 
-func (r importRequest) runFunc(ctx *pulumi.Context) error {
-	id := randomID()
-	_, err := bucketEphemeral(ctx, id)
+// This func should add all outputs
+func (r rhelaiEphemeralRequest) rhelaiEphemeralRunFunc(ctx *pulumi.Context) error {
+	ctx.Export(outAMIName, pulumi.String(r.amiName))
+	ctx.Export(outAMIArch, pulumi.String(rhelaiArch))
+	bucketName := randomID()
+	b, err := bucketEphemeral(ctx, bucketName)
 	if err != nil {
 		return err
 	}
-	ro, _, err := createVMIEmportExportRole(ctx, id)
+	ctx.Export(outBucketName, pulumi.String(*bucketName))
+	ro, _, err := createVMIEmportExportRole(ctx, bucketName)
 	if err != nil {
 		return err
 	}
-	u, err := uploadDisk(ctx, &r.rawImageFilePath, id, []pulumi.Resource{ro})
-	if err != nil {
-		return err
-	}
-	_, err = registerAMI(ctx, &r.amiName, &rhelaiArch, id, ro, []pulumi.Resource{u})
-	if err != nil {
-		return err
-	}
-	return nil
+	ctx.Export(outRoleName, ro.RoleName)
+	_, err = uploadDisk(ctx, &r.rawImageFilePath, bucketName, []pulumi.Resource{b, ro})
+	return err
 }
