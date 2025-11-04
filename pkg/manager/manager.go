@@ -1,38 +1,34 @@
 package manager
 
 import (
-	"fmt"
-	"sync"
-
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
 	providerAPI "github.com/devtools-qe-incubator/cloud-importer/pkg/manager/provider/api"
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/util/logging"
 )
 
 const (
-	stackRHELAI             string = "rhelai"
-	stackOpenshiftLocal     string = "openshiftloca"
-	stackShare              string = "shareStack"
-	stackReplicate          string = "replicate"
-	azureReplicateStackName string = "az-replicate"
+	stackRHELAIEphemeral string = "rhelai-ephemeral"
+	stackRHELAI          string = "rhelai"
+	stackSNCEphemeral    string = "snc-ephemeral"
+	stackSNC             string = "snc"
 
 	// aws provider pulumi env
-	CONFIG_AWS_REGION string = "aws:region"
-
+	CONFIG_AWS_REGION     string = "aws:region"
 	CONFIG_AZURE_LOCATION string = "azure-native:location"
 )
 
-func getUniqueStackNameForReplicate(prefix, region string) string {
-	return fmt.Sprintf("replicate-%s-%s", prefix, region)
+type ImageControl struct {
+	Replicate bool
+	OrgId     string
 }
 
-func getUniqueStackNameForShare(prefix, region string) string {
-	return fmt.Sprintf("share-%s-%s", prefix, region)
+type RHELAIArgs struct {
+	ImageFilepath string
+	ImageName     string
+	ImageControl  *ImageControl
 }
 
 func RHELAI(ctx *context.ContextArgs,
-	rawImageFilepath string,
-	amiName string,
+	args *RHELAIArgs,
 	provider Provider) error {
 	// Initialize context
 	context.Init(ctx)
@@ -41,166 +37,76 @@ func RHELAI(ctx *context.ContextArgs,
 	if err != nil {
 		return err
 	}
-	importFunc, err := p.RHELAI(rawImageFilepath, amiName)
+	ephemeralStack := providerAPI.Stack{
+		ProjectName: context.ProjectName(),
+		StackName:   stackRHELAIEphemeral,
+		BackedURL:   context.BackedURL(),
+		DeployFunc:  p.RHELAIEphemeral(args.ImageFilepath, args.ImageName)}
+	ephemeralResults, err := upStack(ephemeralStack)
 	if err != nil {
 		return err
 	}
-	// Create a stack based on the import function and create it
-	stack := providerAPI.Stack{
-		// TODO add random ID
+	registerFunc, err := p.ImageRegister(ephemeralResults,
+		args.ImageControl.Replicate, args.ImageControl.OrgId)
+	if err != nil {
+		return err
+	}
+	registerStack := providerAPI.Stack{
 		ProjectName: context.ProjectName(),
 		StackName:   stackRHELAI,
 		BackedURL:   context.BackedURL(),
-		DeployFunc:  importFunc}
-	_, err = upStack(stack)
+		DeployFunc:  registerFunc}
+	_, err = upStack(registerStack)
 	if err != nil {
 		return err
 	}
-	// err = manageImageImportResults(stackResult, context.Output())
-	// if err != nil {
-	// 	return nil
-	// }
-	// Current exec create temporary resources to enable the import
-	// we delete it as they are only temporary
-	return destroyStack(stack)
+	return destroyStack(ephemeralStack)
 }
 
-func OpenshiftLocal(ctx *context.ContextArgs,
-	bundleURL string, shasumURL string, arch string,
-	regions []string, provider Provider) error {
-	// Initialize context
+type SNCArgs struct {
+	BundleURI    string
+	ShasumURI    string
+	Arch         string
+	ImageControl *ImageControl
+}
+
+func SNC(ctx *context.ContextArgs, args *SNCArgs, provider Provider) error {
 	context.Init(ctx)
-	// Get provider
 	p, err := getProvider(provider)
 	if err != nil {
 		return err
 	}
-	importFunc, err := p.OpenshiftLocal(bundleURL, shasumURL, arch, regions)
-	if err != nil {
-		return err
-	}
-	// Create a stack based on the import function and create it
-	stack := providerAPI.Stack{
-		// TODO add random ID
+	ephemeralStack := providerAPI.Stack{
 		ProjectName: context.ProjectName(),
-		StackName:   stackOpenshiftLocal,
+		StackName:   stackSNCEphemeral,
 		BackedURL:   context.BackedURL(),
-		DeployFunc:  importFunc}
-	_, err = upStack(stack)
+		DeployFunc:  p.SNCEphemeral(args.BundleURI, args.ShasumURI, args.Arch)}
+	ephemeralResults, err := upStack(ephemeralStack)
 	if err != nil {
 		return err
 	}
-	// err = manageImageImportResults(stackResult, context.Output())
-	// if err != nil {
-	// 	return nil
-	// }
-	// Current exec create temporary resources to enable the import
-	// we delete it as they are only temporary
-	return destroyStack(stack)
+	registerFunc, err := p.ImageRegister(ephemeralResults,
+		args.ImageControl.Replicate, args.ImageControl.OrgId)
+	if err != nil {
+		return err
+	}
+	registerStack := providerAPI.Stack{
+		ProjectName: context.ProjectName(),
+		StackName:   stackSNC,
+		BackedURL:   context.BackedURL(),
+		DeployFunc:  registerFunc}
+	_, err = upStack(registerStack)
+	if err != nil {
+		return err
+	}
+	return destroyStack(ephemeralStack)
 }
 
-func ShareImage(ctx *context.ContextArgs,
-	imageID, targetAccountID, arch, orgARN string,
-	provider Provider) error {
+func Destoy(ctx *context.ContextArgs) error {
 	// Initialize context
 	context.Init(ctx)
-	// Get provider
-	p, err := getProvider(provider)
-	if err != nil {
-		return err
-	}
-	shareFunc, regions, err := p.Share(imageID, arch, targetAccountID, orgARN)
-	if err != nil {
-		return err
-	}
-	var wg sync.WaitGroup
-	for _, region := range regions {
-		wg.Add(1)
-		go func(ctx *context.ContextArgs, amiName, region string) {
-			stack := providerAPI.Stack{
-				// TODO add random ID
-				ProjectName: context.ProjectName(),
-				StackName:   getUniqueStackNameForShare(context.ProjectName(), region),
-				BackedURL:   context.BackedURL(),
-				ProviderCredentials: p.GetProviderCredentials(
-					map[string]string{
-						CONFIG_AWS_REGION: region,
-					}),
-				DeployFunc: shareFunc,
-			}
-
-			_, err = upStack(stack)
-			if err != nil {
-				logging.Debugf("Error while trying to share AMI in: %s: %v", region, err)
-			}
-			wg.Done()
-		}(ctx, imageID, region)
-	}
-	wg.Wait()
-
-	return nil
+	return destroyStack(providerAPI.Stack{
+		ProjectName: context.ProjectName(),
+		StackName:   stackRHELAI,
+		BackedURL:   context.BackedURL()})
 }
-
-func ReplicateImage(ctx *context.ContextArgs, imageID string, targetRegions []string, provider Provider) error {
-	// Initialize context
-	context.Init(ctx)
-	// Get provider
-	var err error
-
-	p, err := getProvider(provider)
-	if err != nil {
-		return err
-	}
-
-	replicateFunc, regions, err := p.Replicate(imageID, targetRegions)
-	if err != nil {
-		return err
-	}
-
-	if provider == AZURE {
-		stack := providerAPI.Stack{
-			ProjectName: context.ProjectName(),
-			StackName:   azureReplicateStackName,
-			BackedURL:   context.BackedURL(),
-			DeployFunc:  replicateFunc,
-		}
-		_, err = upStack(stack)
-		return err
-	}
-
-	var wg sync.WaitGroup
-	for _, region := range regions {
-		wg.Add(1)
-		go func(ctx *context.ContextArgs, amiName, region string) {
-			stack := providerAPI.Stack{
-				// TODO add random ID
-				ProjectName: context.ProjectName(),
-				StackName:   getUniqueStackNameForReplicate(context.ProjectName(), region),
-				BackedURL:   context.BackedURL(),
-				ProviderCredentials: p.GetProviderCredentials(
-					map[string]string{
-						CONFIG_AWS_REGION: region,
-					}),
-				DeployFunc: replicateFunc,
-			}
-
-			_, err = upStack(stack)
-			if err != nil {
-				logging.Debugf("Error while trying to replicate to: %s: %v", region, err)
-			}
-			wg.Done()
-		}(ctx, imageID, region)
-	}
-	wg.Wait()
-	return nil
-}
-
-// func manageImageImportResults(stackResult auto.UpResult, destinationFolder string) error {
-// 	if err := writeOutputs(stackResult, destinationFolder, map[string]string{
-// 		providerAPI.OutputBootKey: "id_ecdsa",
-// 		providerAPI.OutputImageID: "image-id",
-// 	}); err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }

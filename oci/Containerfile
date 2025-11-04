@@ -43,26 +43,28 @@ ARG PULUMI_AZURE_NATIVE_VERSION=v3.10.0
 ENV PULUMI_HOME "/opt/cloud-importer/run"
 WORKDIR ${PULUMI_HOME}
 
-RUN dnf install -y python3 python3-pip zstd qemu-img \
-    && mkdir -p /opt/cloud-importer/run \
-    && if [ "$TARGETARCH" = "arm64" ]; then export ARCH_N=aarch64; fi \
-    && export AWS_CLI_URL="https://awscli.amazonaws.com/awscli-exe-linux-${ARCH_N}-${AWS_CLI_VERSION}.zip" \
-    && curl ${AWS_CLI_URL} -o awscliv2.zip \
-    && dnf install -y unzip \
-    && unzip -qq awscliv2.zip \
-    && ./aws/install \
-    && rm -rf aws awscliv2.zip \
-    && rpm --import https://packages.microsoft.com/keys/microsoft.asc \
-    && dnf install -y https://packages.microsoft.com/config/rhel/9.0/packages-microsoft-prod.rpm \
-    && dnf install -y azure-cli \
-    && dnf clean all \
-  	&& rm -rf /var/cache/yum \
-    && pulumi plugin install resource aws ${PULUMI_AWS_VERSION} \
-    && pulumi plugin install resource command ${PULUMI_COMMAND_VERSION} \
-    && pulumi plugin install resource azure-native ${PULUMI_AZURE_NATIVE_VERSION} \
-    && pulumi plugin install resource aws-native ${PULUMI_AWS_NATIVE_VERSION} \
-    && chown -R 1001:0 /opt/cloud-importer/run \
-    && chmod -R g=u /opt/cloud-importer/run
+ENV AZCOPY_URL https://aka.ms/downloadazcopy-v10-linux
+
+RUN dnf install -y python3 python3-pip zstd qemu-img && \
+    mkdir -p /opt/cloud-importer/run && \
+    if [ "$TARGETARCH" = "arm64" ]; then export ARCH_N=aarch64; fi && \
+    export AWS_CLI_URL="https://awscli.amazonaws.com/awscli-exe-linux-${ARCH_N}-${AWS_CLI_VERSION}.zip" && \
+    curl ${AWS_CLI_URL} -o awscliv2.zip && \
+    dnf install -y unzip && \
+    unzip -qq awscliv2.zip && \
+    ./aws/install && \
+    rm -rf aws awscliv2.zip && \
+    if [ "$TARGETARCH" = "arm64" ]; then export AZCOPY_URL="${AZCOPY_URL}-arm64"; fi && \
+    curl -sSL ${AZCOPY_URL} | tar -xz -C /usr/local/bin --strip-components=1 --wildcards '*/azcopy' && \
+    chmod +x /usr/local/bin/azcopy && \
+    dnf clean all && \
+  	rm -rf /var/cache/yum && \
+    pulumi plugin install resource aws ${PULUMI_AWS_VERSION} && \
+    pulumi plugin install resource command ${PULUMI_COMMAND_VERSION} && \
+    pulumi plugin install resource azure-native ${PULUMI_AZURE_NATIVE_VERSION} && \
+    pulumi plugin install resource aws-native ${PULUMI_AWS_NATIVE_VERSION} && \
+    chown -R 1001:0 /opt/cloud-importer/run && \
+    chmod -R ug+rwx /opt/cloud-importer/run
 
 USER 1001
 
