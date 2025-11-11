@@ -164,7 +164,7 @@ github.com/aws/aws-sdk-go-v2/internal/endpoints/v2
 # github.com/aws/aws-sdk-go-v2/internal/ini v1.8.4
 ## explicit; go 1.23
 github.com/aws/aws-sdk-go-v2/internal/ini
-# github.com/aws/aws-sdk-go-v2/service/ec2 v1.258.1
+# github.com/aws/aws-sdk-go-v2/service/ec2 v1.265.0
 ## explicit; go 1.23
 github.com/aws/aws-sdk-go-v2/service/ec2
 github.com/aws/aws-sdk-go-v2/service/ec2/internal/endpoints
@@ -249,7 +249,7 @@ github.com/charmbracelet/x/term
 # github.com/cheggaaa/pb v1.0.29
 ## explicit; go 1.12
 github.com/cheggaaa/pb
-# github.com/clipperhouse/displaywidth v0.4.1
+# github.com/clipperhouse/displaywidth v0.5.0
 ## explicit; go 1.18
 github.com/clipperhouse/displaywidth
 # github.com/clipperhouse/stringish v0.1.1
@@ -273,19 +273,10 @@ github.com/cloudflare/circl/math/mlsbset
 github.com/cloudflare/circl/sign
 github.com/cloudflare/circl/sign/ed25519
 github.com/cloudflare/circl/sign/ed448
-# github.com/cyphar/filepath-securejoin v0.5.1
+# github.com/cyphar/filepath-securejoin v0.6.0
 ## explicit; go 1.18
 github.com/cyphar/filepath-securejoin
 github.com/cyphar/filepath-securejoin/internal/consts
-github.com/cyphar/filepath-securejoin/pathrs-lite
-github.com/cyphar/filepath-securejoin/pathrs-lite/internal
-github.com/cyphar/filepath-securejoin/pathrs-lite/internal/assert
-github.com/cyphar/filepath-securejoin/pathrs-lite/internal/fd
-github.com/cyphar/filepath-securejoin/pathrs-lite/internal/gocompat
-github.com/cyphar/filepath-securejoin/pathrs-lite/internal/kernelversion
-github.com/cyphar/filepath-securejoin/pathrs-lite/internal/linux
-github.com/cyphar/filepath-securejoin/pathrs-lite/internal/procfs
-github.com/cyphar/filepath-securejoin/pathrs-lite/procfs
 # github.com/djherbis/times v1.6.0
 ## explicit; go 1.16
 github.com/djherbis/times
@@ -495,7 +486,7 @@ github.com/pkg/term/termios
 github.com/pulumi/appdash
 github.com/pulumi/appdash/internal/wire
 github.com/pulumi/appdash/opentracing
-# github.com/pulumi/esc v0.19.0
+# github.com/pulumi/esc v0.20.0
 ## explicit; go 1.23.11
 github.com/pulumi/esc
 github.com/pulumi/esc/ast
@@ -512,7 +503,7 @@ github.com/pulumi/pulumi-aws-native/sdk/go/aws
 github.com/pulumi/pulumi-aws-native/sdk/go/aws/iam
 github.com/pulumi/pulumi-aws-native/sdk/go/aws/internal
 github.com/pulumi/pulumi-aws-native/sdk/go/aws/s3
-# github.com/pulumi/pulumi-aws/sdk/v7 v7.10.0
+# github.com/pulumi/pulumi-aws/sdk/v7 v7.11.0
 ## explicit; go 1.23.11
 github.com/pulumi/pulumi-aws/sdk/v7/go/aws/ebs
 github.com/pulumi/pulumi-aws/sdk/v7/go/aws/ec2
@@ -732,10 +723,10 @@ golang.org/x/net/internal/socks
 golang.org/x/net/internal/timeseries
 golang.org/x/net/proxy
 golang.org/x/net/trace
-# golang.org/x/sync v0.17.0
+# golang.org/x/sync v0.18.0
 ## explicit; go 1.24.0
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.37.0
+# golang.org/x/sys v0.38.0
 ## explicit; go 1.24.0
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
@@ -780,7 +771,7 @@ golang.org/x/tools/internal/stdlib
 golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
 golang.org/x/tools/internal/versions
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20251022142026-3a174f9686a8
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20251110190251-83f479183930
 ## explicit; go 1.24.0
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.76.0
