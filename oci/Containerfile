@@ -38,7 +38,7 @@ ARG PULUMI_COMMAND_VERSION=v1.1.3
 # renovate: datasource=github-releases depName=pulumi/pulumi-aws-native
 ARG PULUMI_AWS_NATIVE_VERSION=v1.37.0
 # renovate: datasource=github-releases depName=pulumi/pulumi-azure-native
-ARG PULUMI_AZURE_NATIVE_VERSION=v3.10.0
+ARG PULUMI_AZURE_NATIVE_VERSION=v3.10.1
 
 ENV PULUMI_HOME "/opt/cloud-importer/run"
 WORKDIR ${PULUMI_HOME}
