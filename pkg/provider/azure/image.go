@@ -31,7 +31,7 @@ var (
 	outBlobURI          = "blobURI"
 )
 
-func (a *azureProvider) ImageRegister(ephemeralResults auto.UpResult, replicate bool, orgId string) (pulumi.RunFunc, error) {
+func (a *azureProvider) ImageRegister(ephemeralResults auto.UpResult, replicate bool, shareOrgIds []string) (pulumi.RunFunc, error) {
 	name, ok := ephemeralResults.Outputs[outName]
 	if !ok {
 		return nil, fmt.Errorf("output not found: %s", outName)
@@ -69,7 +69,7 @@ func (a *azureProvider) ImageRegister(ephemeralResults auto.UpResult, replicate 
 		storageAccountId: saId.Value.(string),
 		blobURI:          blobURI.Value.(string),
 		replicate:        replicate,
-		orgTenantId:      &orgId,
+		shareTenantIds:   shareOrgIds,
 	}
 	return r.registerFunc, nil
 }
@@ -81,7 +81,7 @@ type regiterRequest struct {
 	storageAccountId      string
 	blobURI               string
 	replicate             bool
-	orgTenantId           *string
+	shareTenantIds        []string
 }
 
 // from an image as a raw on a s3 bucket this function will import it as a snapshot
@@ -176,17 +176,17 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) error {
 	if err != nil {
 		return err
 	}
-	if r.orgTenantId != nil {
+	if len(r.shareTenantIds) > 0 {
 		pulumi.All(rg.Name, g.Name).ApplyT(func(args []interface{}) error {
 			rgName := args[0].(string)
 			galleryName := args[1].(string)
-			return shareGallery(*r.orgTenantId, rgName, galleryName, r.name)
+			return shareGallery(r.shareTenantIds, rgName, galleryName, r.name)
 		})
 	}
 	return err
 }
 
-func shareGallery(tenantID, rgName, galleryName, imageName string) error {
+func shareGallery(sharTenantIDs []string, rgName, galleryName, imageName string) error {
 	cred, subscriptionID, err := getCredentials()
 	if err != nil {
 		return err
@@ -196,14 +196,17 @@ func shareGallery(tenantID, rgName, galleryName, imageName string) error {
 		return err
 	}
 	vmContributorRoleID := fmt.Sprintf(vmContributorRoleFormat, *subscriptionID)
-	_, err = client.Create(context.Background(),
-		fmt.Sprintf(galleryScopeFormat, *subscriptionID, rgName, galleryName),
-		fmt.Sprintf("vm-contributor%s", imageName),
-		armauthorization.RoleAssignmentCreateParameters{
-			Properties: &armauthorization.RoleAssignmentProperties{
-				PrincipalID:      &tenantID,
-				RoleDefinitionID: &vmContributorRoleID,
-			},
-		}, nil)
-	return err
+	for _, tenantId := range sharTenantIDs {
+		_, err = client.Create(context.Background(),
+			fmt.Sprintf(galleryScopeFormat, *subscriptionID, rgName, galleryName),
+			fmt.Sprintf("vm-contributor%s", imageName),
+			armauthorization.RoleAssignmentCreateParameters{
+				Properties: &armauthorization.RoleAssignmentProperties{
+					PrincipalID:      &tenantId,
+					RoleDefinitionID: &vmContributorRoleID,
+				},
+			}, nil)
+		return err
+	}
+	return nil
 }

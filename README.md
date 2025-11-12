@@ -41,7 +41,7 @@ podman run --rm --name import-rhelai -d \
         --backed-url s3://bucket/folder \
         --image-name rhelai3-136d47d1 \
         --image-path "/workspace/rhel-ai-nvidia-aws-1.5-1747399384-x86_64.raw" \ 
-        --org-id arn:aws:organizations::XXXXX:organization/XXXXX \
+        --share-orgs-ids arn:aws:organizations::XXXXX:organization/XXXXX,arn:aws:organizations::XXXXX:organization/XXXX1 \
         --replicate \
         --debug \
         --debug-level 9
@@ -68,7 +68,7 @@ podman run --rm --name import-rhelai-azure -d \
         --backed-url azblob://blobcontainer/folder \
         --image-name rhelai3-136d47d1 \
         --image-path "/workspace/rhel-ai-nvidia-aws-1.5-1747399384-x86_64.vhd" \ 
-        --org-id arn:aws:organizations::XXXXX:organization/XXXXX \
+        --share-orgs-ids tenanId1,tenantId2 \
         --replicate \
         --debug \
         --debug-level 9
@@ -99,7 +99,7 @@ podman run --rm --name import-openshift-local -d \
           --shasum-uri ${SHASUM_URL} \
           --arch ${ARCH} \
           --replicate \
-          --org-id arn:aws:organizations::XXXXX:organization/XXXXX \
+          --share-orgs-ids arn:aws:organizations::XXXXX:organization/XXXXX,arn:aws:organizations::XXXXX:organization/XXXX1 \
           --debug \
           --debug-level 9
 ```
@@ -120,7 +120,7 @@ podman run --rm --name import-openshift-local -d \
           --shasum-uri ${SHASUM_URL} \
           --arch ${ARCH} \
           --replicate \
-          --org-id arn:aws:organizations::XXXXX:organization/XXXXX \
+          --share-orgs-ids tenanId1,tenantId2 \
           --debug \
           --debug-level 9
 ```

@@ -17,8 +17,8 @@ const (
 )
 
 type ImageControl struct {
-	Replicate bool
-	OrgId     string
+	Replicate   bool
+	ShareOrgIds []string
 }
 
 type RHELAIArgs struct {
@@ -47,7 +47,7 @@ func RHELAI(ctx *context.ContextArgs,
 		return err
 	}
 	registerFunc, err := p.ImageRegister(ephemeralResults,
-		args.ImageControl.Replicate, args.ImageControl.OrgId)
+		args.ImageControl.Replicate, args.ImageControl.ShareOrgIds)
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func SNC(ctx *context.ContextArgs, args *SNCArgs, provider Provider) error {
 		return err
 	}
 	registerFunc, err := p.ImageRegister(ephemeralResults,
-		args.ImageControl.Replicate, args.ImageControl.OrgId)
+		args.ImageControl.Replicate, args.ImageControl.ShareOrgIds)
 	if err != nil {
 		return err
 	}
