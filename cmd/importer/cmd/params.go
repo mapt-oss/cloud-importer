@@ -21,8 +21,8 @@ const (
 	debugLevelDesc     string = "Set the level of verbosity on debug. You can set from minimum 1 to max 9."
 	paramReplicate     string = "replicate"
 	paramReplicateDesc string = "Provide a list of location to replicate or 'all' to replicate to all available locations"
-	paramOrgId         string = "org-id"
-	paramOrgIdDesc     string = "Organization identifier to share images"
+	paramOrgIds        string = "share-orgs-ids"
+	paramOrgIdsDesc    string = "List of comman separated organization identifiers to share imageswith. AWS would use arn format for orgs, and Azure will use tenantIds"
 )
 
 func contextArgsFlags(fs *pflag.FlagSet) {
@@ -34,7 +34,7 @@ func contextArgsFlags(fs *pflag.FlagSet) {
 
 func imageControlFlags(fs *pflag.FlagSet) {
 	fs.Bool(paramReplicate, false, paramReplicateDesc)
-	fs.StringP(paramOrgId, "", "", paramOrgIdDesc)
+	fs.StringSliceP(paramOrgIds, "", []string{}, paramOrgIdsDesc)
 }
 
 func contextArgs() *context.ContextArgs {
@@ -48,6 +48,6 @@ func contextArgs() *context.ContextArgs {
 
 func imageControl() *manager.ImageControl {
 	return &manager.ImageControl{
-		Replicate: viper.IsSet(paramReplicate),
-		OrgId:     viper.GetString(paramOrgId)}
+		Replicate:   viper.IsSet(paramReplicate),
+		ShareOrgIds: viper.GetStringSlice(paramOrgIds)}
 }

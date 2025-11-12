@@ -2,6 +2,7 @@ package aws
 
 import (
 	"fmt"
+	"strings"
 
 	hostingPlaces "github.com/devtools-qe-incubator/cloud-importer/pkg/util/hosting-place"
 	"github.com/pulumi/pulumi-aws/sdk/v7/go/aws/ebs"
@@ -18,7 +19,7 @@ var (
 	outBucketName = "rolename"
 )
 
-func (a *aws) ImageRegister(ephemeralResults auto.UpResult, replicate bool, orgId string) (pulumi.RunFunc, error) {
+func (a *aws) ImageRegister(ephemeralResults auto.UpResult, replicate bool, shareOrgIds []string) (pulumi.RunFunc, error) {
 	amiNameOutput, ok := ephemeralResults.Outputs[outAMIName]
 	if !ok {
 		return nil, fmt.Errorf("output not found: %s", outAMIName)
@@ -41,7 +42,7 @@ func (a *aws) ImageRegister(ephemeralResults auto.UpResult, replicate bool, orgI
 		bucketName:   bucketNameOutput.Value.(string),
 		vmIERoleName: roleNameOputput.Value.(string),
 		replicate:    replicate,
-		orgARN:       &orgId,
+		shareorgARNs: shareOrgIds,
 	}
 	return r.registerFunc, nil
 }
@@ -52,7 +53,7 @@ type registerRequest struct {
 	bucketName   string
 	vmIERoleName string
 	replicate    bool
-	orgARN       *string
+	shareorgARNs []string
 }
 
 // from an image as a raw on a s3 bucket this function will import it as a snapshot
@@ -77,7 +78,7 @@ func (r *registerRequest) registerFunc(ctx *pulumi.Context) error {
 				name:         &r.name,
 				ami:          ami,
 				sourceRegion: sourceRegion,
-				orgARN:       r.orgARN,
+				shareOrgARNs: r.shareorgARNs,
 			},
 			replicaAsync)
 		return err
@@ -102,7 +103,7 @@ func (r *registerRequest) newAMI(ctx *pulumi.Context) (*ec2.Ami, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ec2.NewAmi(ctx,
+	ami, err := ec2.NewAmi(ctx,
 		"ami",
 		&ec2.AmiArgs{
 			EbsBlockDevices: ec2.AmiEbsBlockDeviceArray{
@@ -124,6 +125,22 @@ func (r *registerRequest) newAMI(ctx *pulumi.Context) (*ec2.Ami, error) {
 			Tags: pulumi.ToStringMap(map[string]string{
 				"Name": r.name}),
 		})
+	if err != nil {
+		return nil, err
+	}
+	for _, orgArn := range r.shareorgARNs {
+		_, err = ec2.NewAmiLaunchPermission(
+			ctx,
+			fmt.Sprintf("%s-%s", r.name, orgId(&orgArn)),
+			&ec2.AmiLaunchPermissionArgs{
+				ImageId:         ami.ID(),
+				OrganizationArn: pulumi.String(orgArn),
+			})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return ami, nil
 }
 
 type replicateArgs struct {
@@ -131,7 +148,7 @@ type replicateArgs struct {
 	name         *string
 	ami          *ec2.Ami
 	sourceRegion *string
-	orgARN       *string
+	shareOrgARNs []string
 }
 
 type replicateResults struct {
@@ -155,13 +172,13 @@ func replicaAsync(targetRegion string, args replicateArgs, c chan hostingPlaces.
 		return
 	}
 	var amiPermissions *ec2.AmiLaunchPermission
-	if args.orgARN != nil {
+	for _, orgArn := range args.shareOrgARNs {
 		amiPermissions, err = ec2.NewAmiLaunchPermission(
 			args.ctx,
-			fmt.Sprintf("%s-%s", *args.name, targetRegion),
+			fmt.Sprintf("%s-%s-%s", *args.name, targetRegion, orgId(&orgArn)),
 			&ec2.AmiLaunchPermissionArgs{
 				ImageId:         ami.ID(),
-				OrganizationArn: pulumi.String(*args.orgARN),
+				OrganizationArn: pulumi.String(orgArn),
 				Region:          pulumi.String(targetRegion),
 			})
 		if err != nil {
@@ -176,4 +193,9 @@ func replicaAsync(targetRegion string, args replicateArgs, c chan hostingPlaces.
 			amiPermissions: amiPermissions,
 		},
 		Err: nil}
+}
+
+func orgId(orgARN *string) string {
+	r := strings.Split(*orgARN, ":")[5]
+	return strings.Split(r, "/")[1]
 }

@@ -20,7 +20,7 @@ type Provider interface {
 	// Manage ephemeral assets
 	SNCEphemeral(bundleURI, shasumURI, arch string) pulumi.RunFunc
 	// Register AMI and keep state
-	ImageRegister(ephemeralResults auto.UpResult, replicate bool, orgId string) (pulumi.RunFunc, error)
+	ImageRegister(ephemeralResults auto.UpResult, replicate bool, shareOrgIds []string) (pulumi.RunFunc, error)
 	// Manage Provider Credentials
 	GetProviderCredentials(customCreds map[string]string) credentials.ProviderCredentials
 }
