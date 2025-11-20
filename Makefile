@@ -2,6 +2,7 @@ VERSION ?= 1.0.0-dev
 CONTAINER_MANAGER ?= podman
 # Image URL to use all building/pushing image targets
 IMG ?= quay.io/mapt-oss/cloud-importer:v${VERSION}
+TKN_IMG ?= quay.io/mapt-oss/mapt:v${VERSION}-tkn
 
 # Go and compilation related variables
 GOPATH ?= $(shell go env GOPATH)
@@ -95,3 +96,25 @@ oci-push:
 	${CONTAINER_MANAGER} manifest add $(IMG) docker://$(IMG)-arm64
 	${CONTAINER_MANAGER} manifest add $(IMG) docker://$(IMG)-amd64
 	${CONTAINER_MANAGER} manifest push --all $(IMG)
+
+define tkn_update
+	rm -f tkn/*.yaml
+	sed -e 's%<IMAGE>%$(1)%g' -e 's%<VERSION>%$(2)%g' tkn/template/rhelai-aws.yaml > tkn/rhelai-aws.yaml
+	sed -e 's%<IMAGE>%$(1)%g' -e 's%<VERSION>%$(2)%g' tkn/template/rhelai-azure.yaml > tkn/rhelai-azure.yaml
+	sed -e 's%<IMAGE>%$(1)%g' -e 's%<VERSION>%$(2)%g' tkn/template/snc-aws.yaml > tkn/snc-aws.yaml
+	sed -e 's%<IMAGE>%$(1)%g' -e 's%<VERSION>%$(2)%g' tkn/template/snc-azure.yaml > tkn/snc-azure.yaml
+endef
+
+# Update tekton with new version
+.PHONY: tkn-update
+tkn-update:
+	$(call tkn_update,$(IMG),$(VERSION))
+
+# Create tekton task bundle
+.PHONY: tkn-push
+tkn-push: install-out-of-tree-tools
+	$(TOOLS_BINDIR)/tkn bundle push $(TKN_IMG) \
+		-f tkn/rhelai-aws.yaml \
+		-f tkn/rehlai-azure.yaml \
+		-f tkn/snc-aws.yaml \
+		-f tkn/snc-azure.yaml
