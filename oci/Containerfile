@@ -6,7 +6,7 @@ WORKDIR /workspace
 COPY . .
 
 # renovate: datasource=github-releases depName=pulumi/pulumi
-ENV PULUMI_VERSION 3.206.0
+ENV PULUMI_VERSION 3.208.0
 ENV PULUMI_BASE_URL="https://github.com/pulumi/pulumi/releases/download/v${PULUMI_VERSION}/pulumi-v${PULUMI_VERSION}"
 ENV PULUMI_URL="${PULUMI_BASE_URL}-linux-x64.tar.gz"
 
@@ -16,7 +16,7 @@ RUN GOARCH=${TARGETARCH} make build \
     && curl -L ${PULUMI_URL} -o pulumicli.tar.gz \
     && tar -xzvf pulumicli.tar.gz 
 
-FROM quay.io/almalinuxorg/9-base@sha256:e32b7377ed7a9e3ffc8f53f230bf7285da3737445b0021eb46f0a2136a999a91
+FROM quay.io/almalinuxorg/9-base@sha256:04f2553cce5d0b65a91cb899f897ebf2a3e6bb6e188904259f801b8c2de320ba
 
 ARG TARGETARCH
 
@@ -32,11 +32,11 @@ ENV AWS_CLI_VERSION=2.16.7 \
 
 # Pulumi plugins
 # renovate: datasource=github-releases depName=pulumi/pulumi-aws
-ARG PULUMI_AWS_VERSION=v7.11.1
+ARG PULUMI_AWS_VERSION=v7.12.0
 # renovate: datasource=github-releases depName=pulumi/pulumi-command
 ARG PULUMI_COMMAND_VERSION=v1.1.3
 # renovate: datasource=github-releases depName=pulumi/pulumi-aws-native
-ARG PULUMI_AWS_NATIVE_VERSION=v1.37.0
+ARG PULUMI_AWS_NATIVE_VERSION=v1.38.0
 # renovate: datasource=github-releases depName=pulumi/pulumi-azure-native
 ARG PULUMI_AZURE_NATIVE_VERSION=v3.10.1
 
