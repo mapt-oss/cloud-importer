@@ -1,6 +1,6 @@
 module github.com/devtools-qe-incubator/cloud-importer
 
-go 1.24.6
+go 1.24.8
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
