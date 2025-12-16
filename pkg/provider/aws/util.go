@@ -5,24 +5,11 @@ import (
 	"fmt"
 
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
-	awsnative "github.com/pulumi/pulumi-aws-native/sdk/go/aws"
 	"github.com/pulumi/pulumi-aws-native/sdk/go/aws/iam"
 	"github.com/pulumi/pulumi-aws-native/sdk/go/aws/s3"
 	"github.com/pulumi/pulumi-command/sdk/go/command/local"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
-
-// getTags generates and returns awsnative.TagArray for aws-native SDK
-func getTags() awsnative.TagArray {
-	var tagArray awsnative.TagArray
-	for key, value := range context.GetTagsMap() {
-		tagArray = append(tagArray, awsnative.TagArgs{
-			Key:   pulumi.String(key),
-			Value: pulumi.String(value),
-		})
-	}
-	return tagArray
-}
 
 // This function creates a temporary bucket to upload the disk image to be imported
 // It returns the bucket resource, the generated bucket name and error if any
@@ -39,7 +26,7 @@ func bucketEphemeral(ctx *pulumi.Context, bucketName *string) (*s3.Bucket, error
 					},
 				},
 			},
-			Tags: getTags(),
+			Tags: context.GetTags(),
 		})
 
 }
@@ -60,7 +47,6 @@ func createVMIEmportExportRole(ctx *pulumi.Context,
 		&iam.RoleArgs{
 			RoleName:                 pulumi.String(*roleName),
 			AssumeRolePolicyDocument: pulumi.Any(trustPolicyContent()),
-			Tags:                     getTags(),
 		})
 	if err != nil {
 		return nil, nil, err

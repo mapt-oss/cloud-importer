@@ -23,8 +23,6 @@ const (
 	paramReplicateDesc string = "Provide a list of location to replicate or 'all' to replicate to all available locations"
 	paramOrgIds        string = "share-orgs-ids"
 	paramOrgIdsDesc    string = "List of comman separated organization identifiers to share imageswith. AWS would use arn format for orgs, and Azure will use tenantIds"
-	paramTags          string = "tags"
-	paramTagsDesc      string = "Comma-separated list of tags in format: key1=value1,key2=value2"
 )
 
 func contextArgsFlags(fs *pflag.FlagSet) {
@@ -37,7 +35,6 @@ func contextArgsFlags(fs *pflag.FlagSet) {
 func imageControlFlags(fs *pflag.FlagSet) {
 	fs.Bool(paramReplicate, false, paramReplicateDesc)
 	fs.StringSliceP(paramOrgIds, "", []string{}, paramOrgIdsDesc)
-	fs.StringToStringP(paramTags, "", nil, paramTagsDesc)
 }
 
 func contextArgs() *context.ContextArgs {
@@ -52,7 +49,5 @@ func contextArgs() *context.ContextArgs {
 func imageControl() *manager.ImageControl {
 	return &manager.ImageControl{
 		Replicate:   viper.IsSet(paramReplicate),
-		ShareOrgIds: viper.GetStringSlice(paramOrgIds),
-		Tags:        viper.GetStringMapString(paramTags),
-	}
+		ShareOrgIds: viper.GetStringSlice(paramOrgIds)}
 }

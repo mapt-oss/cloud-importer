@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
 	resources "github.com/pulumi/pulumi-azure-native-sdk/resources/v3"
 	"github.com/pulumi/pulumi-azure-native-sdk/storage/v3"
 	"github.com/pulumi/pulumi-command/sdk/go/command/local"
@@ -64,7 +63,6 @@ func storageAccount(ctx *pulumi.Context, location, name *string) (*storage.BlobC
 		&resources.ResourceGroupArgs{
 			ResourceGroupName: pulumi.String(ephemeralName),
 			Location:          pulumi.String(*location),
-			Tags:              pulumi.ToStringMap(context.GetTagsMap()),
 		})
 	if err != nil {
 		return nil, nil, nil, err
@@ -80,7 +78,6 @@ func storageAccount(ctx *pulumi.Context, location, name *string) (*storage.BlobC
 				Name: pulumi.String(storage.SkuName_Premium_LRS),
 			},
 			Location: pulumi.String(*location),
-			Tags:     pulumi.ToStringMap(context.GetTagsMap()),
 		}, pulumi.DependsOn([]pulumi.Resource{resourceGroup}))
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("error with sa: %s: %v", ephemeralName, err)
@@ -92,7 +89,6 @@ func storageAccount(ctx *pulumi.Context, location, name *string) (*storage.BlobC
 			AccountName:       storageAcc.Name,
 			ContainerName:     pulumi.String(ephemeralName),
 			ResourceGroupName: resourceGroup.Name,
-			// Note: Blob containers don't support tags directly in Azure
 		})
 	if err != nil {
 		return nil, nil, nil, err

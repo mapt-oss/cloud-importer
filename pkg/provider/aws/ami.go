@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
 	hostingPlaces "github.com/devtools-qe-incubator/cloud-importer/pkg/util/hosting-place"
 	"github.com/pulumi/pulumi-aws/sdk/v7/go/aws/ebs"
 	"github.com/pulumi/pulumi-aws/sdk/v7/go/aws/ec2"
@@ -100,7 +99,6 @@ func (r *registerRequest) newAMI(ctx *pulumi.Context) (*ec2.Ami, error) {
 				},
 			},
 			RoleName: pulumi.String(r.vmIERoleName),
-			Tags:     pulumi.ToStringMap(context.GetTagsMap()),
 		})
 	if err != nil {
 		return nil, err
@@ -124,7 +122,8 @@ func (r *registerRequest) newAMI(ctx *pulumi.Context) (*ec2.Ami, error) {
 			Architecture:       pulumi.String(r.arch),
 			// Required by c6a instances
 			EnaSupport: pulumi.Bool(true),
-			Tags:       pulumi.ToStringMap(mergeTags(map[string]string{"Name": r.name})),
+			Tags: pulumi.ToStringMap(map[string]string{
+				"Name": r.name}),
 		})
 	if err != nil {
 		return nil, err
@@ -165,7 +164,8 @@ func replicaAsync(targetRegion string, args replicateArgs, c chan hostingPlaces.
 			SourceAmiId:     args.ami.ID(),
 			SourceAmiRegion: pulumi.String(*args.sourceRegion),
 			Region:          pulumi.String(targetRegion),
-			Tags:            pulumi.ToStringMap(mergeTags(map[string]string{"Name": *args.name})),
+			Tags: pulumi.ToStringMap(map[string]string{
+				"Name": *args.name}),
 		})
 	if err != nil {
 		hostingPlaces.SendAsyncErr(c, err)
@@ -198,22 +198,4 @@ func replicaAsync(targetRegion string, args replicateArgs, c chan hostingPlaces.
 func orgId(orgARN *string) string {
 	r := strings.Split(*orgARN, ":")[5]
 	return strings.Split(r, "/")[1]
-}
-
-// mergeTags combines context tags with resource-specific tags.
-// Resource-specific tags take precedence over context tags.
-func mergeTags(resourceTags map[string]string) map[string]string {
-	merged := make(map[string]string)
-
-	// First, add all context tags
-	for k, v := range context.GetTagsMap() {
-		merged[k] = v
-	}
-
-	// Then, overlay resource-specific tags (these override context tags)
-	for k, v := range resourceTags {
-		merged[k] = v
-	}
-
-	return merged
 }

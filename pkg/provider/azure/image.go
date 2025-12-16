@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
-	imgctx "github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
 	"github.com/pulumi/pulumi-azure-native-sdk/compute/v3"
 	resources "github.com/pulumi/pulumi-azure-native-sdk/resources/v3"
 
@@ -105,7 +104,6 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) error {
 		&resources.ResourceGroupArgs{
 			ResourceGroupName: pulumi.String(r.name),
 			Location:          pulumi.String(*location),
-			Tags:              pulumi.ToStringMap(imgctx.GetTagsMap()),
 		})
 	if err != nil {
 		return err
@@ -116,7 +114,6 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) error {
 		GalleryName:       pulumi.String(gName),
 		Location:          rg.Location,
 		ResourceGroupName: rg.Name,
-		Tags:              pulumi.ToStringMap(imgctx.GetTagsMap()),
 	}
 	g, err := compute.NewGallery(ctx,
 		"gallery",
@@ -146,7 +143,6 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) error {
 				Publisher: pulumi.String(r.publisher),
 				Sku:       pulumi.String(r.sku),
 			},
-			Tags: pulumi.ToStringMap(imgctx.GetTagsMap()),
 		})
 	if err != nil {
 		return err
@@ -176,7 +172,6 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) error {
 					},
 				},
 			},
-			Tags: pulumi.ToStringMap(imgctx.GetTagsMap()),
 		})
 	if err != nil {
 		return err
