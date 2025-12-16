@@ -2,9 +2,6 @@ package context
 
 import (
 	"fmt"
-
-	"github.com/pulumi/pulumi-aws-native/sdk/go/aws"
-	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
 const (
@@ -17,7 +14,6 @@ type ContextArgs struct {
 	BackedURL   string
 	Debug       bool
 	DebugLevel  uint
-	Tags        map[string]string
 }
 
 type context struct {
@@ -25,7 +21,7 @@ type context struct {
 	backedURL   string
 	debug       bool
 	debugLevel  uint
-	tags        aws.TagArray
+	tags        map[string]string
 }
 
 var c *context
@@ -40,7 +36,14 @@ func Init(ca *ContextArgs) {
 	addCommonTags()
 }
 
-func GetTags() aws.TagArray {
+// SetTags sets user-provided tags
+func SetTags(tags map[string]string) {
+	c.tags = tags
+	addCommonTags()
+}
+
+// GetTagsMap returns tags as a map for standard AWS SDK and Azure
+func GetTagsMap() map[string]string {
 	return c.tags
 }
 
@@ -64,8 +67,11 @@ func DebugLevel() uint {
 }
 
 func addCommonTags() {
-	c.tags = append(c.tags, aws.TagArgs{
-		Key:   pulumi.String(originTagName),
-		Value: pulumi.String(originTagValue),
-	})
+	// Initialize tags if nil
+	if c.tags == nil {
+		c.tags = make(map[string]string)
+	}
+
+	// Add origin tag
+	c.tags[originTagName] = originTagValue
 }

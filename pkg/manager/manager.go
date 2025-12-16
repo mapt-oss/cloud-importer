@@ -19,6 +19,7 @@ const (
 type ImageControl struct {
 	Replicate   bool
 	ShareOrgIds []string
+	Tags        map[string]string // Cloud provider tags (AWS and Azure)
 }
 
 type RHELAIArgs struct {
@@ -32,6 +33,10 @@ func RHELAI(ctx *context.ContextArgs,
 	provider Provider) error {
 	// Initialize context
 	context.Init(ctx)
+	// Set provider-specific tags (if any)
+	if args.ImageControl.Tags != nil {
+		context.SetTags(args.ImageControl.Tags)
+	}
 	// Get provider
 	p, err := getProvider(provider)
 	if err != nil {
@@ -72,6 +77,10 @@ type SNCArgs struct {
 
 func SNC(ctx *context.ContextArgs, args *SNCArgs, provider Provider) error {
 	context.Init(ctx)
+	// Set provider-specific tags (if any)
+	if args.ImageControl.Tags != nil {
+		context.SetTags(args.ImageControl.Tags)
+	}
 	p, err := getProvider(provider)
 	if err != nil {
 		return err
