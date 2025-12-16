@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"text/template"
+
+	"github.com/devtools-qe-incubator/cloud-importer/pkg/util/logging"
 )
 
 func WriteTempFile(content string) (*string, error) {
@@ -13,7 +15,11 @@ func WriteTempFile(content string) (*string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer tmpFile.Close()
+	defer func() {
+		if err := tmpFile.Close(); err != nil {
+			logging.Error(err)
+		}
+	}()
 	_, err = tmpFile.WriteString(content)
 	fileName := tmpFile.Name()
 	if err := os.Chmod(fileName, 0644); err != nil {

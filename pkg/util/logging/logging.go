@@ -27,7 +27,13 @@ func OpenLogFile(basePath string, fileName string) (*os.File, error) {
 }
 
 func CloseLogging() {
-	logfile.Close()
+	defer func() {
+		if logfile != nil {
+			if err := logfile.Close(); err != nil {
+				fmt.Printf("%v", err)
+			}
+		}
+	}()
 	logrus.StandardLogger().ReplaceHooks(make(logrus.LevelHooks))
 }
 
