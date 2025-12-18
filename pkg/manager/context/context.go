@@ -15,6 +15,7 @@ type ContextArgs struct {
 	BackedURL   string
 	Debug       bool
 	DebugLevel  uint
+	KeepState   bool
 }
 
 type context struct {
@@ -22,6 +23,7 @@ type context struct {
 	backedURL   string
 	debug       bool
 	debugLevel  uint
+	keepState   bool
 	tags        map[string]string
 }
 
@@ -33,6 +35,7 @@ func Init(ca *ContextArgs) {
 		backedURL:   ca.BackedURL,
 		debug:       ca.Debug,
 		debugLevel:  ca.DebugLevel,
+		keepState:   ca.KeepState,
 	}
 	addCommonTags()
 }
@@ -67,6 +70,10 @@ func Debug() bool {
 
 func DebugLevel() uint {
 	return c.debugLevel
+}
+
+func KeepState() bool {
+	return c.keepState
 }
 
 func addCommonTags() {
