@@ -4,10 +4,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 
 	ac "github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
 	providerAPI "github.com/devtools-qe-incubator/cloud-importer/pkg/manager/provider/api"
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/provider/credentials"
+	awsprovider "github.com/devtools-qe-incubator/cloud-importer/pkg/provider/aws"
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/util/logging"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/debug"
@@ -96,6 +98,12 @@ func destroyStack(targetStack providerAPI.Stack, opts ...ManagerOptions) (err er
 		}
 		os.Exit(1)
 	}
+
+	// Cleanup Pulumi state from S3 backend after successful destroy
+	if !ac.KeepState() && strings.HasPrefix(targetStack.BackedURL, "s3://") {
+		awsprovider.CleanupState(targetStack.BackedURL)
+	}
+
 	return nil
 }
 

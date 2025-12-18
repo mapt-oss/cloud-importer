@@ -25,6 +25,8 @@ const (
 	paramOrgIdsDesc    string = "List of comman separated organization identifiers to share imageswith. AWS would use arn format for orgs, and Azure will use tenantIds"
 	paramTags          string = "tags"
 	paramTagsDesc      string = "Comma-separated list of tags in format: key1=value1,key2=value2"
+	paramKeepState     string = "keep-state"
+	paramKeepStateDesc string = "Keep Pulumi state in backend after destroy (default: false, state is deleted)"
 )
 
 func contextArgsFlags(fs *pflag.FlagSet) {
@@ -32,6 +34,7 @@ func contextArgsFlags(fs *pflag.FlagSet) {
 	fs.StringP(backedURL, "", "", backedURLDesc)
 	fs.Bool(debug, false, debugDesc)
 	fs.Uint(debugLevel, debugLevelDefault, debugLevelDesc)
+	fs.Bool(paramKeepState, false, paramKeepStateDesc)
 }
 
 func imageControlFlags(fs *pflag.FlagSet) {
@@ -46,6 +49,7 @@ func contextArgs() *context.ContextArgs {
 		BackedURL:   viper.GetString(backedURL),
 		Debug:       viper.IsSet(debug),
 		DebugLevel:  viper.GetUint(debugLevel),
+		KeepState:   viper.GetBool(paramKeepState),
 	}
 }
 
