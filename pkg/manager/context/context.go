@@ -2,6 +2,7 @@ package context
 
 import (
 	"fmt"
+	"strings"
 )
 
 const (
@@ -55,7 +56,9 @@ func ProjectName() string {
 // this can help us in case we want to automate some destroy only based on
 // backed url base....it can check each folder and use it as project name
 func BackedURL() string {
-	return fmt.Sprintf("%s/%s", c.backedURL, c.projectName)
+	// Remove trailing slash from backedURL to avoid Pulumi crashes
+	baseURL := strings.TrimSuffix(c.backedURL, "/")
+	return fmt.Sprintf("%s/%s", baseURL, c.projectName)
 }
 
 func Debug() bool {
