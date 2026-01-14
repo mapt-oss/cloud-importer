@@ -9,6 +9,7 @@ import (
 	imgctx "github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
 	"github.com/pulumi/pulumi-azure-native-sdk/compute/v3"
 	resources "github.com/pulumi/pulumi-azure-native-sdk/resources/v3"
+	"github.com/redhat-developer/mapt/pkg/util"
 
 	// az "github.com/pulumi/pulumi-azure-native-sdk/v3"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
@@ -23,6 +24,7 @@ const (
 
 var (
 	// ImageRegister should get this values from the ephemeralResults
+	outRgName           = "rgName"
 	outName             = "name"
 	outArch             = "arch"
 	outOffer            = "offer"
@@ -36,6 +38,10 @@ func (a *azureProvider) ImageRegister(ephemeralResults auto.UpResult, replicate 
 	name, ok := ephemeralResults.Outputs[outName]
 	if !ok {
 		return nil, fmt.Errorf("output not found: %s", outName)
+	}
+	rgName, ok := ephemeralResults.Outputs[outRgName]
+	if !ok {
+		rgName = name
 	}
 	arch, ok := ephemeralResults.Outputs[outArch]
 	if !ok {
@@ -62,6 +68,7 @@ func (a *azureProvider) ImageRegister(ephemeralResults auto.UpResult, replicate 
 		return nil, fmt.Errorf("output not found: %s", outBlobURI)
 	}
 	r := regiterRequest{
+		rgName:           rgName.Value.(string),
 		name:             name.Value.(string),
 		arch:             arch.Value.(string),
 		offer:            offer.Value.(string),
@@ -76,6 +83,7 @@ func (a *azureProvider) ImageRegister(ephemeralResults auto.UpResult, replicate 
 }
 
 type regiterRequest struct {
+	rgName                string
 	name                  string
 	arch                  string
 	offer, publisher, sku string
@@ -99,17 +107,27 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) error {
 	if err != nil {
 		return err
 	}
-	rg, err := resources.NewResourceGroup(
-		ctx,
-		"rg",
-		&resources.ResourceGroupArgs{
-			ResourceGroupName: pulumi.String(r.name),
-			Location:          pulumi.String(*location),
-			Tags:              pulumi.ToStringMap(imgctx.GetTagsMap()),
+	// Check if resource group exist and reuse
+	var rg *resources.ResourceGroup
+	eRg, err := resources.LookupResourceGroup(ctx,
+		&resources.LookupResourceGroupArgs{
+			ResourceGroupName: r.rgName,
 		})
 	if err != nil {
-		return err
+		rg, err = resources.NewResourceGroup(
+			ctx,
+			"rg",
+			&resources.ResourceGroupArgs{
+				ResourceGroupName: pulumi.String(r.rgName),
+				Location:          pulumi.String(*location),
+			})
+		if err != nil {
+			return err
+		}
 	}
+	rgLocation := util.If(rg != nil, pulumi.String(*location), pulumi.String(eRg.Location))
+	rgName := pulumi.String(rgName)
+
 	gName := strings.ReplaceAll(r.name, "-", "_")
 	gArgs := &compute.GalleryArgs{
 		Description:       pulumi.String(r.name),
@@ -130,8 +148,8 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) error {
 			GalleryImageName:  pulumi.String(r.name),
 			Description:       pulumi.String(r.name),
 			GalleryName:       g.Name,
-			ResourceGroupName: rg.Name,
-			Location:          rg.Location,
+			Location:          rgLocation,
+			ResourceGroupName: rgName,
 			Architecture: func() pulumi.StringPtrInput {
 				if r.arch == "x86_64" {
 					return compute.ArchitectureX64
@@ -161,8 +179,8 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) error {
 			GalleryName:             g.Name,
 			GalleryImageName:        gi.Name,
 			GalleryImageVersionName: pulumi.String("1.0.0"),
-			ResourceGroupName:       rg.Name,
-			Location:                rg.Location,
+			Location:                rgLocation,
+			ResourceGroupName:       rgName,
 			PublishingProfile: compute.GalleryImageVersionPublishingProfileArgs{
 				StorageAccountType: compute.StorageAccountType_Premium_LRS,
 				ReplicationMode:    compute.ReplicationModeFull,
@@ -182,10 +200,9 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) error {
 		return err
 	}
 	if len(r.shareTenantIds) > 0 {
-		pulumi.All(rg.Name, g.Name).ApplyT(func(args []interface{}) error {
-			rgName := args[0].(string)
-			galleryName := args[1].(string)
-			return shareGallery(r.shareTenantIds, rgName, galleryName, r.name)
+		pulumi.All(g.Name).ApplyT(func(args []interface{}) error {
+			galleryName := args[0].(string)
+			return shareGallery(r.shareTenantIds, r.rgName, galleryName, r.name)
 		})
 	}
 	return err
