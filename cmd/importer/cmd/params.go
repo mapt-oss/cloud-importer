@@ -34,7 +34,6 @@ func contextArgsFlags(fs *pflag.FlagSet) {
 	fs.StringP(backedURL, "", "", backedURLDesc)
 	fs.Bool(debug, false, debugDesc)
 	fs.Uint(debugLevel, debugLevelDefault, debugLevelDesc)
-	fs.Bool(paramKeepState, false, paramKeepStateDesc)
 }
 
 func imageControlFlags(fs *pflag.FlagSet) {

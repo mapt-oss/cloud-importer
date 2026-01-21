@@ -65,7 +65,7 @@ func upStackTargets(targetStack providerAPI.Stack, targetURNs []string, opts ...
 	return r, nil
 }
 
-func destroyStack(targetStack providerAPI.Stack, opts ...ManagerOptions) (err error) {
+func destroyStack(targetStack providerAPI.Stack, cleanupState bool, opts ...ManagerOptions) (err error) {
 	logging.Debugf("destroying stack %s", targetStack.StackName)
 	ctx := context.Background()
 	objectStack := getStack(ctx, targetStack)
@@ -100,7 +100,7 @@ func destroyStack(targetStack providerAPI.Stack, opts ...ManagerOptions) (err er
 	}
 
 	// Cleanup Pulumi state from S3 backend after successful destroy
-	if !ac.KeepState() && strings.HasPrefix(targetStack.BackedURL, "s3://") {
+	if cleanupState && strings.HasPrefix(targetStack.BackedURL, "s3://") {
 		awsprovider.CleanupState(targetStack.BackedURL)
 	}
 

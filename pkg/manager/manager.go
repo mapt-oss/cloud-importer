@@ -65,7 +65,7 @@ func RHELAI(ctx *context.ContextArgs,
 	if err != nil {
 		return err
 	}
-	return destroyStack(ephemeralStack)
+	return destroyStack(ephemeralStack, false)
 }
 
 type SNCArgs struct {
@@ -108,7 +108,7 @@ func SNC(ctx *context.ContextArgs, args *SNCArgs, provider Provider) error {
 	if err != nil {
 		return err
 	}
-	return destroyStack(ephemeralStack)
+	return destroyStack(ephemeralStack, false)
 }
 
 func Destoy(ctx *context.ContextArgs) error {
@@ -117,5 +117,5 @@ func Destoy(ctx *context.ContextArgs) error {
 	return destroyStack(providerAPI.Stack{
 		ProjectName: context.ProjectName(),
 		StackName:   stackRHELAI,
-		BackedURL:   context.BackedURL()})
+		BackedURL:   context.BackedURL()}, !context.KeepState())
 }
