@@ -56,5 +56,5 @@ func sourceHostingPlace() (*string, error) {
 	if len(hp) > 0 {
 		return &hp, nil
 	}
-	return nil, fmt.Errorf("missing default value for AWS Region")
+	return nil, fmt.Errorf("missing default value for AWS Region, set it with AWS_DEFAULT_REGION or AWS_REGION")
 }
