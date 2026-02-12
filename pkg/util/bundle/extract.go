@@ -15,22 +15,22 @@ var ExtractedVHDDiskFileName = "disk.vhd"
 //go:embed extract.sh
 var script []byte
 
-func Extract(ctx *pulumi.Context, bundleURL, shasumURL, provider string) (*local.Command, error) {
-	// Write to temp file to be executed locally
-	scriptfileName, err := util.WriteTempFile(string(script))
+func Extract(ctx *pulumi.Context, imageName, bundleURI, shasumURI, provider string) (*local.Command, error) {
+	fullFilePath, err := util.WriteTempFile(&imageName, string(script))
 	if err != nil {
 		return nil, err
 	}
-	if err := os.Chmod(*scriptfileName, 0777); err != nil {
+	if err := os.Chmod(*fullFilePath, 0777); err != nil {
 		return nil, err
 	}
 	execScriptENVS := map[string]string{
-		"BUNDLE_DOWNLOAD_URL":     bundleURL,
-		"SHASUMFILE_DOWNLOAD_URL": shasumURL,
+		"BUNDLE_DOWNLOAD_URL":     bundleURI,
+		"SHASUMFILE_DOWNLOAD_URL": shasumURI,
 		"CLOUD_PROVIDER":          provider}
-	return local.NewCommand(ctx, "execExtractScript",
+	return local.NewCommand(ctx,
+		"execExtractScript",
 		&local.CommandArgs{
-			Create:      pulumi.String(*scriptfileName),
+			Create:      pulumi.String(*fullFilePath),
 			Environment: pulumi.ToStringMap(execScriptENVS),
 		},
 		pulumi.Timeouts(&pulumi.CustomTimeouts{

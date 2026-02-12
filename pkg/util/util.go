@@ -2,7 +2,6 @@ package util
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"path/filepath"
 	"text/template"
@@ -10,22 +9,26 @@ import (
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/util/logging"
 )
 
-func WriteTempFile(content string) (*string, error) {
-	tmpFile, err := os.CreateTemp("", fmt.Sprintf("%s-", filepath.Base(os.Args[0])))
+func WriteTempFile(fileName *string, content string) (*string, error) {
+	tmpDir := os.TempDir()
+	fullFilePath := filepath.Join(tmpDir, *fileName)
+	f, err := os.Create(fullFilePath)
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
-		if err := tmpFile.Close(); err != nil {
+		if err := f.Close(); err != nil {
 			logging.Error(err)
 		}
 	}()
-	_, err = tmpFile.WriteString(content)
-	fileName := tmpFile.Name()
-	if err := os.Chmod(fileName, 0644); err != nil {
-		panic(err)
+	_, err = f.WriteString(content)
+	if err != nil {
+		return nil, err
 	}
-	return &fileName, err
+	if err := os.Chmod(fullFilePath, 0644); err != nil {
+		return nil, err
+	}
+	return &fullFilePath, err
 }
 
 func Template(data any, templateName, templateContent string) (string, error) {

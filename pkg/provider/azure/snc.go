@@ -11,6 +11,8 @@ const (
 	sncOffer     = "snc"
 	sncPublisher = "openshift-local"
 	sncSKU       = "openshift_local_snc"
+	// Resource Group holding the actual image
+	sncRGName = "openshiftlocal-cloud"
 )
 
 type sncEphemeralRequest struct {
@@ -32,6 +34,7 @@ func (r *sncEphemeralRequest) sncEphemeralRunFunc(ctx *pulumi.Context) error {
 	ctx.Export(outOffer, pulumi.String(sncOffer))
 	ctx.Export(outPublisher, pulumi.String(sncPublisher))
 	ctx.Export(outSKU, pulumi.String(sncSKU))
+	ctx.Export(outRgName, pulumi.String(sncRGName))
 	imageBaseName, err := bundle.GetDescription(r.bundleURI, nil)
 	if err != nil {
 		return err
@@ -39,7 +42,7 @@ func (r *sncEphemeralRequest) sncEphemeralRunFunc(ctx *pulumi.Context) error {
 	imageName := fmt.Sprintf("%s-%s", *imageBaseName, r.arch)
 	ctx.Export(outName, pulumi.String(imageName))
 	ctx.Export(outArch, pulumi.String(r.arch))
-	extractCmd, err := bundle.Extract(ctx, r.bundleURI, r.shasumURI, "azure")
+	extractCmd, err := bundle.Extract(ctx, imageName, r.bundleURI, r.shasumURI, "azure")
 	if err != nil {
 		return err
 	}
