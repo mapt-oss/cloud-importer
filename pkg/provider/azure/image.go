@@ -9,7 +9,6 @@ import (
 	imgctx "github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
 	"github.com/pulumi/pulumi-azure-native-sdk/compute/v3"
 	resources "github.com/pulumi/pulumi-azure-native-sdk/resources/v3"
-	"github.com/redhat-developer/mapt/pkg/util"
 
 	// az "github.com/pulumi/pulumi-azure-native-sdk/v3"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
@@ -96,17 +95,11 @@ type regiterRequest struct {
 // from an image as a raw on a s3 bucket this function will import it as a snapshot
 // and the register the snapshot as an AMI
 func (r *regiterRequest) registerFunc(ctx *pulumi.Context) error {
-	// prov, err := az.NewProvider(ctx, "prov", &az.ProviderArgs{
-	// 	SkipProviderRegistration: pulumi.Bool(true),
-	// })
-	// if err != nil {
-	// 	return err
-	// }
-	// opts := pulumi.Provider(prov)
 	location, err := sourceHostingPlace()
 	if err != nil {
 		return err
 	}
+	rgLocation := pulumi.String(*location)
 	// Check if resource group exist and reuse
 	var rg *resources.ResourceGroup
 	eRg, err := resources.LookupResourceGroup(ctx,
@@ -124,10 +117,10 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) error {
 		if err != nil {
 			return err
 		}
+	} else {
+		rgLocation = pulumi.String(eRg.Location)
 	}
-	rgLocation := util.If(rg != nil, pulumi.String(*location), pulumi.String(eRg.Location))
-	rgName := pulumi.String(rgName)
-
+	rgName := pulumi.String(r.rgName)
 	gName := strings.ReplaceAll(r.name, "-", "_")
 	gArgs := &compute.GalleryArgs{
 		Description:       pulumi.String(r.name),

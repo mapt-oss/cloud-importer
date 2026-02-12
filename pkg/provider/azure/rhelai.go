@@ -9,7 +9,7 @@ const (
 	rhelAIPublisher = "aipcc-cicd"
 	rhelAISKU       = "rhelai"
 	// Resource Group holding the actual image
-	rgName = "aipcc-productization"
+	rhelAIRGName = "aipcc-productization"
 )
 
 type rhelaiEphemeralRequest struct {
@@ -29,7 +29,7 @@ func (r rhelaiEphemeralRequest) rhelaiEphemeralRunFunc(ctx *pulumi.Context) erro
 	ctx.Export(outOffer, pulumi.String(rhelAIOffer))
 	ctx.Export(outPublisher, pulumi.String(rhelAIPublisher))
 	ctx.Export(outSKU, pulumi.String(rhelAISKU))
-	ctx.Export(outRgName, pulumi.String(rgName))
+	ctx.Export(outRgName, pulumi.String(rhelAIRGName))
 	ctx.Export(outName, pulumi.String(r.imageName))
 	ctx.Export(outArch, pulumi.String("x86_64"))
 	location, err := sourceHostingPlace()

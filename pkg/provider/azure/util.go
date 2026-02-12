@@ -58,11 +58,11 @@ func sanitizeName(input string) string {
 }
 
 func storageAccount(ctx *pulumi.Context, location, name *string) (*storage.BlobContainer, *storage.StorageAccount, *resources.ResourceGroup, error) {
-	ephemeralName := sanitizeName(fmt.Sprintf("ephemeral%s", *name))
+	ephemeralName := sanitizeName(*name)
 	resourceGroup, err := resources.NewResourceGroup(ctx,
 		"vhd",
 		&resources.ResourceGroupArgs{
-			ResourceGroupName: pulumi.String(ephemeralName),
+			ResourceGroupName: pulumi.String(fmt.Sprintf("rg%s", ephemeralName)),
 			Location:          pulumi.String(*location),
 			Tags:              pulumi.ToStringMap(context.GetTagsMap()),
 		})
