@@ -19,8 +19,6 @@ name: oci-builds
 on:
   push:
     branches: [ 'main' ]
-    tags:
-      - '*'
   pull_request:
     branches: [ 'main' ]
 
@@ -54,7 +52,7 @@ jobs:
         run: |
           make oci-build-${{ env.ARCH_TYPE }}
           make oci-save-${{ env.ARCH_TYPE }}
-      - name: Build and Push image for Release
+      - name: Build image for main branch
         if: github.event_name == 'push'
         env:
           IMG: ghcr.io/mapt-oss/cloud-importer:latest
@@ -100,17 +98,17 @@ jobs:
         with:
           pattern: cloud-importer-*
 
-      - name: Log in ghcr.io
+      - name: Log in to ghcr.io
         uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push image for Release
+      - name: Push image for main branch
         if: github.event_name == 'push'
         env:
-          IMG: ghcr.io/mapt-oss/cloud-importer:latest
+          IMG: ghcr.io/mapt-oss/cloud-importer:${{ github.sha }}
         shell: bash
         run: |
           make oci-load
