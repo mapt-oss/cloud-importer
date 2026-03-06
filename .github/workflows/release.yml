@@ -1,0 +1,41 @@
+name: oci-tag-quay
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Install skopeo
+        run: |
+          sudo apt-get update -y
+          sudo apt install -y skopeo
+      - name: Setting Version name
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+      - name: ghcr login
+        run: |
+          skopeo login ghcr.io -u ${{ github.repository_owner }} --password-stdin <<<"${{ secrets.GITHUB_TOKEN }}"
+      - name: quay login
+        run: |
+          skopeo login quay.io -u ${{ secrets.QUAY_USERNAME }} --password-stdin <<< "${{secrets.QUAY_PASSWORD }}"
+      - name: Copy versioned tag to Quay
+        run: |
+          skopeo copy -a docker://ghcr.io/mapt-oss/cloud-importer:latest docker://quay.io/aipcc-cicd/cloud-importer:v${{ env.VERSION }}
+      - name: Copy latest to Quay
+        run: |
+          skopeo copy -a docker://ghcr.io/mapt-oss/cloud-importer:latest docker://quay.io/aipcc-cicd/cloud-importer:latest
+      - name: Checkout code
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
+      - name: create github release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create v${{ env.VERSION }} --title "Release v${{ env.VERSION }}" --generate-notes
