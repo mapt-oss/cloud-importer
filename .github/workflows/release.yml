@@ -12,6 +12,13 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout code
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
+        with:
+            fetch-depth: 0
+      - name: Check tag is on main
+        run: |
+          git branch -r --contains ${{ github.sha }} | grep -q 'origin/main' || (echo "Tag is not on main" && exit 1)
       - name: Install skopeo
         run: |
           sudo apt-get update -y
@@ -26,14 +33,12 @@ jobs:
       - name: quay login
         run: |
           skopeo login quay.io -u ${{ secrets.QUAY_USERNAME }} --password-stdin <<< "${{secrets.QUAY_PASSWORD }}"
-      - name: Copy versioned tag to Quay
+      - name: Copy to Quay
         run: |
-          skopeo copy -a docker://ghcr.io/mapt-oss/cloud-importer:latest docker://quay.io/aipcc-cicd/cloud-importer:v${{ env.VERSION }}
-      - name: Copy latest to Quay
-        run: |
-          skopeo copy -a docker://ghcr.io/mapt-oss/cloud-importer:latest docker://quay.io/aipcc-cicd/cloud-importer:latest
-      - name: Checkout code
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
+          skopeo copy -a \
+            --additional-tag quay.io/aipcc-cicd/cloud-importer:latest \
+            docker://ghcr.io/mapt-oss/cloud-importer:${{ github.sha }} \
+            docker://quay.io/aipcc-cicd/cloud-importer:v${{ env.VERSION }}
       - name: create github release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

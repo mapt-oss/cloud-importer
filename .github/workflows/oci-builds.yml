@@ -108,7 +108,7 @@ jobs:
       - name: Push image for main branch
         if: github.event_name == 'push'
         env:
-          IMG: ghcr.io/mapt-oss/cloud-importer:latest
+          IMG: ghcr.io/mapt-oss/cloud-importer:${{ github.sha }}
         shell: bash
         run: |
           make oci-load
