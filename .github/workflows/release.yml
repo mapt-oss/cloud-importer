@@ -1,0 +1,42 @@
+name: oci-tag-quay
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
+        with:
+            fetch-depth: 0
+      - name: Check tag is on main or release branch
+        run: |
+          git branch -r --contains ${{ github.sha }} | grep -qE 'origin/main|origin/release-' || (echo "Tag is not on main or a release branch" && exit 1)
+      - name: Setting Version name
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+      - name: ghcr login
+        run: |
+          skopeo login ghcr.io -u ${{ github.repository_owner }} --password-stdin <<<"${{ secrets.GITHUB_TOKEN }}"
+      - name: quay login
+        run: |
+          skopeo login quay.io -u ${{ secrets.QUAY_USERNAME }} --password-stdin <<< "${{secrets.QUAY_PASSWORD }}"
+      - name: Copy to Quay
+        run: |
+          skopeo copy -a \
+            --additional-tag quay.io/aipcc-cicd/cloud-importer:latest \
+            docker://ghcr.io/mapt-oss/cloud-importer:${{ github.sha }} \
+            docker://quay.io/aipcc-cicd/cloud-importer:v${{ env.VERSION }}
+      - name: create github release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create v${{ env.VERSION }} --title "Release v${{ env.VERSION }}" --generate-notes
