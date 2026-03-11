@@ -1,8 +1,12 @@
 package manager
 
 import (
+	"strings"
+
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
 	providerAPI "github.com/devtools-qe-incubator/cloud-importer/pkg/manager/provider/api"
+	awsprovider "github.com/devtools-qe-incubator/cloud-importer/pkg/provider/aws"
+	"github.com/devtools-qe-incubator/cloud-importer/pkg/util/logging"
 )
 
 const (
@@ -114,8 +118,24 @@ func SNC(ctx *context.ContextArgs, args *SNCArgs, provider Provider) error {
 func Destoy(ctx *context.ContextArgs) error {
 	// Initialize context
 	context.Init(ctx)
+	if context.ForceDestroy() {
+		deleteLocks(context.BackedURL())
+	}
 	return destroyStack(providerAPI.Stack{
 		ProjectName: context.ProjectName(),
 		StackName:   stackRHELAI,
 		BackedURL:   context.BackedURL()}, !context.KeepState())
+}
+
+// deleteLocks removes Pulumi lock files from the backend before a forced destroy.
+// Currently only S3 backends are supported; Azure blob backends log a warning.
+func deleteLocks(backedURL string) {
+	switch {
+	case strings.HasPrefix(backedURL, "s3://"):
+		awsprovider.DeleteLocks(backedURL)
+	case strings.HasPrefix(backedURL, "azblob://"):
+		logging.Warn("force-destroy: Azure Blob Storage lock deletion is not yet supported, proceeding with destroy")
+	default:
+		logging.Debugf("force-destroy: unsupported backend %q, skipping lock deletion", backedURL)
+	}
 }

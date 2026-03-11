@@ -30,6 +30,7 @@ func destroy() *cobra.Command {
 	flagSet := pflag.NewFlagSet(destroyCmd, pflag.ExitOnError)
 	contextArgsFlags(flagSet)
 	flagSet.Bool(paramKeepState, false, paramKeepStateDesc)
+	flagSet.Bool(paramForceDestroy, false, paramForceDestroyDesc)
 	c.PersistentFlags().AddFlagSet(flagSet)
 	return c
 }

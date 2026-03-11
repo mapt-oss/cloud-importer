@@ -35,6 +35,28 @@ func parseS3BackendURL(backedURL string) (bucket, key string, err error) {
 	return bucket, key, nil
 }
 
+const pulumiLocksPath = ".pulumi/locks"
+
+// DeleteLocks removes Pulumi lock files from the S3 backend, allowing a destroy to proceed
+// even when a lock is present (e.g. after a failed or interrupted previous operation).
+func DeleteLocks(backedURL string) {
+	logging.Infof("Force destroy: removing Pulumi locks from %s", backedURL)
+
+	bucket, key, err := parseS3BackendURL(backedURL)
+	if err != nil {
+		logging.Warnf("Force destroy: failed to parse S3 backend URL: %v", err)
+		return
+	}
+
+	lockKey := fmt.Sprintf("%s/%s", key, pulumiLocksPath)
+	if err := Delete(&bucket, &lockKey); err != nil {
+		logging.Warnf("Force destroy: failed to remove locks from S3: %v", err)
+		return
+	}
+
+	logging.Info("Force destroy: successfully removed Pulumi locks from S3")
+}
+
 // CleanupState removes Pulumi state files from S3 backend after a successful destroy operation.
 // This function logs warnings on errors but does not return errors, as state cleanup failures
 // should not fail the destroy operation (resources are already destroyed).
