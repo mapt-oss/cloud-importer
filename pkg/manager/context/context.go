@@ -11,31 +11,34 @@ const (
 )
 
 type ContextArgs struct {
-	ProjectName string
-	BackedURL   string
-	Debug       bool
-	DebugLevel  uint
-	KeepState   bool
+	ProjectName  string
+	BackedURL    string
+	Debug        bool
+	DebugLevel   uint
+	KeepState    bool
+	ForceDestroy bool
 }
 
 type context struct {
-	projectName string
-	backedURL   string
-	debug       bool
-	debugLevel  uint
-	keepState   bool
-	tags        map[string]string
+	projectName  string
+	backedURL    string
+	debug        bool
+	debugLevel   uint
+	keepState    bool
+	forceDestroy bool
+	tags         map[string]string
 }
 
 var c *context
 
 func Init(ca *ContextArgs) {
 	c = &context{
-		projectName: ca.ProjectName,
-		backedURL:   ca.BackedURL,
-		debug:       ca.Debug,
-		debugLevel:  ca.DebugLevel,
-		keepState:   ca.KeepState,
+		projectName:  ca.ProjectName,
+		backedURL:    ca.BackedURL,
+		debug:        ca.Debug,
+		debugLevel:   ca.DebugLevel,
+		keepState:    ca.KeepState,
+		forceDestroy: ca.ForceDestroy,
 	}
 	addCommonTags()
 }
@@ -74,6 +77,10 @@ func DebugLevel() uint {
 
 func KeepState() bool {
 	return c.keepState
+}
+
+func ForceDestroy() bool {
+	return c.forceDestroy
 }
 
 func addCommonTags() {
