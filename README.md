@@ -154,6 +154,21 @@ podman run --rm --name import-openshift-local -d \
           --backed-url azblob://blobcontainer/folder 
 ```
 
+## Release
+
+Versioned images are published to `quay.io/aipcc-cicd/cloud-importer` on every tag push.
+
+To trigger a release:
+
+1. Ensure your changes are merged to `main` or a `release-*` branch
+2. Push a tag matching `v*.*.*` (e.g. `v1.0.0`)
+3. The release workflow will:
+   - Copy the image from ghcr to `quay.io/aipcc-cicd/cloud-importer:v1.0.0`
+   - Also tag it as `quay.io/aipcc-cicd/cloud-importer:latest`
+   - Create a GitHub Release with auto-generated notes
+
+Tags must point to a commit on `main` or a `release-*` branch, otherwise the workflow will fail.
+
 ## Troubleshooting
 
 `cloud-importer` performs the following steps:
