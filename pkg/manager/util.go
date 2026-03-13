@@ -89,6 +89,9 @@ func destroyStack(targetStack providerAPI.Stack, cleanupState bool, opts ...Mana
 	}
 	if _, err := objectStack.Destroy(ctx, mOpts...); err != nil {
 		logging.Error(err)
+		if len(opts) == 1 && opts[0].Baground {
+			return err
+		}
 		os.Exit(1)
 	}
 	if err := objectStack.Workspace().RemoveStack(ctx, targetStack.StackName); err != nil {
