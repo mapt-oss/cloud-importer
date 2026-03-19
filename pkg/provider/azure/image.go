@@ -101,13 +101,13 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) error {
 	}
 	rgLocation := pulumi.String(*location)
 	// Check if resource group exist and reuse
-	var rg *resources.ResourceGroup
+	var galleryOpts []pulumi.ResourceOption
 	eRg, err := resources.LookupResourceGroup(ctx,
 		&resources.LookupResourceGroupArgs{
 			ResourceGroupName: r.rgName,
 		})
 	if err != nil {
-		rg, err = resources.NewResourceGroup(
+		rg, err := resources.NewResourceGroup(
 			ctx,
 			"rg",
 			&resources.ResourceGroupArgs{
@@ -117,6 +117,7 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) error {
 		if err != nil {
 			return err
 		}
+		galleryOpts = append(galleryOpts, pulumi.DependsOn([]pulumi.Resource{rg}))
 	} else {
 		rgLocation = pulumi.String(eRg.Location)
 	}
@@ -125,13 +126,14 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) error {
 	gArgs := &compute.GalleryArgs{
 		Description:       pulumi.String(r.name),
 		GalleryName:       pulumi.String(gName),
-		Location:          rg.Location,
-		ResourceGroupName: rg.Name,
+		Location:          rgLocation,
+		ResourceGroupName: rgName,
 		Tags:              pulumi.ToStringMap(imgctx.GetTagsMap()),
 	}
 	g, err := compute.NewGallery(ctx,
 		"gallery",
-		gArgs)
+		gArgs,
+		galleryOpts...)
 	if err != nil {
 		return err
 	}

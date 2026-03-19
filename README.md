@@ -13,7 +13,7 @@ Before you begin, ensure you have the following:
   * **Cloud Account:** An active AWS or Azure account
   * **Cloud Credentials:**
       * **AWS Credentials**: Your `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_DEFAULT_REGION` must be configured as environment variables.
-      * **Azure Credentials**: Your `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET`, `ARM_SUBSCRIPTION_ID` and `ARM_LOCATION_NAME` must be configured as environment variables.
+      * **Azure Credentials**: Your `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET`, `ARM_TENANT_ID`, `ARM_SUBSCRIPTION_ID` and `ARM_LOCATION_NAME` must be configured as environment variables.
 
 ## Params
 
@@ -111,6 +111,7 @@ podman run --rm --name import-openshift-local -d \
     -v ${PWD}:/workspace:z \
     -e ARM_CLIENT_ID=${ARM_CLIENT_ID} \
     -e ARM_CLIENT_SECRET=${ARM_CLIENT_SECRET} \
+    -e ARM_TENANT_ID=${ARM_TENANT_ID} \
     -e ARM_SUBSCRIPTION_ID=${ARM_SUBSCRIPTION_ID} \
     -e ARM_LOCATION_NAME=${ARM_LOCATION_NAME} \
     ghcr.io/mapt-oss/cloud-importer:latest snc az \
@@ -147,6 +148,7 @@ podman run --rm --name import-openshift-local -d \
 podman run --rm --name import-openshift-local -d \
     -e ARM_CLIENT_ID=${ARM_CLIENT_ID} \
     -e ARM_CLIENT_SECRET=${ARM_CLIENT_SECRET} \
+    -e ARM_TENANT_ID=${ARM_TENANT_ID} \
     -e ARM_SUBSCRIPTION_ID=${ARM_SUBSCRIPTION_ID} \
     -e ARM_LOCATION_NAME=${ARM_LOCATION_NAME} \
     ghcr.io/mapt-oss/cloud-importer:latest destroy \
