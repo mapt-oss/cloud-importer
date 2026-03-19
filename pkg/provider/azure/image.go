@@ -3,6 +3,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"os"
 	"runtime/debug"
 	"strings"
 
@@ -99,7 +100,8 @@ type regiterRequest struct {
 func (r *regiterRequest) registerFunc(ctx *pulumi.Context) (retErr error) {
 	defer func() {
 		if p := recover(); p != nil {
-			logging.Errorf("registerFunc panic: %v\n%s", p, debug.Stack())
+			// Use fmt.Fprintf directly to avoid potential panic in logging infrastructure
+			fmt.Fprintf(os.Stderr, "registerFunc panic: %v\n%s\n", p, debug.Stack())
 			retErr = fmt.Errorf("registerFunc panic: %v", p)
 		}
 	}()
@@ -110,11 +112,13 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) (retErr error) {
 	rgLocation := pulumi.String(*location)
 	// Check if resource group exist and reuse
 	var galleryOpts []pulumi.ResourceOption
+	logging.Debugf("looking up resource group %s", r.rgName)
 	eRg, err := resources.LookupResourceGroup(ctx,
 		&resources.LookupResourceGroupArgs{
 			ResourceGroupName: r.rgName,
 		})
 	if err != nil {
+		logging.Debugf("resource group %s not found, creating new one", r.rgName)
 		rg, err := resources.NewResourceGroup(
 			ctx,
 			"rg",
@@ -127,10 +131,12 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) (retErr error) {
 		}
 		galleryOpts = append(galleryOpts, pulumi.DependsOn([]pulumi.Resource{rg}))
 	} else {
+		logging.Debugf("resource group %s found at location %s", r.rgName, eRg.Location)
 		rgLocation = pulumi.String(eRg.Location)
 	}
 	rgName := pulumi.String(r.rgName)
 	gName := strings.ReplaceAll(r.name, "-", "_")
+	logging.Debugf("creating gallery %s in resource group %s", gName, r.rgName)
 	gArgs := &compute.GalleryArgs{
 		Description:       pulumi.String(r.name),
 		GalleryName:       pulumi.String(gName),
@@ -145,6 +151,7 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) (retErr error) {
 	if err != nil {
 		return err
 	}
+	logging.Debugf("creating gallery image %s", r.name)
 	gi, err := compute.NewGalleryImage(ctx,
 		"image",
 		&compute.GalleryImageArgs{
@@ -172,10 +179,12 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) (retErr error) {
 	if err != nil {
 		return err
 	}
+	logging.Debugf("fetching target regions for replication")
 	targetRegions, err := targetRegions()
 	if err != nil {
 		return err
 	}
+	logging.Debugf("creating gallery image version with %d target regions", len(targetRegions))
 	_, err = compute.NewGalleryImageVersion(ctx,
 		"GalleryImageVer",
 		&compute.GalleryImageVersionArgs{
@@ -203,11 +212,13 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) (retErr error) {
 		return err
 	}
 	if len(r.shareTenantIds) > 0 {
+		logging.Debugf("sharing gallery with %d tenants", len(r.shareTenantIds))
 		pulumi.All(g.Name).ApplyT(func(args []interface{}) error {
 			galleryName := args[0].(string)
 			return shareGallery(r.shareTenantIds, r.rgName, galleryName, r.name)
 		})
 	}
+	logging.Debugf("registerFunc completed successfully")
 	return err
 }
 
