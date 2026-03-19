@@ -3,10 +3,12 @@ package azure
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	imgctx "github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
+	"github.com/devtools-qe-incubator/cloud-importer/pkg/util/logging"
 	"github.com/pulumi/pulumi-azure-native-sdk/compute/v3"
 	resources "github.com/pulumi/pulumi-azure-native-sdk/resources/v3"
 
@@ -94,7 +96,13 @@ type regiterRequest struct {
 
 // from an image as a raw on a s3 bucket this function will import it as a snapshot
 // and the register the snapshot as an AMI
-func (r *regiterRequest) registerFunc(ctx *pulumi.Context) error {
+func (r *regiterRequest) registerFunc(ctx *pulumi.Context) (retErr error) {
+	defer func() {
+		if p := recover(); p != nil {
+			logging.Errorf("registerFunc panic: %v\n%s", p, debug.Stack())
+			retErr = fmt.Errorf("registerFunc panic: %v", p)
+		}
+	}()
 	location, err := sourceHostingPlace()
 	if err != nil {
 		return err
