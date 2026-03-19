@@ -109,16 +109,19 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) (retErr error) {
 	if err != nil {
 		return err
 	}
+	// Gallery must be in the same region as the source blob (uploaded by the
+	// ephemeral stack using ARM_LOCATION_NAME). Azure allows resources inside
+	// a resource group to reside in a different region than the RG itself.
 	rgLocation := pulumi.String(*location)
 	// Check if resource group exist and reuse
 	var galleryOpts []pulumi.ResourceOption
 	logging.Debugf("looking up resource group %s", r.rgName)
-	eRg, err := resources.LookupResourceGroup(ctx,
+	_, err = resources.LookupResourceGroup(ctx,
 		&resources.LookupResourceGroupArgs{
 			ResourceGroupName: r.rgName,
 		})
 	if err != nil {
-		logging.Debugf("resource group %s not found, creating new one", r.rgName)
+		logging.Debugf("resource group %s not found, creating new one at %s", r.rgName, *location)
 		rg, err := resources.NewResourceGroup(
 			ctx,
 			"rg",
@@ -131,8 +134,7 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) (retErr error) {
 		}
 		galleryOpts = append(galleryOpts, pulumi.DependsOn([]pulumi.Resource{rg}))
 	} else {
-		logging.Debugf("resource group %s found at location %s", r.rgName, eRg.Location)
-		rgLocation = pulumi.String(eRg.Location)
+		logging.Debugf("resource group %s found, using blob region %s for gallery", r.rgName, *location)
 	}
 	rgName := pulumi.String(r.rgName)
 	gName := strings.ReplaceAll(r.name, "-", "_")
