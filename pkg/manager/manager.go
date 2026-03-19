@@ -7,6 +7,7 @@ import (
 	providerAPI "github.com/devtools-qe-incubator/cloud-importer/pkg/manager/provider/api"
 	awsprovider "github.com/devtools-qe-incubator/cloud-importer/pkg/provider/aws"
 	"github.com/devtools-qe-incubator/cloud-importer/pkg/util/logging"
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
 const (
@@ -120,6 +121,18 @@ func Destoy(ctx *context.ContextArgs) error {
 	context.Init(ctx)
 	if context.ForceDestroy() {
 		deleteLocks(context.BackedURL())
+	}
+	// Attempt to destroy the ephemeral stack in case it was not cleaned up
+	// (e.g. after a failed import). A no-op deploy func is sufficient here
+	// since destroy only removes resources already tracked in the stack state.
+	ephemeralStack := providerAPI.Stack{
+		ProjectName: context.ProjectName(),
+		StackName:   stackRHELAIEphemeral,
+		BackedURL:   context.BackedURL(),
+		DeployFunc:  func(ctx *pulumi.Context) error { return nil },
+	}
+	if err := destroyStack(ephemeralStack, false, ManagerOptions{Baground: true}); err != nil {
+		logging.Warnf("Could not destroy ephemeral stack (it may already be gone): %v", err)
 	}
 	return destroyStack(providerAPI.Stack{
 		ProjectName: context.ProjectName(),

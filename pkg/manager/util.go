@@ -68,7 +68,21 @@ func upStackTargets(targetStack providerAPI.Stack, targetURNs []string, opts ...
 func destroyStack(targetStack providerAPI.Stack, cleanupState bool, opts ...ManagerOptions) (err error) {
 	logging.Debugf("destroying stack %s", targetStack.StackName)
 	ctx := context.Background()
-	objectStack := getStack(ctx, targetStack)
+	var objectStack auto.Stack
+	if len(opts) == 1 && opts[0].Baground {
+		// Skip Refresh: with a no-op DeployFunc, Refresh would clear all resources
+		// from state before Destroy runs, turning the destroy into a silent no-op.
+		objectStack, err = auto.UpsertStackInlineSource(ctx, targetStack.StackName,
+			targetStack.ProjectName, targetStack.DeployFunc, getOpts(targetStack)...)
+		if err != nil {
+			return err
+		}
+		if err = credentials.SetProviderCredentials(ctx, &objectStack, targetStack.ProviderCredentials); err != nil {
+			return err
+		}
+	} else {
+		objectStack = getStack(ctx, targetStack)
+	}
 	w := logging.GetWritter()
 	defer func() {
 		if err := w.Close(); err != nil {
@@ -89,6 +103,9 @@ func destroyStack(targetStack providerAPI.Stack, cleanupState bool, opts ...Mana
 	}
 	if _, err := objectStack.Destroy(ctx, mOpts...); err != nil {
 		logging.Error(err)
+		if len(opts) == 1 && opts[0].Baground {
+			return err
+		}
 		os.Exit(1)
 	}
 	if err := objectStack.Workspace().RemoveStack(ctx, targetStack.StackName); err != nil {

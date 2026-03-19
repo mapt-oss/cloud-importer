@@ -14,6 +14,9 @@ import (
 const (
 	CONFIG_AZURE_NATIVE_LOCATION        string = "azure-native:location"
 	CONFIG_AZURE_NATIVE_SUBSCRIPTION_ID string = "azure-native:subscriptionId"
+	CONFIG_AZURE_NATIVE_TENANT_ID       string = "azure-native:tenantId"
+	CONFIG_AZURE_NATIVE_CLIENT_ID       string = "azure-native:clientId"
+	CONFIG_AZURE_NATIVE_CLIENT_SECRET   string = "azure-native:clientSecret"
 )
 
 var azIdentityEnvs = []string{
@@ -27,6 +30,8 @@ var azIdentityEnvs = []string{
 var envCredentials = map[string]string{
 	CONFIG_AZURE_NATIVE_LOCATION:        "ARM_LOCATION_NAME",
 	CONFIG_AZURE_NATIVE_SUBSCRIPTION_ID: "ARM_SUBSCRIPTION_ID",
+	CONFIG_AZURE_NATIVE_TENANT_ID:       "ARM_TENANT_ID",
+	CONFIG_AZURE_NATIVE_CLIENT_ID:       "ARM_CLIENT_ID",
 }
 
 type azureProvider struct{}
@@ -43,7 +48,16 @@ func (p *azureProvider) GetProviderCredentials(customCredentials map[string]stri
 }
 
 func SetAzureCredentials(ctx context.Context, stack auto.Stack, customCredentials map[string]string) error {
-	return credentials.SetCredentials(ctx, stack, customCredentials, envCredentials)
+	if err := credentials.SetCredentials(ctx, stack, customCredentials, envCredentials); err != nil {
+		return err
+	}
+	// Set client secret as a Pulumi secret so it is encrypted at rest and masked in output
+	secret := customCredentials[CONFIG_AZURE_NATIVE_CLIENT_SECRET]
+	if secret == "" {
+		secret = os.Getenv("ARM_CLIENT_SECRET")
+	}
+	return stack.SetConfig(ctx, CONFIG_AZURE_NATIVE_CLIENT_SECRET,
+		auto.ConfigValue{Value: secret, Secret: true})
 }
 
 // Envs required for auth with go sdk
