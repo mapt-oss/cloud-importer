@@ -44,10 +44,16 @@ func locations() ([]string, error) {
 	}
 	var supportedLocations []string
 	for _, resourceType := range provider.ResourceTypes {
+		if resourceType == nil || resourceType.ResourceType == nil {
+			continue
+		}
 		if *resourceType.ResourceType == "galleries" ||
 			*resourceType.ResourceType == "galleries/images" ||
 			*resourceType.ResourceType == "galleries/images/versions" {
 			for _, location := range resourceType.Locations {
+				if location == nil {
+					continue
+				}
 				normalizedLoc := strings.ToLower(strings.ReplaceAll(*location, " ", ""))
 				supportedLocations = append(supportedLocations, normalizedLoc)
 			}
