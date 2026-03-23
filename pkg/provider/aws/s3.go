@@ -7,7 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/util/logging"
+	"github.com/mapt-oss/cloud-importer/pkg/util/logging"
 )
 
 // parseS3BackendURL parses an S3 backend URL in the format s3://bucket-name/path/to/state

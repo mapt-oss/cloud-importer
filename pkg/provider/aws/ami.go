@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
-	hostingPlaces "github.com/devtools-qe-incubator/cloud-importer/pkg/util/hosting-place"
+	"github.com/mapt-oss/cloud-importer/pkg/manager/context"
+	hostingPlaces "github.com/mapt-oss/cloud-importer/pkg/util/hosting-place"
 	"github.com/pulumi/pulumi-aws/sdk/v7/go/aws/ebs"
 	"github.com/pulumi/pulumi-aws/sdk/v7/go/aws/ec2"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"

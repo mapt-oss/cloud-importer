@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/util/logging"
+	"github.com/mapt-oss/cloud-importer/pkg/util/logging"
 )
 
 func WriteTempFile(fileName *string, content string) (*string, error) {

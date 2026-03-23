@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/provider/credentials"
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/util/logging"
+	"github.com/mapt-oss/cloud-importer/pkg/manager/provider/credentials"
+	"github.com/mapt-oss/cloud-importer/pkg/util/logging"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 )
 

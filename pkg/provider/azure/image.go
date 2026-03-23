@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
-	imgctx "github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
+	imgctx "github.com/mapt-oss/cloud-importer/pkg/manager/context"
 	"github.com/pulumi/pulumi-azure-native-sdk/compute/v3"
 	resources "github.com/pulumi/pulumi-azure-native-sdk/resources/v3"
 

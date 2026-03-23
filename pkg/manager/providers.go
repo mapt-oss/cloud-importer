@@ -3,9 +3,9 @@ package manager
 import (
 	"fmt"
 
-	providerAPI "github.com/devtools-qe-incubator/cloud-importer/pkg/manager/provider/api"
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/provider/aws"
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/provider/azure"
+	providerAPI "github.com/mapt-oss/cloud-importer/pkg/manager/provider/api"
+	"github.com/mapt-oss/cloud-importer/pkg/provider/aws"
+	"github.com/mapt-oss/cloud-importer/pkg/provider/azure"
 )
 
 type Provider string

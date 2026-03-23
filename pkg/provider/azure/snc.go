@@ -3,7 +3,7 @@ package azure
 import (
 	"fmt"
 
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/util/bundle"
+	"github.com/mapt-oss/cloud-importer/pkg/util/bundle"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 

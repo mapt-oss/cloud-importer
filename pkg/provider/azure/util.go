@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
+	"github.com/mapt-oss/cloud-importer/pkg/manager/context"
 	resources "github.com/pulumi/pulumi-azure-native-sdk/resources/v3"
 	"github.com/pulumi/pulumi-azure-native-sdk/storage/v3"
 	"github.com/pulumi/pulumi-command/sdk/go/command/local"
