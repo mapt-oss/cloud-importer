@@ -13,7 +13,7 @@ Before you begin, ensure you have the following:
   * **Cloud Account:** An active AWS or Azure account
   * **Cloud Credentials:**
       * **AWS Credentials**: Your `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_DEFAULT_REGION` must be configured as environment variables.
-      * **Azure Credentials**: Your `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET`, `ARM_TENANT_ID`, `ARM_SUBSCRIPTION_ID`, and `ARM_LOCATION_NAME` must be configured as environment variables.
+      * **Azure Credentials**: Your `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET`, `ARM_TENANT_ID`, `ARM_SUBSCRIPTION_ID`, and `ARM_LOCATION_NAME` must be configured as environment variables. Set variable `AZURE_STORAGE_ACCOUNT` and `AZURE_STORAGE_KEY` in the case of `azblob://` backed-url.
 
 ## Params
 
@@ -63,6 +63,8 @@ podman run --rm --name import-rhelai-azure -d \
     -e ARM_CLIENT_SECRET=${ARM_CLIENT_SECRET} \
     -e ARM_SUBSCRIPTION_ID=${ARM_SUBSCRIPTION_ID} \
     -e ARM_LOCATION_NAME=${ARM_LOCATION_NAME} \
+    -e AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT} \
+    -e AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY} \
     ghcr.io/mapt-oss/cloud-importer:latest rhelai az \
         --project-name "rhelai3-136d47d1" \
         --backed-url azblob://blobcontainer/folder \
@@ -114,6 +116,8 @@ podman run --rm --name import-openshift-local -d \
     -e ARM_TENANT_ID=${ARM_TENANT_ID} \
     -e ARM_SUBSCRIPTION_ID=${ARM_SUBSCRIPTION_ID} \
     -e ARM_LOCATION_NAME=${ARM_LOCATION_NAME} \
+    -e AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT} \
+    -e AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY} \
     ghcr.io/mapt-oss/cloud-importer:latest snc az \
           --project-name "snc-4.20.0" \
           --backed-url azblob://blobcontainer/folder \
