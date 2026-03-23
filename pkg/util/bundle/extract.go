@@ -4,7 +4,7 @@ import (
 	_ "embed"
 	"os"
 
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/util"
+	"github.com/mapt-oss/cloud-importer/pkg/util"
 	"github.com/pulumi/pulumi-command/sdk/go/command/local"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )

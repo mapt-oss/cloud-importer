@@ -1,6 +1,6 @@
 package main
 
-import "github.com/devtools-qe-incubator/cloud-importer/cmd/importer/cmd"
+import "github.com/mapt-oss/cloud-importer/cmd/importer/cmd"
 
 func main() {
 	cmd.Execute()

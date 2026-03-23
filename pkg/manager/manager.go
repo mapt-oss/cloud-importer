@@ -3,10 +3,10 @@ package manager
 import (
 	"strings"
 
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
-	providerAPI "github.com/devtools-qe-incubator/cloud-importer/pkg/manager/provider/api"
-	awsprovider "github.com/devtools-qe-incubator/cloud-importer/pkg/provider/aws"
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/util/logging"
+	"github.com/mapt-oss/cloud-importer/pkg/manager/context"
+	providerAPI "github.com/mapt-oss/cloud-importer/pkg/manager/provider/api"
+	awsprovider "github.com/mapt-oss/cloud-importer/pkg/provider/aws"
+	"github.com/mapt-oss/cloud-importer/pkg/util/logging"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 

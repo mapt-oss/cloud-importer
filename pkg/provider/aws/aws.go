@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/provider/credentials"
+	"github.com/mapt-oss/cloud-importer/pkg/manager/provider/credentials"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 )
 

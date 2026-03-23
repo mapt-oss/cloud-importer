@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/provider/credentials"
+	"github.com/mapt-oss/cloud-importer/pkg/manager/provider/credentials"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )

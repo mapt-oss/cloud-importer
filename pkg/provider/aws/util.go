@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
+	"github.com/mapt-oss/cloud-importer/pkg/manager/context"
 	awsnative "github.com/pulumi/pulumi-aws-native/sdk/go/aws"
 	"github.com/pulumi/pulumi-aws-native/sdk/go/aws/iam"
 	"github.com/pulumi/pulumi-aws-native/sdk/go/aws/s3"

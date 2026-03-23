@@ -1,33 +1,33 @@
 package cmd
 
 import (
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager"
-	"github.com/devtools-qe-incubator/cloud-importer/pkg/manager/context"
+	"github.com/mapt-oss/cloud-importer/pkg/manager"
+	"github.com/mapt-oss/cloud-importer/pkg/manager/context"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
 const (
-	awsCMD             string = "aws"
-	azureCMD           string = "az"
-	projectName        string = "project-name"
-	projectNameDesc    string = "project name to identify the execution"
-	backedURL          string = "backed-url"
-	backedURLDesc      string = "backed for stack state. (local) file:///path/subpath (s3) s3://existing-bucket, (azure) azblob://existing-blobcontainer. See more https://www.pulumi.com/docs/iac/concepts/state-and-backends/#using-a-self-managed-backend"
-	debug              string = "debug"
-	debugDesc          string = "Enable debug traces and set verbosity to max. Typically to get information to troubleshooting an issue."
-	debugLevel         string = "debug-level"
-	debugLevelDefault  uint   = 3
-	debugLevelDesc     string = "Set the level of verbosity on debug. You can set from minimum 1 to max 9."
-	paramReplicate     string = "replicate"
-	paramReplicateDesc string = "Provide a list of location to replicate or 'all' to replicate to all available locations"
-	paramOrgIds        string = "share-orgs-ids"
-	paramOrgIdsDesc    string = "List of comman separated organization identifiers to share imageswith. AWS would use arn format for orgs, and Azure will use tenantIds"
-	paramTags          string = "tags"
-	paramTagsDesc      string = "Comma-separated list of tags in format: key1=value1,key2=value2"
-	paramKeepState      string = "keep-state"
-	paramKeepStateDesc  string = "Keep Pulumi state in backend after destroy (default: false, state is deleted)"
-	paramForceDestroy   string = "force-destroy"
+	awsCMD                string = "aws"
+	azureCMD              string = "az"
+	projectName           string = "project-name"
+	projectNameDesc       string = "project name to identify the execution"
+	backedURL             string = "backed-url"
+	backedURLDesc         string = "backed for stack state. (local) file:///path/subpath (s3) s3://existing-bucket, (azure) azblob://existing-blobcontainer. See more https://www.pulumi.com/docs/iac/concepts/state-and-backends/#using-a-self-managed-backend"
+	debug                 string = "debug"
+	debugDesc             string = "Enable debug traces and set verbosity to max. Typically to get information to troubleshooting an issue."
+	debugLevel            string = "debug-level"
+	debugLevelDefault     uint   = 3
+	debugLevelDesc        string = "Set the level of verbosity on debug. You can set from minimum 1 to max 9."
+	paramReplicate        string = "replicate"
+	paramReplicateDesc    string = "Provide a list of location to replicate or 'all' to replicate to all available locations"
+	paramOrgIds           string = "share-orgs-ids"
+	paramOrgIdsDesc       string = "List of comman separated organization identifiers to share imageswith. AWS would use arn format for orgs, and Azure will use tenantIds"
+	paramTags             string = "tags"
+	paramTagsDesc         string = "Comma-separated list of tags in format: key1=value1,key2=value2"
+	paramKeepState        string = "keep-state"
+	paramKeepStateDesc    string = "Keep Pulumi state in backend after destroy (default: false, state is deleted)"
+	paramForceDestroy     string = "force-destroy"
 	paramForceDestroyDesc string = "if force-destroy is set the command will destroy even if there is a lock."
 )
 

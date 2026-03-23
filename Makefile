@@ -53,7 +53,7 @@ fmt:
 	@gofmt -l -w $(SOURCE_DIRS)
 
 $(GOPATH)/bin/golangci-lint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.6
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
 
 # Run golangci-lint against code
 .PHONY: lint
