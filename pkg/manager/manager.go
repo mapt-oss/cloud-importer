@@ -134,10 +134,16 @@ func Destoy(ctx *context.ContextArgs) error {
 	if err := destroyStack(ephemeralStack, false, ManagerOptions{Baground: true}); err != nil {
 		logging.Warnf("Could not destroy ephemeral stack (it may already be gone): %v", err)
 	}
-	return destroyStack(providerAPI.Stack{
+	mainStack := providerAPI.Stack{
 		ProjectName: context.ProjectName(),
 		StackName:   stackRHELAI,
-		BackedURL:   context.BackedURL()}, !context.KeepState())
+		BackedURL:   context.BackedURL(),
+	}
+	if context.ForceDestroy() {
+		mainStack.DeployFunc = func(ctx *pulumi.Context) error { return nil }
+		return destroyStack(mainStack, !context.KeepState(), ManagerOptions{Baground: true})
+	}
+	return destroyStack(mainStack, !context.KeepState())
 }
 
 // deleteLocks removes Pulumi lock files from the backend before a forced destroy.
