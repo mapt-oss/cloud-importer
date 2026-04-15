@@ -28,13 +28,6 @@ func rhelaiCmds() *cobra.Command {
 	return c
 }
 
-var (
-	paramImagePath     = "image-path"
-	paramImagePathDesc = "local path to the image"
-	paramImageName     = "image-name"
-	paramImageNameDesc = "image name once the image is upload"
-)
-
 func rhelaiCreate(cmd string, provider manager.Provider) *cobra.Command {
 	c := &cobra.Command{
 		Use:   cmd,

@@ -22,13 +22,17 @@ const (
 	paramReplicate        string = "replicate"
 	paramReplicateDesc    string = "Provide a list of location to replicate or 'all' to replicate to all available locations"
 	paramOrgIds           string = "share-orgs-ids"
-	paramOrgIdsDesc       string = "List of comman separated organization identifiers to share imageswith. AWS would use arn format for orgs, and Azure will use tenantIds"
+	paramOrgIdsDesc       string = "Comma-separated list of organization identifiers to share images with. AWS would use arn format for orgs, and Azure will use tenantIds"
 	paramTags             string = "tags"
 	paramTagsDesc         string = "Comma-separated list of tags in format: key1=value1,key2=value2"
 	paramKeepState        string = "keep-state"
 	paramKeepStateDesc    string = "Keep Pulumi state in backend after destroy (default: false, state is deleted)"
 	paramForceDestroy     string = "force-destroy"
 	paramForceDestroyDesc string = "if force-destroy is set the command will destroy even if there is a lock."
+	paramImagePath        string = "image-path"
+	paramImagePathDesc    string = "local path to the image"
+	paramImageName        string = "image-name"
+	paramImageNameDesc    string = "image name once the image is upload"
 )
 
 func contextArgsFlags(fs *pflag.FlagSet) {

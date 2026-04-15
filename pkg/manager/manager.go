@@ -140,6 +140,14 @@ func Destoy(ctx *context.ContextArgs) error {
 		BackedURL:   context.BackedURL()}, !context.KeepState())
 }
 
+func CheckImageExists(imageName string, provider Provider) (bool, string, error) {
+	p, err := getProvider(provider)
+	if err != nil {
+		return false, "", err
+	}
+	return p.ImageExists(imageName)
+}
+
 // deleteLocks removes Pulumi lock files from the backend before a forced destroy.
 // Currently only S3 backends are supported; Azure blob backends log a warning.
 func deleteLocks(backedURL string) {

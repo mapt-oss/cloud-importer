@@ -51,7 +51,8 @@ func init() {
 	rootCmd.AddCommand(
 		sncCmds(),
 		rhelaiCmds(),
-		destroy())
+		destroy(),
+		checkCmds())
 }
 
 func Execute() {
