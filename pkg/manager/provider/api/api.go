@@ -23,4 +23,7 @@ type Provider interface {
 	ImageRegister(ephemeralResults auto.UpResult, replicate bool, shareOrgIds []string) (pulumi.RunFunc, error)
 	// Manage Provider Credentials
 	GetProviderCredentials(customCreds map[string]string) credentials.ProviderCredentials
+	// Check if an image with the given name exists
+	// Returns true and the image identifier if found, false and empty string otherwise
+	ImageExists(imageName string) (bool, string, error)
 }
