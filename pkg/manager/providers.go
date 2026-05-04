@@ -2,6 +2,7 @@ package manager
 
 import (
 	"fmt"
+	"strings"
 
 	providerAPI "github.com/mapt-oss/cloud-importer/pkg/manager/provider/api"
 	"github.com/mapt-oss/cloud-importer/pkg/provider/aws"
@@ -23,4 +24,14 @@ func getProvider(provider Provider) (providerAPI.Provider, error) {
 		return azure.Provider(), nil
 	}
 	return nil, fmt.Errorf("%s: provider not supported", provider)
+}
+
+func getProviderByBackedURL(backedURL string) (providerAPI.Provider, error) {
+	switch {
+	case strings.HasPrefix(backedURL, "s3://"):
+		return getProvider(AWS)
+	case strings.HasPrefix(backedURL, "azblob://"):
+		return getProvider(AZURE)
+	}
+	return nil, fmt.Errorf("unsupported backend URL: %s", backedURL)
 }

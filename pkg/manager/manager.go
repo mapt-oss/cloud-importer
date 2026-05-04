@@ -1,11 +1,8 @@
 package manager
 
 import (
-	"strings"
-
 	"github.com/mapt-oss/cloud-importer/pkg/manager/context"
 	providerAPI "github.com/mapt-oss/cloud-importer/pkg/manager/provider/api"
-	awsprovider "github.com/mapt-oss/cloud-importer/pkg/provider/aws"
 	"github.com/mapt-oss/cloud-importer/pkg/util/logging"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
@@ -154,15 +151,11 @@ func CheckImageExists(imageName string, provider Provider) (bool, string, error)
 	return p.ImageExists(imageName)
 }
 
-// deleteLocks removes Pulumi lock files from the backend before a forced destroy.
-// Currently only S3 backends are supported; Azure blob backends log a warning.
 func deleteLocks(backedURL string) {
-	switch {
-	case strings.HasPrefix(backedURL, "s3://"):
-		awsprovider.DeleteLocks(backedURL)
-	case strings.HasPrefix(backedURL, "azblob://"):
-		logging.Warn("force-destroy: Azure Blob Storage lock deletion is not yet supported, proceeding with destroy")
-	default:
-		logging.Debugf("force-destroy: unsupported backend %q, skipping lock deletion", backedURL)
+	p, err := getProviderByBackedURL(backedURL)
+	if err != nil {
+		logging.Debugf("force-destroy: %v, skipping lock deletion", err)
+		return
 	}
+	p.DeleteLocks(backedURL)
 }

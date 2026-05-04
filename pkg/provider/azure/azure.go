@@ -42,6 +42,14 @@ func (p *azureProvider) GetProviderCredentials(customCredentials map[string]stri
 		FixedCredentials:  customCredentials}
 }
 
+func (p *azureProvider) DeleteLocks(backedURL string) {
+	DeleteLocks(backedURL)
+}
+
+func (p *azureProvider) CleanupState(backedURL string) {
+	CleanupState(backedURL)
+}
+
 func SetAzureCredentials(ctx context.Context, stack auto.Stack, customCredentials map[string]string) error {
 	return credentials.SetCredentials(ctx, stack, customCredentials, envCredentials)
 }

@@ -4,12 +4,10 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 
 	ac "github.com/mapt-oss/cloud-importer/pkg/manager/context"
 	providerAPI "github.com/mapt-oss/cloud-importer/pkg/manager/provider/api"
 	"github.com/mapt-oss/cloud-importer/pkg/manager/provider/credentials"
-	awsprovider "github.com/mapt-oss/cloud-importer/pkg/provider/aws"
 	"github.com/mapt-oss/cloud-importer/pkg/util/logging"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/debug"
@@ -116,9 +114,10 @@ func destroyStack(targetStack providerAPI.Stack, cleanupState bool, opts ...Mana
 		os.Exit(1)
 	}
 
-	// Cleanup Pulumi state from S3 backend after successful destroy
-	if cleanupState && strings.HasPrefix(targetStack.BackedURL, "s3://") {
-		awsprovider.CleanupState(targetStack.BackedURL)
+	if cleanupState {
+		if p, err := getProviderByBackedURL(targetStack.BackedURL); err == nil {
+			p.CleanupState(targetStack.BackedURL)
+		}
 	}
 
 	return nil
