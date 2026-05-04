@@ -26,4 +26,8 @@ type Provider interface {
 	// Check if an image with the given name exists
 	// Returns true and the image identifier if found, false and empty string otherwise
 	ImageExists(imageName string) (bool, string, error)
+	// Delete Pulumi lock files from the backend storage
+	DeleteLocks(backedURL string)
+	// Clean up Pulumi state files from the backend storage
+	CleanupState(backedURL string)
 }

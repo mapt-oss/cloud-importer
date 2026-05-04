@@ -43,6 +43,14 @@ func (p *aws) GetProviderCredentials(customCredentials map[string]string) creden
 		FixedCredentials:  customCredentials}
 }
 
+func (p *aws) DeleteLocks(backedURL string) {
+	DeleteLocks(backedURL)
+}
+
+func (p *aws) CleanupState(backedURL string) {
+	CleanupState(backedURL)
+}
+
 func SetAWSCredentials(ctx context.Context, stack auto.Stack, customCredentials map[string]string) error {
 	return credentials.SetCredentials(ctx, stack, customCredentials, envCredentials)
 }
