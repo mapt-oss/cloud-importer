@@ -304,6 +304,76 @@ podman run --rm \
 
 ---
 
+## Developer Testing
+
+For local testing, store Pulumi state in the mounted workspace directory — no cloud storage bucket needed. Load credentials from Bitwarden and pass them with name-only `-e` flags so values never appear in shell history or `ps` output.
+
+### Bitwarden item conventions
+
+| Bitwarden item | `username` field | `password` field | `notes` field |
+|---|---|---|---|
+| `AWS_ACCESS` | `AWS_ACCESS_KEY_ID` value | `AWS_SECRET_ACCESS_KEY` value | — |
+| `AZ_SP` | `ARM_CLIENT_ID` value | `ARM_CLIENT_SECRET` value | — |
+| `AZ_STORAGE` | `AZURE_STORAGE_ACCOUNT` value | `AZURE_STORAGE_KEY` value | — |
+| `GCP_SA_KEY` | — | — | service account key JSON |
+
+### Load credentials into your shell
+
+First, unlock your Bitwarden vault and establish a session:
+
+```bash
+export BW_SESSION=$(bw unlock --raw)
+```
+
+**AWS:**
+```bash
+export AWS_ACCESS_KEY_ID=$(bw get username "AWS_ACCESS")
+export AWS_SECRET_ACCESS_KEY=$(bw get password "AWS_ACCESS")
+export AWS_DEFAULT_REGION=us-east-1
+```
+
+**Azure:**
+```bash
+export ARM_CLIENT_ID=$(bw get username "AZ_SP")
+export ARM_CLIENT_SECRET=$(bw get password "AZ_SP")
+export ARM_TENANT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+export ARM_SUBSCRIPTION_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+export ARM_LOCATION_NAME=eastus
+export AZURE_STORAGE_ACCOUNT=$(bw get username "AZ_STORAGE")
+export AZURE_STORAGE_KEY=$(bw get password "AZ_STORAGE")
+```
+
+**GCP:**
+```bash
+export GOOGLE_PROJECT=my-gcp-project-id
+export GOOGLE_REGION=us-central1
+export GOOGLE_CREDENTIALS=$(bw get notes "GCP_SA_KEY" | jq -c .)  # compact multiline JSON to single line
+```
+
+### Run with local Pulumi state
+
+```bash
+podman run --rm --name import-rhelai -d \
+    --user 0 \
+    -v ${PWD}:/workspace:z \
+    -e AWS_ACCESS_KEY_ID \
+    -e AWS_SECRET_ACCESS_KEY \
+    -e AWS_DEFAULT_REGION \
+    quay.io/aipcc-cicd/cloud-importer:latest rhelai aws \
+        --project-name "rhelai-dev-test" \
+        --backed-url "file:///workspace" \
+        --image-name "rhelai-dev-test" \
+        --image-path "/workspace/rhel-ai-nvidia-aws-1.5-x86_64.raw" \
+        --debug \
+        --debug-level 9
+
+podman logs -f import-rhelai
+```
+
+Replace `aws` with `az` or `gcp` and swap the `-e` flags to match the provider. Pulumi state is written to `${PWD}/rhelai-dev-test/` — delete it when done.
+
+---
+
 ## Testing VMs
 
 After a successful import, launch a short-lived test VM to confirm the image boots correctly and is the expected OS/version. Remember to delete the test VM when done.
