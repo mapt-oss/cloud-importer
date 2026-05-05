@@ -197,7 +197,8 @@ func replicaAsync(targetRegion string, args replicateArgs, c chan hostingPlaces.
 
 func orgId(orgARN *string) string {
 	r := strings.Split(*orgARN, ":")[5]
-	return strings.Split(r, "/")[1]
+	parts := strings.Split(r, "/")
+	return strings.Join(parts[1:], "-")
 }
 
 // mergeTags combines context tags with resource-specific tags.
