@@ -96,8 +96,8 @@ func uploadDisk(ctx *pulumi.Context, rawImageFilePath, bucketName *string,
 		},
 		pulumi.Timeouts(
 			&pulumi.CustomTimeouts{
-				Create: "90m",
-				Update: "90m",
+				Create: "6h",
+				Update: "6h",
 				Delete: "90m"}),
 		pulumi.DependsOn(dependecies))
 }
