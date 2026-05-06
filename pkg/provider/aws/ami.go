@@ -130,13 +130,11 @@ func (r *registerRequest) newAMI(ctx *pulumi.Context) (*ec2.Ami, error) {
 		return nil, err
 	}
 	for _, orgArn := range r.shareorgARNs {
+		lArgs := launchPermArgs(ami.ID(), orgArn)
 		_, err = ec2.NewAmiLaunchPermission(
 			ctx,
 			fmt.Sprintf("%s-%s", r.name, orgId(&orgArn)),
-			&ec2.AmiLaunchPermissionArgs{
-				ImageId:         ami.ID(),
-				OrganizationArn: pulumi.String(orgArn),
-			})
+			lArgs)
 		if err != nil {
 			return nil, err
 		}
@@ -173,14 +171,12 @@ func replicaAsync(targetRegion string, args replicateArgs, c chan hostingPlaces.
 	}
 	var amiPermissions *ec2.AmiLaunchPermission
 	for _, orgArn := range args.shareOrgARNs {
+		lArgs := launchPermArgs(ami.ID(), orgArn)
+		lArgs.Region = pulumi.String(targetRegion)
 		amiPermissions, err = ec2.NewAmiLaunchPermission(
 			args.ctx,
 			fmt.Sprintf("%s-%s-%s", *args.name, targetRegion, orgId(&orgArn)),
-			&ec2.AmiLaunchPermissionArgs{
-				ImageId:         ami.ID(),
-				OrganizationArn: pulumi.String(orgArn),
-				Region:          pulumi.String(targetRegion),
-			})
+			lArgs)
 		if err != nil {
 			hostingPlaces.SendAsyncErr(c, err)
 			return
@@ -195,10 +191,36 @@ func replicaAsync(targetRegion string, args replicateArgs, c chan hostingPlaces.
 		Err: nil}
 }
 
+// orgId returns a string suitable for use as a unique Pulumi resource name suffix.
+// Accepts either a plain AWS account ID ("851725220677") or an organizations ARN.
 func orgId(orgARN *string) string {
+	if !strings.HasPrefix(*orgARN, "arn:") {
+		return *orgARN
+	}
 	r := strings.Split(*orgARN, ":")[5]
 	parts := strings.Split(r, "/")
 	return strings.Join(parts[1:], "-")
+}
+
+// launchPermArgs builds AmiLaunchPermissionArgs routing to the correct field.
+// Accepts a plain 12-digit account ID or an organizations ARN
+// (organization→OrganizationArn, ou→OrganizationalUnitArn, account→AccountId).
+func launchPermArgs(imageId pulumi.StringInput, arn string) *ec2.AmiLaunchPermissionArgs {
+	args := &ec2.AmiLaunchPermissionArgs{ImageId: imageId}
+	if !strings.HasPrefix(arn, "arn:") {
+		args.AccountId = pulumi.String(arn)
+		return args
+	}
+	parts := strings.Split(strings.Split(arn, ":")[5], "/")
+	switch parts[0] {
+	case "account":
+		args.AccountId = pulumi.String(parts[len(parts)-1])
+	case "ou":
+		args.OrganizationalUnitArn = pulumi.String(arn)
+	default: // "organization"
+		args.OrganizationArn = pulumi.String(arn)
+	}
+	return args
 }
 
 // mergeTags combines context tags with resource-specific tags.
