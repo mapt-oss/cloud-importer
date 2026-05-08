@@ -10,6 +10,7 @@ import (
 const (
 	awsCMD                string = "aws"
 	azureCMD              string = "az"
+	gcpCMD                string = "gcp"
 	projectName           string = "project-name"
 	projectNameDesc       string = "project name to identify the execution"
 	backedURL             string = "backed-url"

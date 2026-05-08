@@ -25,6 +25,7 @@ func sncCmds() *cobra.Command {
 	}
 	c.AddCommand(sncCreate(awsCMD, manager.AWS))
 	c.AddCommand(sncCreate(azureCMD, manager.AZURE))
+	c.AddCommand(sncCreate(gcpCMD, manager.GCP))
 	return c
 }
 
