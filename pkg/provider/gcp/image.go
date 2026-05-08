@@ -2,6 +2,7 @@ package gcp
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/mapt-oss/cloud-importer/pkg/util/logging"
 	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/compute"
@@ -47,7 +48,8 @@ func (r *gcpRegisterRequest) registerFunc(ctx *pulumi.Context) error {
 		Name:        pulumi.String(imageName),
 		Description: pulumi.String(r.imageName),
 		RawDisk: &compute.ImageRawDiskArgs{
-			Source: pulumi.String(r.gcsURI),
+			// Compute Engine API requires https:// URL, not gs:// URI.
+			Source: pulumi.String(strings.Replace(r.gcsURI, "gs://", "https://storage.googleapis.com/", 1)),
 		},
 	})
 	if err != nil {

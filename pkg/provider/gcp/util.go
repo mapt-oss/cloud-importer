@@ -29,8 +29,13 @@ func sanitizeImageName(name string) string {
 }
 
 func bucketEphemeral(ctx *pulumi.Context, bucketName *string) (*storage.Bucket, error) {
+	location, err := sourceHostingPlace()
+	if err != nil {
+		return nil, err
+	}
 	return storage.NewBucket(ctx, "gcsBucket", &storage.BucketArgs{
 		Name:                     pulumi.String(*bucketName),
+		Location:                 pulumi.String(*location),
 		ForceDestroy:             pulumi.Bool(true),
 		UniformBucketLevelAccess: pulumi.Bool(true),
 	})
