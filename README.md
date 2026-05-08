@@ -315,7 +315,7 @@ For local testing, store Pulumi state in the mounted workspace directory — no 
 | `AWS_ACCESS` | `AWS_ACCESS_KEY_ID` value | `AWS_SECRET_ACCESS_KEY` value | — |
 | `AZ_SP` | `ARM_CLIENT_ID` value | `ARM_CLIENT_SECRET` value | — |
 | `AZ_STORAGE` | `AZURE_STORAGE_ACCOUNT` value | `AZURE_STORAGE_KEY` value | — |
-| `GCP_SA_KEY` | — | — | service account key JSON |
+| `GCP_SA_KEY` | `GOOGLE_PROJECT` value | — | service account key JSON |
 
 ### Load credentials into your shell
 
@@ -345,7 +345,7 @@ export AZURE_STORAGE_KEY=$(bw get password "AZ_STORAGE")
 
 **GCP:**
 ```bash
-export GOOGLE_PROJECT=my-gcp-project-id
+export GOOGLE_PROJECT=$(bw get username "GCP_SA_KEY")
 export GOOGLE_REGION=us-central1
 export GOOGLE_CREDENTIALS=$(bw get notes "GCP_SA_KEY" | jq -c .)  # compact multiline JSON to single line
 ```
