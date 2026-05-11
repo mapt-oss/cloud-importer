@@ -55,11 +55,17 @@ func compressAndUpload(ctx *pulumi.Context, rawFilePath, bucketName *string, dep
 		"_CREDS=$(mktemp) && printf '%s' \"${GOOGLE_CREDENTIALS}\" > \"$_CREDS\" && " +
 		"export GOOGLE_APPLICATION_CREDENTIALS=\"$_CREDS\"; fi"
 
+	// GCP requires disk.raw size to be a multiple of 1GB; pad with zeros if needed.
+	padCmd := "SIZE=$(wc -c < \"$TMPDIR/disk.raw\" | tr -d ' ') && " +
+		"NEXT_GB=$(( (SIZE + 1073741823) / 1073741824 * 1073741824 )) && " +
+		"truncate -s $NEXT_GB \"$TMPDIR/disk.raw\""
+
 	createCmd := fmt.Sprintf(
 		"%s && TMPDIR=$(mktemp -d) && cp %s $TMPDIR/disk.raw && "+
+			"%s && "+
 			"tar czf %s -C $TMPDIR disk.raw && rm -rf $TMPDIR && "+
 			"gcloud storage cp %s %s && rm -f %s ${_CREDS:-}",
-		credSetup, *rawFilePath, tarPath, tarPath, gcsURI, tarPath)
+		credSetup, *rawFilePath, padCmd, tarPath, tarPath, gcsURI, tarPath)
 	deleteCmd := fmt.Sprintf(
 		"%s && gcloud storage rm %s || true && rm -f ${_CREDS:-}",
 		credSetup, gcsURI)
