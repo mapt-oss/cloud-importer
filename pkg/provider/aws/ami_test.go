@@ -110,3 +110,107 @@ func TestLaunchPermArgs(t *testing.T) {
 		})
 	}
 }
+
+func TestOrgIdOrgLevel(t *testing.T) {
+	tests := []struct {
+		name     string
+		arn      string
+		expected string
+	}{
+		{
+			name:     "org ARN with one management account",
+			arn:      "arn:aws:organizations::329260820478:organization/o-meltunc7lj",
+			expected: "o-meltunc7lj",
+		},
+		{
+			name:     "org ARN with different management account, same org ID",
+			arn:      "arn:aws:organizations::329260824578:organization/o-meltunc7lj",
+			expected: "o-meltunc7lj",
+		},
+		{
+			name:     "org ARN with different org ID",
+			arn:      "arn:aws:organizations::329260820478:organization/o-different1",
+			expected: "o-different1",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := orgId(&tt.arn)
+			if got != tt.expected {
+				t.Errorf("orgId(%q) = %q, want %q", tt.arn, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestValidateShareOrgIds(t *testing.T) {
+	tests := []struct {
+		name    string
+		ids     []string
+		wantErr bool
+	}{
+		{
+			name: "reviewer case: same org ID different management accounts",
+			ids: []string{
+				"arn:aws:organizations::329260820478:organization/o-meltunc7lj",
+				"arn:aws:organizations::329260824578:organization/o-meltunc7lj",
+			},
+			wantErr: true,
+		},
+		{
+			name: "exact duplicate org ARN",
+			ids: []string{
+				"arn:aws:organizations::329260820478:organization/o-meltunc7lj",
+				"arn:aws:organizations::329260820478:organization/o-meltunc7lj",
+			},
+			wantErr: true,
+		},
+		{
+			name:    "exact duplicate plain account ID",
+			ids:     []string{"851725220677", "851725220677"},
+			wantErr: true,
+		},
+		{
+			name: "two org ARNs with different org IDs",
+			ids: []string{
+				"arn:aws:organizations::329260820478:organization/o-meltunc7lj",
+				"arn:aws:organizations::329260820478:organization/o-different1",
+			},
+			wantErr: false,
+		},
+		{
+			name: "two account-level ARNs same org different accounts",
+			ids: []string{
+				"arn:aws:organizations::329260820478:account/o-melcpnc7lj/851725220677",
+				"arn:aws:organizations::329260820478:account/o-melcpnc7lj/585132637328",
+			},
+			wantErr: false,
+		},
+		{
+			name: "two OU ARNs with different OU IDs",
+			ids: []string{
+				"arn:aws:organizations::329260820478:ou/o-melcpnc7lj/ou-aaaa-11111111",
+				"arn:aws:organizations::329260820478:ou/o-melcpnc7lj/ou-bbbb-22222222",
+			},
+			wantErr: false,
+		},
+		{
+			name:    "empty list",
+			ids:     []string{},
+			wantErr: false,
+		},
+		{
+			name:    "single entry",
+			ids:     []string{"arn:aws:organizations::329260820478:organization/o-meltunc7lj"},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateShareOrgIds(tt.ids)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateShareOrgIds(%v) error = %v, wantErr %v", tt.ids, err, tt.wantErr)
+			}
+		})
+	}
+}

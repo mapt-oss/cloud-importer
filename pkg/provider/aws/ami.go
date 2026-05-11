@@ -21,6 +21,9 @@ var (
 )
 
 func (a *aws) ImageRegister(ephemeralResults auto.UpResult, replicate bool, shareOrgIds []string) (pulumi.RunFunc, error) {
+	if err := validateShareOrgIds(shareOrgIds); err != nil {
+		return nil, err
+	}
 	amiNameOutput, ok := ephemeralResults.Outputs[outAMIName]
 	if !ok {
 		return nil, fmt.Errorf("output not found: %s", outAMIName)
@@ -189,6 +192,27 @@ func replicaAsync(targetRegion string, args replicateArgs, c chan hostingPlaces.
 			amiPermissions: amiPermissions,
 		},
 		Err: nil}
+}
+
+// validateShareOrgIds returns an error if any two entries in ids resolve to the
+// same orgId key, which would cause a duplicate Pulumi URN at resource creation
+// time. Note: a plain account ID (e.g. "851725220677") and a full account-level
+// ARN for the same account produce different keys and are not detected as
+// duplicates here; normalising across those formats would require an
+// organisations:DescribeAccount lookup that may not be available to the caller.
+func validateShareOrgIds(ids []string) error {
+	seen := make(map[string]string, len(ids))
+	for _, id := range ids {
+		key := orgId(&id)
+		if prev, exists := seen[key]; exists {
+			return fmt.Errorf(
+				"duplicate share target: %q and %q resolve to the same identifier %q — "+
+					"check for duplicate entries or conflicting management account IDs in org ARNs",
+				prev, id, key)
+		}
+		seen[key] = id
+	}
+	return nil
 }
 
 // orgId returns a string suitable for use as a unique Pulumi resource name suffix.
