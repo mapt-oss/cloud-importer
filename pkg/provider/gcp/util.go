@@ -47,13 +47,22 @@ func compressAndUpload(ctx *pulumi.Context, rawFilePath, bucketName *string, dep
 	tarPath := fmt.Sprintf("/tmp/%s-disk.raw.tar.gz", *bucketName)
 	gcsURI := fmt.Sprintf("gs://%s/disk.raw.tar.gz", *bucketName)
 
-	// Create a temp dir, copy the file as disk.raw, tar it, upload, then clean up.
+	// Write GOOGLE_CREDENTIALS to a temp file so gcloud storage uses the same
+	// service account as the Pulumi provider. gcloud storage reads
+	// GOOGLE_APPLICATION_CREDENTIALS; if credentials are not set it falls
+	// back to gcloud ADC.
+	credSetup := "if [ -n \"${GOOGLE_CREDENTIALS}\" ]; then " +
+		"_CREDS=$(mktemp) && printf '%s' \"${GOOGLE_CREDENTIALS}\" > \"$_CREDS\" && " +
+		"export GOOGLE_APPLICATION_CREDENTIALS=\"$_CREDS\"; fi"
+
 	createCmd := fmt.Sprintf(
-		"TMPDIR=$(mktemp -d) && cp %s $TMPDIR/disk.raw && "+
+		"%s && TMPDIR=$(mktemp -d) && cp %s $TMPDIR/disk.raw && "+
 			"tar czf %s -C $TMPDIR disk.raw && rm -rf $TMPDIR && "+
-			"gsutil cp %s %s && rm -f %s",
-		*rawFilePath, tarPath, tarPath, gcsURI, tarPath)
-	deleteCmd := fmt.Sprintf("gsutil rm -f %s || true", gcsURI)
+			"gcloud storage cp %s %s && rm -f %s ${_CREDS:-}",
+		credSetup, *rawFilePath, tarPath, tarPath, gcsURI, tarPath)
+	deleteCmd := fmt.Sprintf(
+		"%s && gcloud storage rm %s || true && rm -f ${_CREDS:-}",
+		credSetup, gcsURI)
 
 	return local.NewCommand(ctx, "uploadGCS", &local.CommandArgs{
 		Create: pulumi.String(createCmd),
