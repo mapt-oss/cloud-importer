@@ -6,7 +6,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-func TestOrgId(t *testing.T) {
+func TestPulumiResourceId(t *testing.T) {
 	tests := []struct {
 		name     string
 		arn      string
@@ -37,11 +37,21 @@ func TestOrgId(t *testing.T) {
 			arn:      "arn:aws:organizations::329260820478:ou/o-melcpnc7lj/ou-xxxx-yyyyyyyy",
 			expected: "o-melcpnc7lj-ou-xxxx-yyyyyyyy",
 		},
+		{
+			name:     "malformed ARN too few segments returns ARN as-is (no panic)",
+			arn:      "arn:aws:organizations::329260820478",
+			expected: "arn:aws:organizations::329260820478",
+		},
+		{
+			name:     "malformed ARN resource part has no slash returns ARN as-is (no panic)",
+			arn:      "arn:aws:organizations::329260820478:organization",
+			expected: "arn:aws:organizations::329260820478:organization",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := orgId(&tt.arn)
+			got := pulumiResourceId(tt.arn)
 			if got != tt.expected {
 				t.Errorf("orgId(%q) = %q, want %q", tt.arn, got, tt.expected)
 			}
@@ -51,12 +61,12 @@ func TestOrgId(t *testing.T) {
 
 // TestOrgIdUniqueness verifies that two account ARNs from the same org produce
 // distinct resource name suffixes (the root cause of issue #82).
-func TestOrgIdUniqueness(t *testing.T) {
+func TestPulumiResourceIdUniqueness(t *testing.T) {
 	arn1 := "arn:aws:organizations::329260820478:account/o-melcpnc7lj/851725220677"
 	arn2 := "arn:aws:organizations::329260820478:account/o-melcpnc7lj/585132637328"
 
-	id1 := orgId(&arn1)
-	id2 := orgId(&arn2)
+	id1 := pulumiResourceId(arn1)
+	id2 := pulumiResourceId(arn2)
 
 	if id1 == id2 {
 		t.Errorf("two account ARNs from the same org produced the same ID %q — would cause duplicate Pulumi URN", id1)
@@ -111,7 +121,7 @@ func TestLaunchPermArgs(t *testing.T) {
 	}
 }
 
-func TestOrgIdOrgLevel(t *testing.T) {
+func TestPulumiResourceIdOrgLevel(t *testing.T) {
 	tests := []struct {
 		name     string
 		arn      string
@@ -135,7 +145,7 @@ func TestOrgIdOrgLevel(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := orgId(&tt.arn)
+			got := pulumiResourceId(tt.arn)
 			if got != tt.expected {
 				t.Errorf("orgId(%q) = %q, want %q", tt.arn, got, tt.expected)
 			}

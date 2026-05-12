@@ -47,6 +47,9 @@ func RHELAI(ctx *context.ContextArgs,
 	if err != nil {
 		return err
 	}
+	if err := p.ValidateShareTargets(args.ImageControl.ShareOrgIds); err != nil {
+		return err
+	}
 	ephemeralStack := providerAPI.Stack{
 		ProjectName: context.ProjectName(),
 		StackName:   stackRHELAIEphemeral,
@@ -88,6 +91,9 @@ func SNC(ctx *context.ContextArgs, args *SNCArgs, provider Provider) error {
 	}
 	p, err := getProvider(provider)
 	if err != nil {
+		return err
+	}
+	if err := p.ValidateShareTargets(args.ImageControl.ShareOrgIds); err != nil {
 		return err
 	}
 	ephemeralStack := providerAPI.Stack{
