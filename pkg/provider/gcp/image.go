@@ -51,7 +51,7 @@ func (r *gcpRegisterRequest) registerFunc(ctx *pulumi.Context) error {
 			// Compute Engine API requires https:// URL, not gs:// URI.
 			Source: pulumi.String(strings.Replace(r.gcsURI, "gs://", "https://storage.googleapis.com/", 1)),
 		},
-	})
+	}, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "6h", Update: "6h", Delete: "30m"}))
 	if err != nil {
 		return err
 	}
