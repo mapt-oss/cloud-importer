@@ -19,6 +19,9 @@ type Provider interface {
 	RHELAIEphemeral(imageFilePath, imageName string) pulumi.RunFunc
 	// Manage ephemeral assets
 	SNCEphemeral(bundleURI, shasumURI, arch string) pulumi.RunFunc
+	// ValidateShareTargets checks share target identifiers for errors (e.g. duplicates)
+	// before any upload or resource creation begins. Returns an error if the targets are invalid.
+	ValidateShareTargets(shareOrgIds []string) error
 	// Register AMI and keep state
 	ImageRegister(ephemeralResults auto.UpResult, replicate bool, shareOrgIds []string) (pulumi.RunFunc, error)
 	// Manage Provider Credentials

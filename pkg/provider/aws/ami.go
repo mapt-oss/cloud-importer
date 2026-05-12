@@ -20,6 +20,10 @@ var (
 	outBucketName = "rolename"
 )
 
+func (a *aws) ValidateShareTargets(shareOrgIds []string) error {
+	return validateShareOrgIds(shareOrgIds)
+}
+
 func (a *aws) ImageRegister(ephemeralResults auto.UpResult, replicate bool, shareOrgIds []string) (pulumi.RunFunc, error) {
 	if err := validateShareOrgIds(shareOrgIds); err != nil {
 		return nil, err
@@ -136,7 +140,7 @@ func (r *registerRequest) newAMI(ctx *pulumi.Context) (*ec2.Ami, error) {
 		lArgs := launchPermArgs(ami.ID(), orgArn)
 		_, err = ec2.NewAmiLaunchPermission(
 			ctx,
-			fmt.Sprintf("%s-%s", r.name, orgId(&orgArn)),
+			fmt.Sprintf("%s-%s", r.name, pulumiResourceId(orgArn)),
 			lArgs)
 		if err != nil {
 			return nil, err
@@ -178,7 +182,7 @@ func replicaAsync(targetRegion string, args replicateArgs, c chan hostingPlaces.
 		lArgs.Region = pulumi.String(targetRegion)
 		amiPermissions, err = ec2.NewAmiLaunchPermission(
 			args.ctx,
-			fmt.Sprintf("%s-%s-%s", *args.name, targetRegion, orgId(&orgArn)),
+			fmt.Sprintf("%s-%s-%s", *args.name, targetRegion, pulumiResourceId(orgArn)),
 			lArgs)
 		if err != nil {
 			hostingPlaces.SendAsyncErr(c, err)
@@ -203,7 +207,7 @@ func replicaAsync(targetRegion string, args replicateArgs, c chan hostingPlaces.
 func validateShareOrgIds(ids []string) error {
 	seen := make(map[string]string, len(ids))
 	for _, id := range ids {
-		key := orgId(&id)
+		key := pulumiResourceId(id)
 		if prev, exists := seen[key]; exists {
 			return fmt.Errorf(
 				"duplicate share target: %q and %q resolve to the same identifier %q — "+
@@ -215,14 +219,41 @@ func validateShareOrgIds(ids []string) error {
 	return nil
 }
 
-// orgId returns a string suitable for use as a unique Pulumi resource name suffix.
-// Accepts either a plain AWS account ID ("851725220677") or an organizations ARN.
-func orgId(orgARN *string) string {
-	if !strings.HasPrefix(*orgARN, "arn:") {
-		return *orgARN
+// pulumiResourceId returns a string used only as a Pulumi resource name suffix —
+// it is never sent to AWS. The full original ARN is passed to AWS unchanged via
+// launchPermArgs.
+//
+// The suffix is derived from the ARN's resource path segments, intentionally
+// excluding the management account ID (MGMT). MGMT is excluded because it does
+// not change the AWS share target: an organization has exactly one management
+// account, so two org ARNs with the same org ID but different MGMT values
+// represent the same AWS target (one MGMT value must be wrong). Excluding MGMT
+// means validateShareOrgIds correctly identifies such pairs as duplicates and
+// returns a clear error rather than silently creating two Pulumi resources and
+// letting AWS reject the one with the bad MGMT.
+//
+// Accepted input forms and their output:
+//
+//	Plain account ID   "851725220677"                                        → "851725220677"
+//	Org-level ARN      "arn:aws:organizations::MGMT:organization/o-xxx"      → "o-xxx"
+//	Account-level ARN  "arn:aws:organizations::MGMT:account/o-xxx/ACCT_ID"  → "o-xxx-ACCT_ID"
+//	OU-level ARN       "arn:aws:organizations::MGMT:ou/o-xxx/ou-yyy-zzz"    → "o-xxx-ou-yyy-zzz"
+//
+// Malformed ARNs (starting with "arn:" but with too few colon-separated segments
+// or no "/" in the resource part) are returned as-is to avoid a panic; they will
+// surface an error at the Pulumi or AWS layer.
+func pulumiResourceId(arn string) string {
+	if !strings.HasPrefix(arn, "arn:") {
+		return arn
 	}
-	r := strings.Split(*orgARN, ":")[5]
-	parts := strings.Split(r, "/")
+	segments := strings.Split(arn, ":")
+	if len(segments) < 6 {
+		return arn
+	}
+	parts := strings.Split(segments[5], "/")
+	if len(parts) < 2 {
+		return arn
+	}
 	return strings.Join(parts[1:], "-")
 }
 

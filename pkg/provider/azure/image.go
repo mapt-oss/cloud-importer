@@ -33,6 +33,8 @@ var (
 	outBlobURI          = "blobURI"
 )
 
+func (a *azureProvider) ValidateShareTargets(_ []string) error { return nil }
+
 func (a *azureProvider) ImageRegister(ephemeralResults auto.UpResult, replicate bool, shareOrgIds []string) (pulumi.RunFunc, error) {
 	name, ok := ephemeralResults.Outputs[outName]
 	if !ok {
