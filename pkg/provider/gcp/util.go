@@ -1,7 +1,6 @@
 package gcp
 
 import (
-	"crypto/rand"
 	"fmt"
 	"strings"
 
@@ -10,11 +9,17 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-func randomID() *string {
-	b := make([]byte, 4)
-	_, _ = rand.Read(b)
-	id := fmt.Sprintf("cloud-importer-%x", b)
-	return &id
+// stableBucketName derives a deterministic GCS bucket name from the image name
+// so that retries with the same --image-name reuse the existing bucket rather
+// than triggering a Pulumi replace + re-upload (mirrors Azure's approach).
+// The "ci-" prefix ensures the name never starts with a digit.
+func stableBucketName(imageName string) *string {
+	name := "ci-" + sanitizeImageName(imageName)
+	if len(name) > 63 {
+		name = name[:63]
+	}
+	name = strings.TrimRight(name, "-")
+	return &name
 }
 
 // sanitizeImageName converts an image name to a GCP-compatible format:

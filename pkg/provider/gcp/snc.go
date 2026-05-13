@@ -42,7 +42,7 @@ func (r sncEphemeralRequest) sncEphemeralRunFunc(ctx *pulumi.Context) error {
 		return err
 	}
 
-	bucketName := randomID()
+	bucketName := stableBucketName(imageName)
 	bucket, err := bucketEphemeral(ctx, bucketName)
 	if err != nil {
 		return err

@@ -28,7 +28,7 @@ func (r rhelaiEphemeralRequest) rhelaiEphemeralRunFunc(ctx *pulumi.Context) erro
 	ctx.Export(outImageName, pulumi.String(r.imageName))
 	ctx.Export(outGCPArch, pulumi.String(rhelaiArch))
 
-	bucketName := randomID()
+	bucketName := stableBucketName(r.imageName)
 	bucket, err := bucketEphemeral(ctx, bucketName)
 	if err != nil {
 		return err
