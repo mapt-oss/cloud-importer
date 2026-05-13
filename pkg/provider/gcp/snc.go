@@ -43,15 +43,21 @@ func (r sncEphemeralRequest) sncEphemeralRunFunc(ctx *pulumi.Context) error {
 	}
 
 	bucketName := stableBucketName(imageName)
+	tarPath := fmt.Sprintf("/tmp/%s-disk.raw.tar.gz", *bucketName)
+
+	ctx.Export(outGCSURI, pulumi.String(fmt.Sprintf("gs://%s/disk.raw.tar.gz", *bucketName)))
+
 	bucket, err := bucketEphemeral(ctx, bucketName)
 	if err != nil {
 		return err
 	}
 
-	gcsURI := fmt.Sprintf("gs://%s/disk.raw.tar.gz", *bucketName)
-	ctx.Export(outGCSURI, pulumi.String(gcsURI))
-
 	rawPath := bundle.ExtractedRAWDiskFileName
-	_, err = compressAndUpload(ctx, &rawPath, bucketName, []pulumi.Resource{bucket, extractExecution})
+	compressed, err := compressToLocal(ctx, &rawPath, &tarPath, []pulumi.Resource{bucket, extractExecution})
+	if err != nil {
+		return err
+	}
+
+	_, err = uploadBucketObject(ctx, bucket, tarPath, []pulumi.Resource{compressed})
 	return err
 }

@@ -46,23 +46,10 @@ func bucketEphemeral(ctx *pulumi.Context, bucketName *string) (*storage.Bucket, 
 	})
 }
 
-// compressAndUpload packages rawFilePath as disk.raw inside a tar.gz and
-// uploads it to gs://bucketName/disk.raw.tar.gz using gsutil.
-func compressAndUpload(ctx *pulumi.Context, rawFilePath, bucketName *string, deps []pulumi.Resource) (pulumi.Resource, error) {
-	tarPath := fmt.Sprintf("/tmp/%s-disk.raw.tar.gz", *bucketName)
-	gcsURI := fmt.Sprintf("gs://%s/disk.raw.tar.gz", *bucketName)
-
-	// Write GOOGLE_CREDENTIALS to a temp file so gcloud storage uses the same
-	// service account as the Pulumi provider. gcloud storage reads
-	// GOOGLE_APPLICATION_CREDENTIALS; if credentials are not set it falls
-	// back to gcloud ADC.
-	// Prefer /dev/shm (memory-backed tmpfs on Linux/containers) so the credentials
-	// file is never written to physical disk. Fall back to mktemp on macOS.
-	credSetup := "if [ -n \"${GOOGLE_CREDENTIALS}\" ]; then " +
-		"_CREDS=$([ -d /dev/shm ] && mktemp /dev/shm/XXXXXX || mktemp) && " +
-		"printf '%s' \"${GOOGLE_CREDENTIALS}\" > \"$_CREDS\" && " +
-		"export GOOGLE_APPLICATION_CREDENTIALS=\"$_CREDS\"; fi"
-
+// compressToLocal pads rawFilePath to a 1 GiB boundary and packages it as
+// disk.raw inside a GNU-format tar.gz at tarPath. No credentials required.
+// The delete command removes the local tar.gz.
+func compressToLocal(ctx *pulumi.Context, rawFilePath, tarPath *string, deps []pulumi.Resource) (pulumi.Resource, error) {
 	// GCP requires disk.raw size to be a multiple of 1GiB; pad with zeros if needed.
 	padCmd := "SIZE=$(wc -c < \"$TMPDIR/disk.raw\" | tr -d ' ') && " +
 		"NEXT_GIB=$(( (SIZE + 1073741823) / 1073741824 * 1073741824 )) && " +
@@ -75,18 +62,28 @@ func compressAndUpload(ctx *pulumi.Context, rawFilePath, bucketName *string, dep
 		"else TAR_FORMAT=\"--format=gnutar\"; fi"
 
 	createCmd := fmt.Sprintf(
-		"%s && TMPDIR=$(mktemp -d) && cp %s $TMPDIR/disk.raw && "+
+		"TMPDIR=$(mktemp -d) && cp %s $TMPDIR/disk.raw && "+
 			"%s && %s && "+
-			"tar $TAR_FORMAT -czf %s -C $TMPDIR disk.raw && rm -rf $TMPDIR && "+
-			"gcloud storage cp %s %s && rm -f %s ${_CREDS:-}",
-		credSetup, *rawFilePath, padCmd, tarFmtCmd, tarPath, tarPath, gcsURI, tarPath)
-	deleteCmd := fmt.Sprintf(
-		"%s && gcloud storage rm %s || true && rm -f ${_CREDS:-}",
-		credSetup, gcsURI)
+			"tar $TAR_FORMAT -czf %s -C $TMPDIR disk.raw && rm -rf $TMPDIR",
+		*rawFilePath, padCmd, tarFmtCmd, *tarPath)
+	deleteCmd := fmt.Sprintf("rm -f %s", *tarPath)
 
-	return local.NewCommand(ctx, "uploadGCS", &local.CommandArgs{
+	return local.NewCommand(ctx, "compressGCS", &local.CommandArgs{
 		Create: pulumi.String(createCmd),
 		Delete: pulumi.String(deleteCmd),
+	},
+		pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "6h", Delete: "30m"}),
+		pulumi.DependsOn(deps))
+}
+
+// uploadBucketObject uploads tarPath to the GCS bucket as disk.raw.tar.gz
+// using storage.NewBucketObject — credentials come from the Pulumi GCP
+// provider config (gcp:credentials) with no temp file on disk.
+func uploadBucketObject(ctx *pulumi.Context, bucket *storage.Bucket, tarPath string, deps []pulumi.Resource) (pulumi.Resource, error) {
+	return storage.NewBucketObject(ctx, "uploadGCS", &storage.BucketObjectArgs{
+		Bucket: bucket.Name,
+		Name:   pulumi.String("disk.raw.tar.gz"),
+		Source: pulumi.NewFileAsset(tarPath),
 	},
 		pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "6h", Update: "6h", Delete: "30m"}),
 		pulumi.DependsOn(deps))

@@ -29,14 +29,21 @@ func (r rhelaiEphemeralRequest) rhelaiEphemeralRunFunc(ctx *pulumi.Context) erro
 	ctx.Export(outGCPArch, pulumi.String(rhelaiArch))
 
 	bucketName := stableBucketName(r.imageName)
+	tarPath := fmt.Sprintf("/tmp/%s-disk.raw.tar.gz", *bucketName)
+
+	ctx.Export(outGCSURI, pulumi.String(fmt.Sprintf("gs://%s/disk.raw.tar.gz", *bucketName)))
+
 	bucket, err := bucketEphemeral(ctx, bucketName)
 	if err != nil {
 		return err
 	}
 
-	gcsURI := fmt.Sprintf("gs://%s/disk.raw.tar.gz", *bucketName)
-	ctx.Export(outGCSURI, pulumi.String(gcsURI))
+	compressed, err := compressToLocal(ctx, &r.rawImageFilePath, &tarPath, []pulumi.Resource{bucket})
+	if err != nil {
+		return err
+	}
 
-	_, err = compressAndUpload(ctx, &r.rawImageFilePath, bucketName, []pulumi.Resource{bucket})
+	_, err = uploadBucketObject(ctx, bucket, tarPath, []pulumi.Resource{compressed})
 	return err
 }
+
