@@ -51,8 +51,11 @@ func compressAndUpload(ctx *pulumi.Context, rawFilePath, bucketName *string, dep
 	// service account as the Pulumi provider. gcloud storage reads
 	// GOOGLE_APPLICATION_CREDENTIALS; if credentials are not set it falls
 	// back to gcloud ADC.
+	// Prefer /dev/shm (memory-backed tmpfs on Linux/containers) so the credentials
+	// file is never written to physical disk. Fall back to mktemp on macOS.
 	credSetup := "if [ -n \"${GOOGLE_CREDENTIALS}\" ]; then " +
-		"_CREDS=$(mktemp) && printf '%s' \"${GOOGLE_CREDENTIALS}\" > \"$_CREDS\" && " +
+		"_CREDS=$([ -d /dev/shm ] && mktemp /dev/shm/XXXXXX || mktemp) && " +
+		"printf '%s' \"${GOOGLE_CREDENTIALS}\" > \"$_CREDS\" && " +
 		"export GOOGLE_APPLICATION_CREDENTIALS=\"$_CREDS\"; fi"
 
 	// GCP requires disk.raw size to be a multiple of 1GiB; pad with zeros if needed.
