@@ -2,6 +2,7 @@ package gcp
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/mapt-oss/cloud-importer/pkg/util/logging"
@@ -44,9 +45,22 @@ func (r *gcpRegisterRequest) registerFunc(ctx *pulumi.Context) error {
 
 	imageName := sanitizeImageName(r.imageName)
 
+	// Default storage locations: all three GCP multi-regions so Spot VMs scheduled
+	// anywhere get fast boot times. Override via GOOGLE_IMAGE_STORAGE_LOCATIONS
+	// (comma-separated, e.g. "us,eu,asia" or "us").
+	storageLocationsEnv := os.Getenv("GOOGLE_IMAGE_STORAGE_LOCATIONS")
+	if storageLocationsEnv == "" {
+		storageLocationsEnv = "us,eu,asia"
+	}
+	var storageLocations pulumi.StringArray
+	for _, loc := range strings.Split(storageLocationsEnv, ",") {
+		storageLocations = append(storageLocations, pulumi.String(strings.TrimSpace(loc)))
+	}
+
 	image, err := compute.NewImage(ctx, "image", &compute.ImageArgs{
-		Name:        pulumi.String(imageName),
-		Description: pulumi.String(r.imageName),
+		Name:             pulumi.String(imageName),
+		Description:      pulumi.String(r.imageName),
+		StorageLocations: storageLocations,
 		RawDisk: &compute.ImageRawDiskArgs{
 			// Compute Engine API requires https:// URL, not gs:// URI.
 			Source: pulumi.String(strings.Replace(r.gcsURI, "gs://", "https://storage.googleapis.com/", 1)),

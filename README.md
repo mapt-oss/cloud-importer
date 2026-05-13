@@ -32,7 +32,9 @@ Before you begin, ensure you have the following:
   GOOGLE_PROJECT                  # GCP project ID where images will be created
   GOOGLE_CREDENTIALS              # Service account key JSON (inline string)
   GOOGLE_REGION                   # Default GCP region (e.g. us-central1)
-  GOOGLE_IMAGE_STORAGE_LOCATIONS  # Optional: comma-separated multi-regions (default: us,eu,asia)
+  GOOGLE_IMAGE_STORAGE_LOCATIONS  # Optional: comma-separated multi-regions for image storage
+                                  # Default: us,eu,asia (pre-caches in all regions for fast Spot VM boot globally)
+                                  # Override: us (US only), eu (EU only), etc.
   ```
 
 ## Params
