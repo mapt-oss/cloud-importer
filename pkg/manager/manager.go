@@ -56,16 +56,17 @@ func RHELAI(ctx *context.ContextArgs,
 	if err != nil {
 		return err
 	}
-	registerFunc, err := p.ImageRegister(ephemeralResults,
+	registerFunc, progressMonitor, err := p.ImageRegister(ephemeralResults,
 		args.ImageControl.Replicate, args.ImageControl.ShareOrgIds)
 	if err != nil {
 		return err
 	}
 	registerStack := providerAPI.Stack{
-		ProjectName: context.ProjectName(),
-		StackName:   stackRHELAI,
-		BackedURL:   context.BackedURL(),
-		DeployFunc:  registerFunc}
+		ProjectName:     context.ProjectName(),
+		StackName:       stackRHELAI,
+		BackedURL:       context.BackedURL(),
+		DeployFunc:      registerFunc,
+		ProgressMonitor: progressMonitor}
 	_, err = upStack(registerStack)
 	if err != nil {
 		return err
@@ -102,16 +103,17 @@ func SNC(ctx *context.ContextArgs, args *SNCArgs, provider Provider) error {
 	if err != nil {
 		return err
 	}
-	registerFunc, err := p.ImageRegister(ephemeralResults,
+	registerFunc, progressMonitor, err := p.ImageRegister(ephemeralResults,
 		args.ImageControl.Replicate, args.ImageControl.ShareOrgIds)
 	if err != nil {
 		return err
 	}
 	registerStack := providerAPI.Stack{
-		ProjectName: context.ProjectName(),
-		StackName:   stackSNC,
-		BackedURL:   context.BackedURL(),
-		DeployFunc:  registerFunc}
+		ProjectName:     context.ProjectName(),
+		StackName:       stackSNC,
+		BackedURL:       context.BackedURL(),
+		DeployFunc:      registerFunc,
+		ProgressMonitor: progressMonitor}
 	_, err = upStack(registerStack)
 	if err != nil {
 		return err
