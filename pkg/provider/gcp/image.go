@@ -7,7 +7,6 @@ import (
 
 	"github.com/mapt-oss/cloud-importer/pkg/util/logging"
 	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/compute"
-	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/organizations"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
@@ -69,16 +68,14 @@ func (r *gcpRegisterRequest) registerFunc(ctx *pulumi.Context) error {
 		return err
 	}
 
-	for _, projectId := range r.shareProjectIds {
-		proj, err := organizations.LookupProject(ctx, &organizations.LookupProjectArgs{
-			ProjectId: &projectId,
-		}, nil)
-		if err != nil {
-			return fmt.Errorf("failed to look up GCP project %q: %w", projectId, err)
-		}
-		member := fmt.Sprintf("serviceAccount:service-%s@compute-system.iam.gserviceaccount.com", proj.Number)
+	for _, projectNumber := range r.shareProjectIds {
+		// --share-orgs-ids for GCP takes project numbers (e.g. 571214177986), visible
+		// in the GCP Console next to the project ID. Using the number directly avoids
+		// a Cloud Resource Manager API call and removes that API enablement as a
+		// prerequisite. The Compute Engine service agent email format is fixed.
+		member := fmt.Sprintf("serviceAccount:service-%s@compute-system.iam.gserviceaccount.com", projectNumber)
 		_, err = compute.NewImageIamBinding(ctx,
-			fmt.Sprintf("share-%s", projectId),
+			fmt.Sprintf("share-%s", projectNumber),
 			&compute.ImageIamBindingArgs{
 				Image: image.Name,
 				Role:  pulumi.String("roles/compute.imageUser"),
