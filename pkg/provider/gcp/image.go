@@ -45,17 +45,16 @@ func (r *gcpRegisterRequest) registerFunc(ctx *pulumi.Context) error {
 
 	imageName := sanitizeImageName(r.imageName)
 
-	// Default storage locations: all three GCP multi-regions so Spot VMs scheduled
-	// anywhere get fast boot times. Override via GOOGLE_IMAGE_STORAGE_LOCATIONS
-	// (comma-separated, e.g. "us,eu,asia" or "us").
-	storageLocationsEnv := os.Getenv("GOOGLE_IMAGE_STORAGE_LOCATIONS")
-	if storageLocationsEnv == "" {
-		storageLocationsEnv = "us,eu,asia"
+	// GCP only allows a single storageLocation per image. Default to "us" (the
+	// US multi-region). Override via GOOGLE_IMAGE_STORAGE_LOCATIONS (single value,
+	// e.g. "eu" or "asia"). The image remains globally accessible regardless of
+	// which multi-region its data is stored in; this setting only affects where the
+	// underlying bytes are cached (which impacts first-boot latency in distant regions).
+	storageLocation := os.Getenv("GOOGLE_IMAGE_STORAGE_LOCATIONS")
+	if storageLocation == "" {
+		storageLocation = "us"
 	}
-	var storageLocations pulumi.StringArray
-	for _, loc := range strings.Split(storageLocationsEnv, ",") {
-		storageLocations = append(storageLocations, pulumi.String(strings.TrimSpace(loc)))
-	}
+	storageLocations := pulumi.StringArray{pulumi.String(strings.TrimSpace(storageLocation))}
 
 	image, err := compute.NewImage(ctx, "image", &compute.ImageArgs{
 		Name:             pulumi.String(imageName),
