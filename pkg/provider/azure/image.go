@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	imgctx "github.com/mapt-oss/cloud-importer/pkg/manager/context"
+	"github.com/mapt-oss/cloud-importer/pkg/util/logging"
 	"github.com/pulumi/pulumi-azure-native-sdk/compute/v3"
 	resources "github.com/pulumi/pulumi-azure-native-sdk/resources/v3"
 
@@ -35,10 +38,10 @@ var (
 
 func (a *azureProvider) ValidateShareTargets(_ []string) error { return nil }
 
-func (a *azureProvider) ImageRegister(ephemeralResults auto.UpResult, replicate bool, shareOrgIds []string) (pulumi.RunFunc, error) {
+func (a *azureProvider) ImageRegister(ephemeralResults auto.UpResult, replicate bool, shareOrgIds []string) (pulumi.RunFunc, func(ctx context.Context), error) {
 	name, ok := ephemeralResults.Outputs[outName]
 	if !ok {
-		return nil, fmt.Errorf("output not found: %s", outName)
+		return nil, nil, fmt.Errorf("output not found: %s", outName)
 	}
 	rgName, ok := ephemeralResults.Outputs[outRgName]
 	if !ok {
@@ -46,27 +49,27 @@ func (a *azureProvider) ImageRegister(ephemeralResults auto.UpResult, replicate 
 	}
 	arch, ok := ephemeralResults.Outputs[outArch]
 	if !ok {
-		return nil, fmt.Errorf("output not found: %s", outArch)
+		return nil, nil, fmt.Errorf("output not found: %s", outArch)
 	}
 	offer, ok := ephemeralResults.Outputs[outOffer]
 	if !ok {
-		return nil, fmt.Errorf("output not found: %s", outOffer)
+		return nil, nil, fmt.Errorf("output not found: %s", outOffer)
 	}
 	publisher, ok := ephemeralResults.Outputs[outPublisher]
 	if !ok {
-		return nil, fmt.Errorf("output not found: %s", outPublisher)
+		return nil, nil, fmt.Errorf("output not found: %s", outPublisher)
 	}
 	sku, ok := ephemeralResults.Outputs[outSKU]
 	if !ok {
-		return nil, fmt.Errorf("output not found: %s", outSKU)
+		return nil, nil, fmt.Errorf("output not found: %s", outSKU)
 	}
 	saId, ok := ephemeralResults.Outputs[outServiceAccountId]
 	if !ok {
-		return nil, fmt.Errorf("output not found: %s", outServiceAccountId)
+		return nil, nil, fmt.Errorf("output not found: %s", outServiceAccountId)
 	}
 	blobURI, ok := ephemeralResults.Outputs[outBlobURI]
 	if !ok {
-		return nil, fmt.Errorf("output not found: %s", outBlobURI)
+		return nil, nil, fmt.Errorf("output not found: %s", outBlobURI)
 	}
 	r := regiterRequest{
 		rgName:           rgName.Value.(string),
@@ -80,7 +83,10 @@ func (a *azureProvider) ImageRegister(ephemeralResults auto.UpResult, replicate 
 		replicate:        replicate,
 		shareTenantIds:   shareOrgIds,
 	}
-	return r.registerFunc, nil
+	galleryName := strings.ReplaceAll(r.name, "-", "_")
+	return r.registerFunc, func(ctx context.Context) {
+		r.monitorGalleryImageVersionProgress(ctx, galleryName)
+	}, nil
 }
 
 type regiterRequest struct {
@@ -200,6 +206,56 @@ func (r *regiterRequest) registerFunc(ctx *pulumi.Context) error {
 		})
 	}
 	return err
+}
+
+func (r *regiterRequest) monitorGalleryImageVersionProgress(ctx context.Context, galleryName string) {
+	time.Sleep(30 * time.Second)
+	cred, subscriptionID, err := getCredentials()
+	if err != nil {
+		return
+	}
+	client, err := armcompute.NewGalleryImageVersionsClient(*subscriptionID, cred, nil)
+	if err != nil {
+		return
+	}
+	expand := armcompute.ReplicationStatusTypesReplicationStatus
+	ticker := time.NewTicker(60 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			resp, err := client.Get(ctx, r.rgName, galleryName, r.name, "1.0.0",
+				&armcompute.GalleryImageVersionsClientGetOptions{Expand: &expand})
+			if err != nil {
+				logging.Debugf("GalleryImageVersion progress poll: %v", err)
+				continue
+			}
+			if resp.Properties == nil {
+				continue
+			}
+			if resp.Properties.ProvisioningState != nil {
+				logging.Infof("GalleryImageVersion progress: provisioning state = %s",
+					*resp.Properties.ProvisioningState)
+			}
+			if resp.Properties.ReplicationStatus != nil {
+				if resp.Properties.ReplicationStatus.AggregatedState != nil {
+					logging.Infof("GalleryImageVersion replication: aggregated state = %s",
+						*resp.Properties.ReplicationStatus.AggregatedState)
+				}
+				for _, summary := range resp.Properties.ReplicationStatus.Summary {
+					if summary != nil && summary.Region != nil && summary.State != nil {
+						progress := ""
+						if summary.Progress != nil {
+							progress = fmt.Sprintf(" (progress: %d%%)", *summary.Progress)
+						}
+						logging.Infof("  Region %s: %s%s", *summary.Region, *summary.State, progress)
+					}
+				}
+			}
+		}
+	}
 }
 
 func shareGallery(sharTenantIDs []string, rgName, galleryName, imageName string) error {

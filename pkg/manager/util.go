@@ -52,7 +52,16 @@ func upStackTargets(targetStack providerAPI.Stack, targetURNs []string, opts ...
 	if len(targetURNs) > 0 {
 		mOpts = append(mOpts, optup.Target(targetURNs))
 	}
+	var cancelMonitor context.CancelFunc
+	if targetStack.ProgressMonitor != nil {
+		var monitorCtx context.Context
+		monitorCtx, cancelMonitor = context.WithCancel(ctx)
+		go targetStack.ProgressMonitor(monitorCtx)
+	}
 	r, err := objectStack.Up(ctx, mOpts...)
+	if cancelMonitor != nil {
+		cancelMonitor()
+	}
 	if err != nil {
 		logging.Error(err)
 		if len(opts) == 1 && opts[0].Baground {

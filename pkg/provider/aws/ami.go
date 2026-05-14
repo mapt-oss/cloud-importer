@@ -1,6 +1,7 @@
 package aws
 
 import (
+	gocontext "context"
 	"fmt"
 	"strings"
 
@@ -24,25 +25,25 @@ func (a *aws) ValidateShareTargets(shareOrgIds []string) error {
 	return validateShareOrgIds(shareOrgIds)
 }
 
-func (a *aws) ImageRegister(ephemeralResults auto.UpResult, replicate bool, shareOrgIds []string) (pulumi.RunFunc, error) {
+func (a *aws) ImageRegister(ephemeralResults auto.UpResult, replicate bool, shareOrgIds []string) (pulumi.RunFunc, func(gocontext.Context), error) {
 	if err := validateShareOrgIds(shareOrgIds); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	amiNameOutput, ok := ephemeralResults.Outputs[outAMIName]
 	if !ok {
-		return nil, fmt.Errorf("output not found: %s", outAMIName)
+		return nil, nil, fmt.Errorf("output not found: %s", outAMIName)
 	}
 	amiArchOutput, ok := ephemeralResults.Outputs[outAMIArch]
 	if !ok {
-		return nil, fmt.Errorf("output not found: %s", outAMIArch)
+		return nil, nil, fmt.Errorf("output not found: %s", outAMIArch)
 	}
 	bucketNameOutput, ok := ephemeralResults.Outputs[outBucketName]
 	if !ok {
-		return nil, fmt.Errorf("output not found: %s", outBucketName)
+		return nil, nil, fmt.Errorf("output not found: %s", outBucketName)
 	}
 	roleNameOputput, ok := ephemeralResults.Outputs[outRoleName]
 	if !ok {
-		return nil, fmt.Errorf("output not found: %s", outRoleName)
+		return nil, nil, fmt.Errorf("output not found: %s", outRoleName)
 	}
 	r := registerRequest{
 		name:         amiNameOutput.Value.(string),
@@ -52,7 +53,7 @@ func (a *aws) ImageRegister(ephemeralResults auto.UpResult, replicate bool, shar
 		replicate:    replicate,
 		shareorgARNs: shareOrgIds,
 	}
-	return r.registerFunc, nil
+	return r.registerFunc, nil, nil
 }
 
 type registerRequest struct {
