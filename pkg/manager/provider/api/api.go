@@ -14,6 +14,15 @@ type Stack struct {
 	ProviderCredentials credentials.ProviderCredentials
 }
 
+// EphemeralDeriver is an optional interface implemented by providers that can
+// derive ephemeral stack outputs from the image name alone, without running
+// the upload pipeline. When a provider implements this, --image-path becomes
+// optional on rhelai: omitting it skips the ephemeral stack and updates only
+// the persistent stack (e.g. to add --share-orgs-ids to an existing image).
+type EphemeralDeriver interface {
+	DeriveEphemeralOutputs(imageName string) auto.OutputMap
+}
+
 type Provider interface {
 	// Manage ephemeral assets
 	RHELAIEphemeral(imageFilePath, imageName string) pulumi.RunFunc

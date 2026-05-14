@@ -1,9 +1,12 @@
 package manager
 
 import (
+	"fmt"
+
 	"github.com/mapt-oss/cloud-importer/pkg/manager/context"
 	providerAPI "github.com/mapt-oss/cloud-importer/pkg/manager/provider/api"
 	"github.com/mapt-oss/cloud-importer/pkg/util/logging"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
@@ -47,15 +50,33 @@ func RHELAI(ctx *context.ContextArgs,
 	if err := p.ValidateShareTargets(args.ImageControl.ShareOrgIds); err != nil {
 		return err
 	}
-	ephemeralStack := providerAPI.Stack{
-		ProjectName: context.ProjectName(),
-		StackName:   stackRHELAIEphemeral,
-		BackedURL:   context.BackedURL(),
-		DeployFunc:  p.RHELAIEphemeral(args.ImageFilepath, args.ImageName)}
-	ephemeralResults, err := upStack(ephemeralStack)
-	if err != nil {
-		return err
+
+	var (
+		ephemeralResults auto.UpResult
+		ephemeralStack   providerAPI.Stack
+		ranEphemeral     bool
+	)
+	if args.ImageFilepath == "" {
+		deriver, ok := p.(providerAPI.EphemeralDeriver)
+		if !ok {
+			return fmt.Errorf("--image-path is required: this provider does not support updating an existing image without re-uploading")
+		}
+		logging.Info("--image-path not provided: skipping upload and updating existing image only")
+		ephemeralResults = auto.UpResult{Outputs: deriver.DeriveEphemeralOutputs(args.ImageName)}
+	} else {
+		ephemeralStack = providerAPI.Stack{
+			ProjectName: context.ProjectName(),
+			StackName:   stackRHELAIEphemeral,
+			BackedURL:   context.BackedURL(),
+			DeployFunc:  p.RHELAIEphemeral(args.ImageFilepath, args.ImageName)}
+		var err error
+		ephemeralResults, err = upStack(ephemeralStack)
+		if err != nil {
+			return err
+		}
+		ranEphemeral = true
 	}
+
 	registerFunc, err := p.ImageRegister(ephemeralResults,
 		args.ImageControl.Replicate, args.ImageControl.ShareOrgIds)
 	if err != nil {
@@ -70,7 +91,10 @@ func RHELAI(ctx *context.ContextArgs,
 	if err != nil {
 		return err
 	}
-	return destroyStack(ephemeralStack, false)
+	if ranEphemeral {
+		return destroyStack(ephemeralStack, false)
+	}
+	return nil
 }
 
 type SNCArgs struct {

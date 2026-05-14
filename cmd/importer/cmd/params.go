@@ -10,10 +10,11 @@ import (
 const (
 	awsCMD                string = "aws"
 	azureCMD              string = "az"
+	gcpCMD                string = "gcp"
 	projectName           string = "project-name"
 	projectNameDesc       string = "project name to identify the execution"
 	backedURL             string = "backed-url"
-	backedURLDesc         string = "backed for stack state. (local) file:///path/subpath (s3) s3://existing-bucket, (azure) azblob://existing-blobcontainer. See more https://www.pulumi.com/docs/iac/concepts/state-and-backends/#using-a-self-managed-backend"
+	backedURLDesc         string = "backed for stack state. (local) file:///path/subpath (s3) s3://existing-bucket, (azure) azblob://existing-blobcontainer, (gcp) gs://existing-bucket. See more https://www.pulumi.com/docs/iac/concepts/state-and-backends/#using-a-self-managed-backend"
 	debug                 string = "debug"
 	debugDesc             string = "Enable debug traces and set verbosity to max. Typically to get information to troubleshooting an issue."
 	debugLevel            string = "debug-level"
