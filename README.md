@@ -374,6 +374,24 @@ podman logs -f import-rhelai
 
 Replace `aws` with `az` or `gcp` and swap the `-e` flags to match the provider. Pulumi state is written to `${PWD}/rhelai-dev-test/` — delete it when done.
 
+### Run with a cloud Pulumi state backend
+
+When testing with a cloud backend (`gs://`, `s3://`, `azblob://`) instead of `file://`, Pulumi's
+passphrase secrets manager requires `PULUMI_CONFIG_PASSPHRASE` to be set. For development runs where
+there are no sensitive stack secrets, set it to an empty string:
+
+```bash
+PULUMI_CONFIG_PASSPHRASE="" /path/to/importer rhelai gcp \
+    --project-name "rhelai-dev-test" \
+    --backed-url "gs://my-state-bucket/cloud-importer" \
+    --image-name "rhelai-dev-test" \
+    --image-path "/path/to/disk.raw"
+```
+
+> **Note:** `PULUMI_CONFIG_PASSPHRASE` is not required when using `file://` (the local backend) for
+> most development scenarios. It is required for all cloud backends. In CI/CD it is expected to be set
+> in the environment by the pipeline configuration.
+
 ---
 
 ## Testing VMs
