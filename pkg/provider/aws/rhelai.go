@@ -28,7 +28,7 @@ func (a *aws) RHELAIEphemeral(imageFilePath, imageName string) pulumi.RunFunc {
 func (r rhelaiEphemeralRequest) rhelaiEphemeralRunFunc(ctx *pulumi.Context) error {
 	ctx.Export(outAMIName, pulumi.String(r.amiName))
 	ctx.Export(outAMIArch, pulumi.String(rhelaiArch))
-	bucketName := randomID()
+	bucketName := stableBucketName(r.amiName)
 	b, err := bucketEphemeral(ctx, bucketName)
 	if err != nil {
 		return err
