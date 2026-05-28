@@ -3,11 +3,11 @@ package azure
 import (
 	"fmt"
 	"os"
-	"regexp"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/mapt-oss/cloud-importer/pkg/manager/context"
+	"github.com/mapt-oss/cloud-importer/pkg/util"
 	resources "github.com/pulumi/pulumi-azure-native-sdk/resources/v3"
 	"github.com/pulumi/pulumi-azure-native-sdk/storage/v3"
 	"github.com/pulumi/pulumi-command/sdk/go/command/local"
@@ -47,18 +47,8 @@ func uploadVHD(ctx *pulumi.Context, vhdPath string, blobSASUrl pulumi.StringInpu
 	return err
 }
 
-func sanitizeName(input string) string {
-	re := regexp.MustCompile(`[^a-z0-9]`)
-	clean := re.ReplaceAllString(input, "")
-	if len(clean) > 24 {
-		clean = clean[:24]
-	}
-
-	return clean
-}
-
 func storageAccount(ctx *pulumi.Context, location, name *string) (*storage.BlobContainer, *storage.StorageAccount, *resources.ResourceGroup, error) {
-	ephemeralName := sanitizeName(*name)
+	ephemeralName := util.SanitizeStorageAccountName(*name)
 	resourceGroup, err := resources.NewResourceGroup(ctx,
 		"vhd",
 		&resources.ResourceGroupArgs{
