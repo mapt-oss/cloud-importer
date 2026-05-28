@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/mapt-oss/cloud-importer/pkg/manager/context"
+	"github.com/mapt-oss/cloud-importer/pkg/util"
 	awsnative "github.com/pulumi/pulumi-aws-native/sdk/go/aws"
 	"github.com/pulumi/pulumi-aws-native/sdk/go/aws/iam"
 	"github.com/pulumi/pulumi-aws-native/sdk/go/aws/s3"
@@ -47,25 +48,14 @@ func bucketEphemeral(ctx *pulumi.Context, bucketName *string) (*s3.Bucket, error
 // stableBucketName derives a deterministic S3 bucket name from the image name
 // so that retries with the same --image-name reuse the existing bucket rather
 // than triggering a Pulumi replace + re-upload (mirrors GCP's approach).
-// The "ci-" prefix ensures the name never starts with a digit.
+// The "tmp-" prefix marks it as ephemeral and ensures the name never starts with a digit.
 func stableBucketName(imageName string) *string {
-	name := "ci-" + sanitizeImageName(imageName)
+	name := "tmp-" + util.SanitizeBucketName(imageName)
 	if len(name) > 63 {
 		name = name[:63]
 	}
 	name = strings.TrimRight(name, "-")
 	return &name
-}
-
-// sanitizeImageName converts an image name to an S3-bucket-compatible format:
-// lowercase, only hyphens (no underscores/dots), max 63 chars.
-func sanitizeImageName(name string) string {
-	name = strings.ToLower(name)
-	name = strings.NewReplacer("_", "-", ".", "-").Replace(name)
-	if len(name) > 63 {
-		name = name[:63]
-	}
-	return strings.TrimRight(name, "-")
 }
 
 // https://docs.aws.amazon.com/vm-import/latest/userguide/required-permissions.html
