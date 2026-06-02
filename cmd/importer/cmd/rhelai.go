@@ -25,6 +25,7 @@ func rhelaiCmds() *cobra.Command {
 	}
 	c.AddCommand(rhelaiCreate(awsCMD, manager.AWS))
 	c.AddCommand(rhelaiCreate(azureCMD, manager.AZURE))
+	c.AddCommand(rhelaiCreate(gcpCMD, manager.GCP))
 	return c
 }
 

@@ -1,34 +1,105 @@
 # cloud-importer
 
-This is a small tool to import and manage private images to cloud providers. It basically automate (and optimize) the commands 
-you would need to run otherwise to import an image as a image on a cloud provider.
-
-In addition to the `import` command it offers a `share` command to allow share images accross  accounts. Initially the image imported is private 
-to the account which run the tool. In order to allow to use the image from a different account we would need to run the share command.
+A tool to import and manage private VM images across cloud providers. It automates the steps required to import a disk image as a registered cloud image (AMI on AWS, Gallery Image on Azure, Custom Image on GCP) and optionally share it across accounts/projects.
 
 ## Prerequisites
 
 Before you begin, ensure you have the following:
 
-  * **Cloud Account:** An active AWS or Azure account
-  * **Cloud Credentials:**
-      * **AWS Credentials**: Your `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_DEFAULT_REGION` must be configured as environment variables.
-      * **Azure Credentials**: Your `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET`, `ARM_TENANT_ID`, `ARM_SUBSCRIPTION_ID`, and `ARM_LOCATION_NAME` must be configured as environment variables. Set variable `AZURE_STORAGE_ACCOUNT` and `AZURE_STORAGE_KEY` in the case of `azblob://` backed-url.
+* **Cloud Account:** An active AWS, Azure, or GCP account
+* **Local tools:**
+  * **Azure only:** [`azcopy`](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-v10) — required for VHD upload (`brew install azcopy` on macOS)
+* **Cloud Credentials** (set as environment variables):
+
+  **AWS:**
+  ```bash
+  AWS_ACCESS_KEY_ID
+  AWS_SECRET_ACCESS_KEY
+  AWS_DEFAULT_REGION
+  ```
+
+  **Azure:**
+  ```bash
+  ARM_CLIENT_ID
+  ARM_CLIENT_SECRET
+  ARM_TENANT_ID
+  ARM_SUBSCRIPTION_ID
+  ARM_LOCATION_NAME
+  AZURE_STORAGE_ACCOUNT   # required when using azblob:// backed-url
+  AZURE_STORAGE_KEY       # required when using azblob:// backed-url
+  ```
+
+  **GCP:**
+  ```bash
+  GOOGLE_PROJECT                  # GCP project ID where images will be created
+  GOOGLE_CREDENTIALS              # Service account key JSON (inline string)
+  GOOGLE_REGION                   # Default GCP region (e.g. us-central1)
+  GOOGLE_IMAGE_STORAGE_LOCATIONS  # Optional: comma-separated multi-regions for image storage
+                                  # Default: us,eu,asia (pre-caches in all regions for fast Spot VM boot globally)
+                                  # Override: us (US only), eu (EU only), etc.
+  ```
 
 ## Params
 
-There are several params common to all offerings:
+### Common to all commands
 
-* **replicate**: Indicate the image will be replicated to any possible region on the provider
-* **org-id**: Identifies the top level organization to share the images with
+| Flag | Description |
+|---|---|
+| `--project-name` | Unique name for this import run — used to isolate Pulumi state |
+| `--backed-url` | Backend for Pulumi state: `s3://bucket/path`, `azblob://container/path`, `gs://bucket/path`, or `file:///local/path`. See [naming conventions](#backed-url-naming-conventions) below. |
+| `--replicate` | Replicate the image across regions. AWS/Azure: copies to all available regions. GCP: creates `imagename-us`, `imagename-eu`, `imagename-asia` via image-from-image (no re-upload), each stored in its respective multi-region for faster cold-start boot times. |
+| `--share-orgs-ids` | Comma-separated list of identifiers to share the image with: AWS org ARNs, Azure tenant IDs, or GCP project IDs |
+| `--tags` | Comma-separated tags to apply: `key1=value1,key2=value2` |
+| `--debug` | Enable debug logging |
+| `--debug-level` | Verbosity level 1–9 (default: 3) |
+
+### RHEL AI specific
+
+| Flag | Description |
+|---|---|
+| `--image-path` | Local path to the image file (`.raw` for AWS/GCP, `.vhd` for Azure) |
+| `--image-name` | Name to register the image under in the cloud provider |
+
+### SNC (OpenShift Local) specific
+
+| Flag | Description |
+|---|---|
+| `--bundle-uri` | Accessible URI to the SNC bundle (http/https/file) |
+| `--shasum-uri` | Accessible URI to the bundle checksum file |
+| `--arch` | Architecture: `x86_64` or `arm64` (default: `x86_64`) |
+
+### Destroy specific
+
+| Flag | Description |
+|---|---|
+| `--keep-state` | Keep Pulumi state in the backend after destroy (default: false) |
+| `--force-destroy` | Remove Pulumi lock files before destroying (use to recover from a crashed import) |
+
+### Check specific
+
+| Flag | Description |
+|---|---|
+| `--image-name` | Image name to look up in the cloud provider |
+
+### `--backed-url` naming conventions
+
+The productization team uses the following conventions for `--backed-url`, mirrored across all three providers:
+
+| Provider | Convention |
+|---|---|
+| AWS   | `s3://aipcc-productization/cloud-importer` |
+| Azure | `azblob://aipcc-productization/cloud-importer` |
+| GCP   | `gs://aipcc-productization/cloud-importer` |
+
+For local development, use `file:///path/to/state` — no cloud bucket needed. See [Developer Testing](#developer-testing).
+
+---
 
 ## RHEL AI
 
-In order to test RHEL AI on AWS we need to import the image according to [RHEL AI installation guide](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux_ai/1.5/html/installing/installing_on_aws) this tool will run those steps for us. Alhough previously the raw image should be donwloaded by an authenticated user to agree with EULA License.
+Imports a RHEL AI disk image to a cloud provider. The raw image must be downloaded separately by an authenticated user who has agreed to the EULA. See the [RHEL AI installation guide](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux_ai/1.5/html/installing/installing_on_aws).
 
 ### AWS
-
-To run the tool we can use the OCI container:
 
 ```bash
 podman run --rm --name import-rhelai -d \
@@ -36,12 +107,12 @@ podman run --rm --name import-rhelai -d \
     -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
     -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
     -e AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} \
-    ghcr.io/mapt-oss/cloud-importer:latest rhelai aws \
+    quay.io/aipcc-cicd/cloud-importer:latest rhelai aws \
         --project-name "rhelai3-136d47d1" \
         --backed-url s3://bucket/folder \
         --image-name rhelai3-136d47d1 \
-        --image-path "/workspace/rhel-ai-nvidia-aws-1.5-1747399384-x86_64.raw" \ 
-        --share-orgs-ids arn:aws:organizations::XXXXX:organization/XXXXX,arn:aws:organizations::XXXXX:organization/XXXX1 \
+        --image-path "/workspace/rhel-ai-nvidia-aws-1.5-x86_64.raw" \
+        --share-orgs-ids arn:aws:organizations::XXXXX:organization/XXXXX \
         --replicate \
         --debug \
         --debug-level 9
@@ -50,10 +121,6 @@ podman logs -f import-rhelai
 ```
 
 ### Azure
-
-To import a VHD image to Azure, you can use the `rhelai az` command. This command will create a storage account, upload the VHD, and create a VM image.
-
-To run the tool we can use the OCI container:
 
 ```bash
 podman run --rm --name import-rhelai-azure -d \
@@ -65,12 +132,12 @@ podman run --rm --name import-rhelai-azure -d \
     -e ARM_LOCATION_NAME=${ARM_LOCATION_NAME} \
     -e AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT} \
     -e AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY} \
-    ghcr.io/mapt-oss/cloud-importer:latest rhelai az \
+    quay.io/aipcc-cicd/cloud-importer:latest rhelai az \
         --project-name "rhelai3-136d47d1" \
         --backed-url azblob://blobcontainer/folder \
         --image-name rhelai3-136d47d1 \
-        --image-path "/workspace/rhel-ai-nvidia-aws-1.5-1747399384-x86_64.vhd" \ 
-        --share-orgs-ids tenanId1,tenantId2 \
+        --image-path "/workspace/rhel-ai-nvidia-aws-1.5-x86_64.vhd" \
+        --share-orgs-ids tenantId1,tenantId2 \
         --replicate \
         --debug \
         --debug-level 9
@@ -78,38 +145,58 @@ podman run --rm --name import-rhelai-azure -d \
 podman logs -f import-rhelai-azure
 ```
 
+### GCP
 
-## SNC (Openshift Local)
+```bash
+podman run --rm --name import-rhelai-gcp -d \
+    -v ${PWD}:/workspace:z \
+    -e GOOGLE_PROJECT=${GOOGLE_PROJECT} \
+    -e GOOGLE_CREDENTIALS=${GOOGLE_CREDENTIALS} \
+    -e GOOGLE_REGION=${GOOGLE_REGION} \
+    quay.io/aipcc-cicd/cloud-importer:latest rhelai gcp \
+        --project-name "rhelai3-136d47d1" \
+        --backed-url gs://bucket/folder \
+        --image-name rhelai3-136d47d1 \
+        --image-path "/workspace/rhel-ai-nvidia-aws-1.5-x86_64.raw" \
+        --share-orgs-ids gcp-project-a,gcp-project-b \
+        --debug \
+        --debug-level 9
 
-In order to run Openshift Local we need to transform the bundle generated by [snc](https://github.com/crc-org/snc) 
-then the image will be uploaded as cloud provider image and will be available to create ephemeral clusters.
+podman logs -f import-rhelai-gcp
+```
 
-To run the tool we can use the OCI container:
+> **Note:** For GCP, `--replicate` creates `imagename-us`, `imagename-eu`, and `imagename-asia` copies via image-from-image (no re-upload). Consumer tooling is responsible for mapping zone prefix to image name: `us-*` → `-us`, `europe-*` → `-eu`, `asia-*` → `-asia`, all other zones → canonical image.
+
+---
+
+## SNC (OpenShift Local)
+
+Transforms the bundle generated by [snc](https://github.com/crc-org/snc), uploads it, and registers it as a cloud provider image. The resulting image can be used to create ephemeral OpenShift Local clusters.
 
 ### AWS
 
 ```bash
-podman run --rm --name import-openshift-local -d \
+podman run --rm --name import-snc -d \
     -v ${PWD}:/workspace:z \
     -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
     -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
     -e AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} \
-    ghcr.io/mapt-oss/cloud-importer:latest snc aws \
-          --project-name "snc-4.20.0" \
-          --backed-url s3://bucket/folder \
-          --bundle-uri ${BUNDLE_URL} \
-          --shasum-uri ${SHASUM_URL} \
-          --arch ${ARCH} \
-          --replicate \
-          --share-orgs-ids arn:aws:organizations::XXXXX:organization/XXXXX,arn:aws:organizations::XXXXX:organization/XXXX1 \
-          --debug \
-          --debug-level 9
+    quay.io/aipcc-cicd/cloud-importer:latest snc aws \
+        --project-name "snc-4.20.0" \
+        --backed-url s3://bucket/folder \
+        --bundle-uri ${BUNDLE_URL} \
+        --shasum-uri ${SHASUM_URL} \
+        --arch ${ARCH} \
+        --replicate \
+        --share-orgs-ids arn:aws:organizations::XXXXX:organization/XXXXX \
+        --debug \
+        --debug-level 9
 ```
 
 ### Azure
 
 ```bash
-podman run --rm --name import-openshift-local -d \
+podman run --rm --name import-snc-azure -d \
     -v ${PWD}:/workspace:z \
     -e ARM_CLIENT_ID=${ARM_CLIENT_ID} \
     -e ARM_CLIENT_SECRET=${ARM_CLIENT_SECRET} \
@@ -118,47 +205,278 @@ podman run --rm --name import-openshift-local -d \
     -e ARM_LOCATION_NAME=${ARM_LOCATION_NAME} \
     -e AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT} \
     -e AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY} \
-    ghcr.io/mapt-oss/cloud-importer:latest snc az \
-          --project-name "snc-4.20.0" \
-          --backed-url azblob://blobcontainer/folder \
-          --bundle-uri ${BUNDLE_URL} \
-          --shasum-uri ${SHASUM_URL} \
-          --arch ${ARCH} \
-          --replicate \
-          --share-orgs-ids tenanId1,tenantId2 \
-          --debug \
-          --debug-level 9
+    quay.io/aipcc-cicd/cloud-importer:latest snc az \
+        --project-name "snc-4.20.0" \
+        --backed-url azblob://blobcontainer/folder \
+        --bundle-uri ${BUNDLE_URL} \
+        --shasum-uri ${SHASUM_URL} \
+        --arch ${ARCH} \
+        --replicate \
+        --share-orgs-ids tenantId1,tenantId2 \
+        --debug \
+        --debug-level 9
 ```
 
-## Destroy
+### GCP
 
-Imported images are now controlled by a remote tfstate in order to destroy them there is a common destroy function and it depedns on the provider to run it (set the rigt credentials)
+```bash
+podman run --rm --name import-snc-gcp -d \
+    -e GOOGLE_PROJECT=${GOOGLE_PROJECT} \
+    -e GOOGLE_CREDENTIALS=${GOOGLE_CREDENTIALS} \
+    -e GOOGLE_REGION=${GOOGLE_REGION} \
+    quay.io/aipcc-cicd/cloud-importer:latest snc gcp \
+        --project-name "snc-4.20.0" \
+        --backed-url gs://bucket/folder \
+        --bundle-uri ${BUNDLE_URL} \
+        --shasum-uri ${SHASUM_URL} \
+        --arch ${ARCH} \
+        --share-orgs-ids gcp-project-a,gcp-project-b \
+        --debug \
+        --debug-level 9
+```
+
+---
+
+## Check
+
+Verifies whether an image with the given name already exists in the cloud provider. Exits `0` if found, `1` if not found, `2` on error.
 
 ### AWS
 
 ```bash
-podman run --rm --name import-openshift-local -d \
+podman run --rm \
     -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
     -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
     -e AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} \
-    ghcr.io/mapt-oss/cloud-importer:latest destroy \
-          --project-name "snc-4.20.0" \
-          --backed-url s3://bucket/folder 
+    quay.io/aipcc-cicd/cloud-importer:latest check aws \
+        --image-name rhelai3-136d47d1
 ```
 
 ### Azure
 
 ```bash
-podman run --rm --name import-openshift-local -d \
+podman run --rm \
     -e ARM_CLIENT_ID=${ARM_CLIENT_ID} \
     -e ARM_CLIENT_SECRET=${ARM_CLIENT_SECRET} \
     -e ARM_TENANT_ID=${ARM_TENANT_ID} \
     -e ARM_SUBSCRIPTION_ID=${ARM_SUBSCRIPTION_ID} \
     -e ARM_LOCATION_NAME=${ARM_LOCATION_NAME} \
-    ghcr.io/mapt-oss/cloud-importer:latest destroy \
-          --project-name "snc-4.20.0" \
-          --backed-url azblob://blobcontainer/folder 
+    quay.io/aipcc-cicd/cloud-importer:latest check az \
+        --image-name rhelai3-136d47d1
 ```
+
+### GCP
+
+```bash
+podman run --rm \
+    -e GOOGLE_PROJECT=${GOOGLE_PROJECT} \
+    -e GOOGLE_CREDENTIALS=${GOOGLE_CREDENTIALS} \
+    quay.io/aipcc-cicd/cloud-importer:latest check gcp \
+        --image-name rhelai3-136d47d1
+```
+
+---
+
+## Destroy
+
+Destroys all cloud resources associated with an import run and removes the Pulumi state. Run with the same `--project-name` and `--backed-url` used during import. Credentials must match the provider used for the original import.
+
+### AWS
+
+```bash
+podman run --rm \
+    -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
+    -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
+    -e AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION} \
+    quay.io/aipcc-cicd/cloud-importer:latest destroy \
+        --project-name "snc-4.20.0" \
+        --backed-url s3://bucket/folder
+```
+
+### Azure
+
+```bash
+podman run --rm \
+    -e ARM_CLIENT_ID=${ARM_CLIENT_ID} \
+    -e ARM_CLIENT_SECRET=${ARM_CLIENT_SECRET} \
+    -e ARM_TENANT_ID=${ARM_TENANT_ID} \
+    -e ARM_SUBSCRIPTION_ID=${ARM_SUBSCRIPTION_ID} \
+    -e ARM_LOCATION_NAME=${ARM_LOCATION_NAME} \
+    quay.io/aipcc-cicd/cloud-importer:latest destroy \
+        --project-name "snc-4.20.0" \
+        --backed-url azblob://blobcontainer/folder
+```
+
+### GCP
+
+```bash
+podman run --rm \
+    -e GOOGLE_PROJECT=${GOOGLE_PROJECT} \
+    -e GOOGLE_CREDENTIALS=${GOOGLE_CREDENTIALS} \
+    quay.io/aipcc-cicd/cloud-importer:latest destroy \
+        --project-name "snc-4.20.0" \
+        --backed-url gs://bucket/folder
+```
+
+---
+
+## Developer Testing
+
+For local testing, store Pulumi state in the mounted workspace directory — no cloud storage bucket needed. Load credentials from Bitwarden and pass them with name-only `-e` flags so values never appear in shell history or `ps` output.
+
+### Bitwarden item conventions
+
+| Bitwarden item | `username` field | `password` field | `notes` field |
+|---|---|---|---|
+| `AWS_ACCESS` | `AWS_ACCESS_KEY_ID` value | `AWS_SECRET_ACCESS_KEY` value | — |
+| `AZ_SP` | `ARM_CLIENT_ID` value | `ARM_CLIENT_SECRET` value | — |
+| `AZ_STORAGE` | `AZURE_STORAGE_ACCOUNT` value | `AZURE_STORAGE_KEY` value | — |
+| `GCP_SA_KEY` | `GOOGLE_PROJECT` value | — | service account key JSON |
+
+### Load credentials into your shell
+
+First, unlock your Bitwarden vault and establish a session:
+
+```bash
+export BW_SESSION=$(bw unlock --raw)
+```
+
+**AWS:**
+```bash
+export AWS_ACCESS_KEY_ID=$(bw get username "AWS_ACCESS")
+export AWS_SECRET_ACCESS_KEY=$(bw get password "AWS_ACCESS")
+export AWS_DEFAULT_REGION=us-east-1
+```
+
+**Azure:**
+```bash
+export ARM_CLIENT_ID=$(bw get username "AZ_SP")
+export ARM_CLIENT_SECRET=$(bw get password "AZ_SP")
+export ARM_TENANT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+export ARM_SUBSCRIPTION_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+export ARM_LOCATION_NAME=eastus
+export AZURE_STORAGE_ACCOUNT=$(bw get username "AZ_STORAGE")
+export AZURE_STORAGE_KEY=$(bw get password "AZ_STORAGE")
+```
+
+**GCP:**
+```bash
+export GOOGLE_PROJECT=$(bw get username "GCP_SA_KEY")
+export GOOGLE_REGION=us-central1
+export GOOGLE_CREDENTIALS=$(bw get notes "GCP_SA_KEY" | jq -c .)  # compact multiline JSON to single line
+```
+
+### Run with local Pulumi state
+
+```bash
+podman run --rm --name import-rhelai -d \
+    --user 0 \
+    -v ${PWD}:/workspace:z \
+    -e AWS_ACCESS_KEY_ID \
+    -e AWS_SECRET_ACCESS_KEY \
+    -e AWS_DEFAULT_REGION \
+    quay.io/aipcc-cicd/cloud-importer:latest rhelai aws \
+        --project-name "rhelai-dev-test" \
+        --backed-url "file:///workspace" \
+        --image-name "rhelai-dev-test" \
+        --image-path "/workspace/rhel-ai-nvidia-aws-1.5-x86_64.raw" \
+        --debug \
+        --debug-level 9
+
+podman logs -f import-rhelai
+```
+
+Replace `aws` with `az` or `gcp` and swap the `-e` flags to match the provider. Pulumi state is written to `${PWD}/rhelai-dev-test/` — delete it when done.
+
+### Run with a cloud Pulumi state backend
+
+When testing with a cloud backend (`gs://`, `s3://`, `azblob://`) instead of `file://`, Pulumi's
+passphrase secrets manager requires `PULUMI_CONFIG_PASSPHRASE` to be set. For development runs where
+there are no sensitive stack secrets, set it to an empty string:
+
+```bash
+PULUMI_CONFIG_PASSPHRASE="" /path/to/importer rhelai gcp \
+    --project-name "rhelai-dev-test" \
+    --backed-url "gs://my-state-bucket/cloud-importer" \
+    --image-name "rhelai-dev-test" \
+    --image-path "/path/to/disk.raw"
+```
+
+> **Note:** `PULUMI_CONFIG_PASSPHRASE` is not required when using `file://` (the local backend) for
+> most development scenarios. It is required for all cloud backends. In CI/CD it is expected to be set
+> in the environment by the pipeline configuration.
+
+---
+
+## Testing VMs
+
+After a successful import, launch a short-lived test VM to confirm the image boots correctly and is the expected OS/version. Remember to delete the test VM when done.
+
+### AWS
+
+```bash
+# Launch a test instance
+aws ec2 run-instances \
+    --image-id <ami-id-from-import-output> \
+    --instance-type t3.medium \
+    --region ${AWS_DEFAULT_REGION} \
+    --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=image-test}]' \
+    --query 'Instances[0].InstanceId' --output text
+
+# Wait for it to be running, then SSH
+aws ec2 wait instance-running --instance-ids <instance-id>
+ssh ec2-user@<public-ip>
+
+# Verify OS / RHEL AI version
+cat /etc/os-release
+ilab --version   # for RHEL AI images
+
+# Clean up
+aws ec2 terminate-instances --instance-ids <instance-id>
+```
+
+### Azure
+
+```bash
+# Launch a test VM from the gallery image
+az vm create \
+    --resource-group aipcc-productization \
+    --name image-test \
+    --image aipcc-productization/aipcc-gallery/rhelai3-136d47d1/latest \
+    --size Standard_D4s_v3 \
+    --admin-username azureuser \
+    --generate-ssh-keys
+
+# SSH and verify
+ssh azureuser@<public-ip>
+cat /etc/os-release
+ilab --version   # for RHEL AI images
+
+# Clean up
+az vm delete --resource-group aipcc-productization --name image-test --yes
+```
+
+### GCP
+
+```bash
+# Launch a test VM (use --preemptible for a cheaper spot-equivalent test)
+gcloud compute instances create image-test \
+    --image rhelai3-136d47d1 \
+    --image-project ${GOOGLE_PROJECT} \
+    --machine-type n2-standard-4 \
+    --zone ${GOOGLE_REGION}-a \
+    --preemptible
+
+# SSH and verify
+gcloud compute ssh image-test --zone ${GOOGLE_REGION}-a
+cat /etc/os-release
+ilab --version   # for RHEL AI images
+
+# Clean up
+gcloud compute instances delete image-test --zone ${GOOGLE_REGION}-a --quiet
+```
+
+---
 
 ## Release
 
@@ -175,39 +493,44 @@ To trigger a release:
 
 Tags must point to a commit on `main` or a `release-*` branch, otherwise the workflow will fail.
 
+---
+
 ## Troubleshooting
 
 `cloud-importer` performs the following steps:
 
-**1. Bundle Download:**
+**1. Bundle Download** *(SNC only)*
 
-  * The tool first downloads the OpenShift Local bundle and its checksum from the provided URLs
-      * Linux (libvirt) bundle which has the `qcow2` image is easier to convert to RAW or VHD
-  * It then verifies the integrity of the downloaded bundle using the checksum
-  * **Troubleshooting:** If you encounter errors at this stage, double-check the `--bundle-url` and `--shasum-url` values
+* Downloads the OpenShift Local bundle and its checksum from the provided URIs
+  * The Linux (libvirt) bundle containing the `qcow2` image is easiest to convert to raw/VHD/tar.gz
+* Verifies the bundle integrity using the checksum
+* **Troubleshooting:** Double-check `--bundle-uri` and `--shasum-uri` values if errors occur here
 
-**2. Disk Extraction:**
+**2. Disk Extraction** *(SNC only)*
 
-  * Extract and convert disk image to cloud provider expected format:
-      * **Decompression:** The downloaded bundle (`.xz` archive with `zstd` compression) is uncompressed and files are extracted
-      * **Image Location:** The tool locates the `qcow2` disk image within the extracted files
-      * **Image Conversion:** AWS requires the disk image to be in `.raw` format and for Azure it should be in `.vhd` format
-  * **Troubleshooting:**
-      * **Corrupted Archive:** An error during decompression could indicate a corrupted download. Try removing the local bundle and running the tool again
-      * **Disk Space:** Ensure it has sufficient free space to store both the downloaded bundle and the extracted disk image (~ 60GB)
+* Decompresses the `.xz` archive and extracts files
+* Locates the `qcow2` disk image and converts it to the provider's required format:
+  * **AWS:** `.raw`
+  * **Azure:** `.vhd`
+  * **GCP:** `disk.raw.tar.gz` (a compressed tar archive containing `disk.raw`)
+* **Troubleshooting:**
+  * Corrupted archive: remove the local bundle and re-run
+  * Disk space: ensure ~60 GB free for the downloaded bundle and extracted image
 
-**3. Upload to Cloud Provider storage (S3, blob storage):**
+**3. Upload to cloud storage**
 
-  * The prepared disk image is uploaded to an S3 bucket for AWS or a Storage blob for Azure, `cloud-importer` creates temporary resources for this purpose
-  * **Troubleshooting:**
-      * **Authentication:** Ensure your cloud provider credentials are correct and have the necessary permissions
+* Uploads the prepared disk image to temporary cloud storage (S3, Azure Blob, or GCS)
+* **Troubleshooting:** Verify credentials have write permissions to the storage service
 
-**4. Disk Image Import:**
+**4. Image registration**
 
-  * **AWS**: The tool initiates a VM import task, pointing to the uploaded disk image in S3. This process converts the disk image into an EBS snapshot
-  * **Azure**: The tool creates a Compute Gallery then a Gallery Image Definition, after which an Image Version pointing to the Blob storage containing the disk image
-  - **AMI/Disk Image Creation:** Once the snapshot/Galley Image Definition is created, it can be used to register a new AMI for AWS or Image Version for Azure in your account
-  * **Troubleshooting:**
-      * **IAM Role:** The VM import process requires a specific IAM role (e.g., `vmimport`). If this role doesn't exist or lacks the necessary permissions, `cloud-importer` will attempt to create this role for you
-      * **Permissions:** Your AWS user needs permissions for EC2 VM import (`ec2:ImportSnapshot`, `ec2:DescribeImportSnapshotTasks`)
+* **AWS:** Initiates a VM import task → EBS snapshot → AMI registration
+* **Azure:** Creates a Compute Gallery, Gallery Image Definition, and Image Version pointing to the blob
+* **GCP:** Creates a Compute Engine Custom Image from the GCS source URI
+* **Troubleshooting:**
+  * **AWS IAM role:** The `vmimport` role is created automatically if it doesn't exist. If import fails, verify your user has `ec2:ImportSnapshot` and `ec2:DescribeImportSnapshotTasks` permissions
+  * **GCP:** Ensure the `compute.images.create` permission is granted to the service account whose credentials are in `GOOGLE_CREDENTIALS`
 
+**5. Stuck imports / lock files**
+
+If a previous run crashed and left a Pulumi lock, re-run with `--force-destroy` added to the destroy command to clear the lock before retrying.

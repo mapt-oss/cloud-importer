@@ -39,6 +39,8 @@ ARG PULUMI_COMMAND_VERSION=v1.1.3
 ARG PULUMI_AWS_NATIVE_VERSION=v1.38.0
 # renovate: datasource=github-releases depName=pulumi/pulumi-azure-native
 ARG PULUMI_AZURE_NATIVE_VERSION=v3.10.1
+# renovate: datasource=github-releases depName=pulumi/pulumi-gcp
+ARG PULUMI_GCP_VERSION=v8.41.1
 
 ENV PULUMI_HOME "/opt/cloud-importer/run"
 WORKDIR ${PULUMI_HOME}
@@ -63,6 +65,7 @@ RUN dnf install -y python3 python3-pip zstd qemu-img && \
     pulumi plugin install resource command ${PULUMI_COMMAND_VERSION} && \
     pulumi plugin install resource azure-native ${PULUMI_AZURE_NATIVE_VERSION} && \
     pulumi plugin install resource aws-native ${PULUMI_AWS_NATIVE_VERSION} && \
+    pulumi plugin install resource gcp ${PULUMI_GCP_VERSION} && \
     chown -R 1001:0 /opt/cloud-importer/run && \
     chmod -R ug+rwx /opt/cloud-importer/run
 

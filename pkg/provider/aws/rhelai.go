@@ -2,6 +2,7 @@ package aws
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/pulumi/pulumi-command/sdk/go/command/local"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -26,6 +27,9 @@ func (a *aws) RHELAIEphemeral(imageFilePath, imageName string) pulumi.RunFunc {
 
 // This func should add all outputs
 func (r rhelaiEphemeralRequest) rhelaiEphemeralRunFunc(ctx *pulumi.Context) error {
+	if filepath.Ext(r.rawImageFilePath) != ".raw" {
+		return fmt.Errorf("--image-path must be a raw disk image (*.raw); got %q", r.rawImageFilePath)
+	}
 	ctx.Export(outAMIName, pulumi.String(r.amiName))
 	ctx.Export(outAMIArch, pulumi.String(rhelaiArch))
 	bucketName := stableBucketName(r.amiName)

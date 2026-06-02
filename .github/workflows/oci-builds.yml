@@ -60,6 +60,12 @@ jobs:
         run: |
           make oci-build-${{ env.ARCH_TYPE }}
           make oci-save-${{ env.ARCH_TYPE }}
+      - name: Smoke test image
+        env:
+          IMG: ${{ github.event_name == 'pull_request' && format('ghcr.io/mapt-oss/cloud-importer:pr-{0}', github.event.number) || 'ghcr.io/mapt-oss/cloud-importer:latest' }}
+        run: |
+          podman run --rm ${IMG}-${{ env.ARCH_TYPE }} --help
+          podman run --rm --entrypoint sh ${IMG}-${{ env.ARCH_TYPE }} -c "pulumi plugin ls | grep -E 'aws |azure-native |gcp |command '"
       - name: Upload cloud-importer image as artifact
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
