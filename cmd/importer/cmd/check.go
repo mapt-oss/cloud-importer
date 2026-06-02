@@ -28,6 +28,7 @@ func checkCmds() *cobra.Command {
 	}
 	c.AddCommand(checkCreate(awsCMD, manager.AWS))
 	c.AddCommand(checkCreate(azureCMD, manager.AZURE))
+	c.AddCommand(checkCreate(gcpCMD, manager.GCP))
 	return c
 }
 

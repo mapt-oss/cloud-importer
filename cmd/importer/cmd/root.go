@@ -52,7 +52,8 @@ func init() {
 		sncCmds(),
 		rhelaiCmds(),
 		destroy(),
-		checkCmds())
+		checkCmds(),
+		gcsUploadCmd())
 }
 
 func Execute() {

@@ -1,6 +1,9 @@
 package azure
 
 import (
+	"fmt"
+	"path/filepath"
+
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
@@ -26,6 +29,9 @@ func (a *azureProvider) RHELAIEphemeral(imageFilePath, imageName string) pulumi.
 
 // This func should add all outputs
 func (r rhelaiEphemeralRequest) rhelaiEphemeralRunFunc(ctx *pulumi.Context) error {
+	if filepath.Ext(r.vhdPath) != ".vhd" {
+		return fmt.Errorf("--image-path must be a VHD disk image (*.vhd); got %q", r.vhdPath)
+	}
 	ctx.Export(outOffer, pulumi.String(rhelAIOffer))
 	ctx.Export(outPublisher, pulumi.String(rhelAIPublisher))
 	ctx.Export(outSKU, pulumi.String(rhelAISKU))
