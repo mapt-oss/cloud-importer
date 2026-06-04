@@ -52,7 +52,7 @@ func (r sncEphemeralRequest) sncEphemeralRunFunc(ctx *pulumi.Context) error {
 		return err
 	}
 	ctx.Export(outBucketName, pulumi.String(*bucketName))
-	ro, _, err := createVMIEmportExportRole(ctx, &amiName)
+	ro, _, err := createVMIEmportExportRole(ctx, bucketName)
 	if err != nil {
 		return err
 	}
