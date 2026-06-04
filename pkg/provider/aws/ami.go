@@ -18,7 +18,7 @@ var (
 	outAMIName    = "aminame"
 	outAMIArch    = "amiarch"
 	outRoleName   = "rolename"
-	outBucketName = "rolename"
+	outBucketName = "bucketname"
 )
 
 func (a *aws) ValidateShareTargets(shareOrgIds []string) error {
