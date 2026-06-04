@@ -45,11 +45,13 @@ func (r sncEphemeralRequest) sncEphemeralRunFunc(ctx *pulumi.Context) error {
 	if err != nil {
 		return err
 	}
-	_, err = bucketEphemeral(ctx, &amiName)
+
+	bucketName := stableBucketName(amiName)
+	_, err = bucketEphemeral(ctx, bucketName)
 	if err != nil {
 		return err
 	}
-	ctx.Export(outBucketName, pulumi.String(amiName))
+	ctx.Export(outBucketName, pulumi.String(*bucketName))
 	ro, _, err := createVMIEmportExportRole(ctx, &amiName)
 	if err != nil {
 		return err
