@@ -1,4 +1,4 @@
-// Copyright 2016-2018, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/promise"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource/config"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/slice"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 	pulumirpc "github.com/pulumi/pulumi/sdk/v3/proto/go"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -103,9 +105,12 @@ func (info ProgramInfo) Marshal() (*pulumirpc.ProgramInfo, error) {
 }
 
 type InstallDependenciesRequest struct {
-	Info                    ProgramInfo
+	Info ProgramInfo
+	// True if the host should use language-specific version managers, such as `pyenv` or `nvm`, to set up the version
+	// of the language toolchain used.
 	UseLanguageVersionTools bool
-	IsPlugin                bool
+	// True if this install is for a plugin, as opposed to a top level Pulumi program.
+	IsPlugin bool
 }
 
 func (options InstallDependenciesRequest) String() string {
@@ -128,7 +133,7 @@ type LanguageRuntime interface {
 	// return result.Bail immediately and not print any further messages to the user.
 	Run(info RunInfo) (string, bool, error)
 	// GetPluginInfo returns this plugin's information.
-	GetPluginInfo() (workspace.PluginInfo, error)
+	GetPluginInfo() (PluginInfo, error)
 
 	// InstallDependencies will install dependencies for the project, e.g. by running `npm install` for nodejs projects.
 	// It returns io.Readers for stdout and stderr as well as a channel that will be closed when the operation is
@@ -138,6 +143,9 @@ type LanguageRuntime interface {
 
 	// RuntimeOptionsPrompts returns additional options that can be set for the runtime.
 	RuntimeOptionsPrompts(info ProgramInfo) ([]RuntimeOptionPrompt, error)
+
+	// Template allows the language runtime to perform additional templating on a newly instantiated project template.
+	Template(info ProgramInfo, projectName tokens.PackageName) error
 
 	// About returns information about the language runtime.
 	About(info ProgramInfo) (AboutInfo, error)
@@ -199,6 +207,7 @@ type RunPluginInfo struct {
 	Env              []string
 	Kind             string
 	AttachDebugger   bool
+	LoaderAddress    string
 }
 
 // RunInfo contains all of the information required to perform a plan or deployment operation.
@@ -308,7 +317,7 @@ func MakeExecutablePromptChoices(executables ...string) []*pulumirpc.RuntimeOpti
 		name  string
 		found bool
 	}
-	pms := []packagemanagers{}
+	pms := slice.Prealloc[packagemanagers](len(executables))
 	for _, pm := range executables {
 		found := true
 		if _, err := exec.LookPath(pm); err != nil {
@@ -326,7 +335,7 @@ func MakeExecutablePromptChoices(executables ...string) []*pulumirpc.RuntimeOpti
 		return pms[i].found
 	})
 
-	choices := []*pulumirpc.RuntimeOptionPrompt_RuntimeOptionValue{}
+	choices := slice.Prealloc[*pulumirpc.RuntimeOptionPrompt_RuntimeOptionValue](len(pms))
 	for _, pm := range pms {
 		displayName := pm.name
 		if !pm.found {

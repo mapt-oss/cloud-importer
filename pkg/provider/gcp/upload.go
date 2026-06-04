@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 	storage_api "google.golang.org/api/storage/v1"
 )
@@ -21,11 +20,7 @@ func StreamUpload(src, bucket, object string) error {
 
 	var opts []option.ClientOption
 	if credJSON := os.Getenv("GOOGLE_CREDENTIALS"); credJSON != "" {
-		creds, err := google.CredentialsFromJSON(ctx, []byte(credJSON), storage_api.CloudPlatformScope)
-		if err != nil {
-			return fmt.Errorf("parse GOOGLE_CREDENTIALS: %w", err)
-		}
-		opts = append(opts, option.WithCredentials(creds))
+		opts = append(opts, option.WithCredentialsJSON([]byte(credJSON)))
 	}
 
 	svc, err := storage_api.NewService(ctx, opts...)

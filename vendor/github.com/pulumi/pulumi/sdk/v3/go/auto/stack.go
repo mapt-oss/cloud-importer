@@ -1,4 +1,4 @@
-// Copyright 2016-2022, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -333,7 +333,8 @@ func (s *Stack) Preview(ctx context.Context, opts ...optpreview.Option) (Preview
 		}
 	}()
 
-	eventChannels := []chan<- events.EngineEvent{eventChannel}
+	eventChannels := slice.Prealloc[chan<- events.EngineEvent](1 + len(preOpts.EventStreams))
+	eventChannels = append(eventChannels, eventChannel)
 	eventChannels = append(eventChannels, preOpts.EventStreams...)
 
 	t, err := tailLogs("preview", eventChannels, s.Workspace().PulumiCommand().Version())
@@ -665,7 +666,8 @@ func (s *Stack) PreviewRefresh(ctx context.Context, opts ...optrefresh.Option) (
 		}
 	}()
 
-	eventChannels := []chan<- events.EngineEvent{eventChannel}
+	eventChannels := slice.Prealloc[chan<- events.EngineEvent](1 + len(refreshOpts.EventStreams))
+	eventChannels = append(eventChannels, eventChannel)
 	eventChannels = append(eventChannels, refreshOpts.EventStreams...)
 
 	t, err := tailLogs("refresh", eventChannels, s.Workspace().PulumiCommand().Version())
@@ -892,7 +894,8 @@ func (s *Stack) PreviewDestroy(ctx context.Context, opts ...optdestroy.Option) (
 		}
 	}()
 
-	eventChannels := []chan<- events.EngineEvent{eventChannel}
+	eventChannels := slice.Prealloc[chan<- events.EngineEvent](1 + len(destroyOpts.EventStreams))
+	eventChannels = append(eventChannels, eventChannel)
 	eventChannels = append(eventChannels, destroyOpts.EventStreams...)
 	t, err := tailLogs("destroy", eventChannels, s.Workspace().PulumiCommand().Version())
 	if err != nil {
@@ -1111,6 +1114,9 @@ func destroyOptsToCmd(destroyOpts *optdestroy.Options, s *Stack) ([]string, io.C
 		} else {
 			args = append(args, "--run-program=false")
 		}
+	}
+	if destroyOpts.Diff {
+		args = append(args, "--diff")
 	}
 
 	kind := constant.ExecKindAutoLocal
@@ -1385,7 +1391,7 @@ func (ur *UpResult) GetPermalink() (string, error) {
 	return GetPermalink(ur.StdOut)
 }
 
-// ErrParsePermalinkFailed occurs when the the generated permalink URL can't be found in the op result
+// ErrParsePermalinkFailed occurs when the generated permalink URL can't be found in the op result
 var ErrParsePermalinkFailed = errors.New("failed to get permalink")
 
 // GetPermalink returns the permalink URL in the Pulumi Console for the update
@@ -1705,7 +1711,7 @@ func startLanguageRuntimeServer(fn pulumi.RunFunc) (*languageRuntimeServer, erro
 			pulumirpc.RegisterLanguageRuntimeServer(srv, s)
 			return nil
 		},
-		Options: rpcutil.OpenTracingServerInterceptorOptions(nil),
+		Options: rpcutil.TracingServerInterceptorOptions(nil),
 	})
 	if err != nil {
 		return nil, err
@@ -1911,7 +1917,7 @@ func tailLogs(command string, receivers []chan<- events.EngineEvent, version sem
 				return nil
 			},
 			Cancel:  cancel,
-			Options: rpcutil.OpenTracingServerInterceptorOptions(nil),
+			Options: rpcutil.TracingServerInterceptorOptions(nil),
 		})
 		if err != nil {
 			return nil, err

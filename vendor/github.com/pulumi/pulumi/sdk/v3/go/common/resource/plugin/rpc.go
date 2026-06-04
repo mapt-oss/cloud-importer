@@ -1,4 +1,4 @@
-// Copyright 2016-2021, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -88,7 +88,10 @@ func MarshalProperties(props resource.PropertyMap, opts MarshalOptions) (*struct
 		} else if opts.SkipInternalKeys && resource.IsInternalPropertyKey(key) {
 			logging.V(9).Infof("Skipping internal property for RPC[%s]: %s (as requested)", opts.Label, key)
 		} else {
-			m, err := MarshalPropertyValue(key, v, opts)
+			// Only skip top level internal keys
+			copts := opts
+			copts.SkipInternalKeys = false
+			m, err := MarshalPropertyValue(key, v, copts)
 			if err != nil {
 				return nil, err
 			} else if m != nil {
@@ -228,6 +231,12 @@ func MarshalPropertyValue(key resource.PropertyKey, v resource.PropertyValue,
 			resource.SigKey: resource.NewProperty(resource.ResourceReferenceSig),
 			"urn":           resource.NewProperty(string(ref.URN)),
 		}
+		if ref.Name != "" {
+			m["name"] = resource.NewProperty(ref.Name)
+		}
+		if ref.Type != "" {
+			m["type"] = resource.NewProperty(ref.Type)
+		}
 		if id, hasID := ref.IDString(); hasID {
 			m["id"] = resource.NewProperty(id)
 		}
@@ -294,7 +303,10 @@ func UnmarshalProperties(props *structpb.Struct, opts MarshalOptions) (resource.
 	// And now unmarshal every field it into the map.
 	for _, key := range keys {
 		pk := resource.PropertyKey(key)
-		v, err := UnmarshalPropertyValue(pk, props.Fields[key], opts)
+		// Only skip top level internal keys.
+		copts := opts
+		copts.SkipInternalKeys = false
+		v, err := UnmarshalPropertyValue(pk, props.Fields[key], copts)
 		if err != nil {
 			return nil, err
 		} else if v != nil {
@@ -438,6 +450,22 @@ func UnmarshalPropertyValue(key resource.PropertyKey, v *structpb.Value,
 				return nil, fmt.Errorf("malformed resource reference for %q: urn not a string", key)
 			}
 
+			name := ""
+			if nameProp, ok := obj["name"]; ok {
+				if !nameProp.IsString() {
+					return nil, fmt.Errorf("malformed resource reference for %q: name not a string", key)
+				}
+				name = nameProp.StringValue()
+			}
+
+			typ := ""
+			if typeProp, ok := obj["type"]; ok {
+				if !typeProp.IsString() {
+					return nil, fmt.Errorf("malformed resource reference for %q: type not a string", key)
+				}
+				typ = typeProp.StringValue()
+			}
+
 			id, hasID := "", false
 			if idProp, ok := obj["id"]; ok {
 				hasID = true
@@ -482,12 +510,28 @@ func UnmarshalPropertyValue(key resource.PropertyKey, v *structpb.Value,
 				return &r, nil
 			}
 
-			var ref resource.PropertyValue
-			if hasID {
-				ref = resource.MakeCustomResourceReference(resource.URN(urn.StringValue()), resource.ID(id), packageVersion)
-			} else {
-				ref = resource.MakeComponentResourceReference(resource.URN(urn.StringValue()), packageVersion)
+			urnValue := resource.URN(urn.StringValue())
+			if name == "" && urnValue.IsValid() {
+				name = urnValue.Name()
 			}
+			if typ == "" && urnValue.IsValid() {
+				typ = string(urnValue.Type())
+			}
+
+			refID := resource.PropertyValue{}
+			if hasID {
+				refID = resource.NewProperty(id)
+				if id == "" {
+					refID = resource.MakeComputed(resource.NewProperty(""))
+				}
+			}
+			ref := resource.NewProperty(resource.ResourceReference{
+				URN:            urnValue,
+				Name:           name,
+				Type:           typ,
+				ID:             refID,
+				PackageVersion: packageVersion,
+			})
 			return &ref, nil
 		case resource.OutputValueSig:
 			value, known := obj["value"]

@@ -1,4 +1,4 @@
-// Copyright 2016-2021, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"net/url"
 	"os"
@@ -41,10 +42,12 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/logging"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/rpcutil"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/util/rpcutil/rpcerror"
 	"github.com/pulumi/pulumi/sdk/v3/go/internal"
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi-internal/gsync"
 	pulumirpc "github.com/pulumi/pulumi/sdk/v3/proto/go"
-	"golang.org/x/exp/maps"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -74,6 +77,7 @@ type contextState struct {
 	supportsInvokeTransforms bool         // true if remote invoke transforms are supported by pulumi
 	supportsParameterization bool         // true if package references and parameterized providers are supported by pulumi
 	supportsResourceHooks    bool         // true if resource hooks are supported by pulumi
+	supportsErrorHooks       bool         // true if error hooks are supported by pulumi
 	rpcs                     int          // the number of outstanding RPC requests.
 	rpcsDone                 *sync.Cond   // an event signaling completion of RPCs.
 	rpcsLock                 sync.Mutex   // a lock protecting the RPC count and event.
@@ -82,6 +86,8 @@ type contextState struct {
 	registeredOutputs        map[URN]bool // tracks which resources have had outputs registered
 
 	join workGroup // the waitgroup for non-RPC async work associated with this context
+
+	packageRefs gsync.Map[string, *packageRefEntry] // per-context cache of parameterized provider package refs
 }
 
 // Context handles registration of resources and exposes metadata about the current deployment context.
@@ -97,11 +103,12 @@ func NewContext(ctx context.Context, info RunInfo) (*Context, error) {
 	var monitorConn *grpc.ClientConn
 	var monitor pulumirpc.ResourceMonitorClient
 	if addr := info.MonitorAddr; addr != "" {
-		conn, err := grpc.NewClient(
-			info.MonitorAddr,
+		dialOpts := append(
+			rpcutil.TracingInterceptorDialOptions(),
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			rpcutil.GrpcChannelOptions(),
 		)
+		conn, err := grpc.NewClient(info.MonitorAddr, dialOpts...)
 		if err != nil {
 			return nil, fmt.Errorf("connecting to resource monitor over RPC: %w", err)
 		}
@@ -115,11 +122,12 @@ func NewContext(ctx context.Context, info RunInfo) (*Context, error) {
 		engineConn = info.engineConn
 		engine = pulumirpc.NewEngineClient(engineConn)
 	} else if addr := info.EngineAddr; addr != "" {
-		conn, err := grpc.NewClient(
-			info.EngineAddr,
+		dialOpts := append(
+			rpcutil.TracingInterceptorDialOptions(),
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			rpcutil.GrpcChannelOptions(),
 		)
+		conn, err := grpc.NewClient(info.EngineAddr, dialOpts...)
 		if err != nil {
 			return nil, fmt.Errorf("connecting to engine over RPC: %w", err)
 		}
@@ -192,6 +200,11 @@ func NewContext(ctx context.Context, info RunInfo) (*Context, error) {
 		return nil, err
 	}
 
+	supportsErrorHooks, err := supportsFeature("errorHooks")
+	if err != nil {
+		return nil, err
+	}
+
 	contextState := &contextState{
 		info:                     info,
 		exports:                  make(map[string]Input),
@@ -208,6 +221,7 @@ func NewContext(ctx context.Context, info RunInfo) (*Context, error) {
 		supportsInvokeTransforms: supportsInvokeTransforms,
 		supportsParameterization: supportsParameterization,
 		supportsResourceHooks:    supportsResourceHooks,
+		supportsErrorHooks:       supportsErrorHooks,
 		registeredOutputs:        make(map[URN]bool),
 	}
 	contextState.rpcsDone = sync.NewCond(&contextState.rpcsLock)
@@ -443,6 +457,7 @@ func (ctx *Context) registerTransform(t ResourceTransform) (*pulumirpc.Callback,
 				opts.Hooks.AfterUpdate = makeStubHooks(rpcReq.Options.Hooks.GetAfterUpdate())
 				opts.Hooks.BeforeDelete = makeStubHooks(rpcReq.Options.Hooks.GetBeforeDelete())
 				opts.Hooks.AfterDelete = makeStubHooks(rpcReq.Options.Hooks.GetAfterDelete())
+				opts.Hooks.OnError = makeStubErrorHooks(rpcReq.Options.Hooks.GetOnError())
 			}
 		}
 
@@ -1222,7 +1237,7 @@ func (ctx *Context) CallPackageSingle(
 			return zeroType, errors.New("result must have exactly one element")
 		}
 
-		result := maps.Values(asMap)[0]
+		result := slices.Collect(maps.Values(asMap))[0]
 		if resultType := reflect.TypeOf(result); resultType != output.ElementType() {
 			return zeroType, fmt.Errorf("result field type %s does not match expected type %s", resultType, output.ElementType())
 		}
@@ -1572,6 +1587,90 @@ func (ctx *Context) registerResourceHook(f ResourceHookFunction) (*pulumirpc.Cal
 	return cb, nil
 }
 
+// registerErrorHook starts up a callback server if not already running and registers the given hook function.
+func (ctx *Context) registerErrorHook(f ErrorHookFunction) (*pulumirpc.Callback, error) {
+	if !ctx.state.supportsErrorHooks {
+		return nil, errors.New("the Pulumi CLI does not support error hooks. Please update the Pulumi CLI")
+	}
+
+	// Wrap the transform in a callback function.
+	callback := func(innerCtx context.Context, request []byte) (proto.Message, error) {
+		var req pulumirpc.ErrorHookRequest
+		err := proto.Unmarshal(request, &req)
+		if err != nil {
+			return nil, fmt.Errorf("unmarshaling request: %w", err)
+		}
+		var newInputs, oldInputs, oldOutputs resource.PropertyMap
+		mOpts := plugin.MarshalOptions{
+			KeepUnknowns:     true,
+			KeepSecrets:      true,
+			KeepResources:    true,
+			KeepOutputValues: true,
+		}
+		if req.NewInputs != nil {
+			newInputs, err = plugin.UnmarshalProperties(req.NewInputs, mOpts)
+			if err != nil {
+				return nil, fmt.Errorf("unmarshaling new inputs: %w", err)
+			}
+		}
+		if req.OldInputs != nil {
+			oldInputs, err = plugin.UnmarshalProperties(req.OldInputs, mOpts)
+			if err != nil {
+				return nil, fmt.Errorf("unmarshaling old inputs: %w", err)
+			}
+		}
+		if req.OldOutputs != nil {
+			oldOutputs, err = plugin.UnmarshalProperties(req.OldOutputs, mOpts)
+			if err != nil {
+				return nil, fmt.Errorf("unmarshaling old outputs: %w", err)
+			}
+		}
+		args := &ErrorHookArgs{
+			URN:             URN(req.Urn),
+			ID:              ID(req.Id),
+			Name:            req.Name,
+			Type:            tokens.Type(req.Type),
+			NewInputs:       newInputs,
+			OldInputs:       oldInputs,
+			OldOutputs:      oldOutputs,
+			FailedOperation: req.FailedOperation,
+			Errors:          req.Errors,
+		}
+		retry, err := f(args)
+		if err != nil {
+			return &pulumirpc.ErrorHookResponse{
+				Error: err.Error(),
+			}, nil
+		}
+		return &pulumirpc.ErrorHookResponse{
+			Retry: retry,
+		}, nil
+	}
+
+	err := func() error {
+		ctx.state.callbacksLock.Lock()
+		defer ctx.state.callbacksLock.Unlock()
+		if ctx.state.callbacks == nil {
+			c, err := newCallbackServer()
+			if err != nil {
+				return fmt.Errorf("creating callback server: %w", err)
+			}
+			ctx.state.callbacks = c
+		}
+		return nil
+	}()
+	if err != nil {
+		return nil, err
+	}
+
+	cb, err := ctx.state.callbacks.RegisterCallback(callback)
+	if err != nil {
+		return nil, fmt.Errorf("registering callback: %w", err)
+	}
+
+	return cb, nil
+}
+
 func (ctx *Context) registerResource(
 	t, name string, props Input, resource Resource, remote bool, packageRef string, opts ...ResourceOption,
 ) error {
@@ -1789,6 +1888,7 @@ func (ctx *Context) registerResource(
 				SupportsResultReporting:    true,
 				PackageRef:                 packageRef,
 				Hooks:                      hooks,
+				EnvVarMappings:             inputs.envVarMappings,
 			})
 			if err != nil {
 				logging.V(9).Infof("RegisterResource(%s, %s): error: %v", t, name, err)
@@ -1882,6 +1982,41 @@ func (ctx *Context) RegisterPackage(
 		return nil, errors.New("the Pulumi CLI does not support parameterization. Please update the Pulumi CLI")
 	}
 	return ctx.state.monitor.RegisterPackage(ctx.ctx, in)
+}
+
+// packageRefEntry holds a cached package reference for a parameterized provider.
+// The sync.Once ensures exactly one RegisterPackage RPC per key per context.
+type packageRefEntry struct {
+	once sync.Once
+	ref  string
+	err  error
+}
+
+// GetOrRegisterPackageRef returns a cached package reference for the given key,
+// or registers the package and caches the result. The key should uniquely
+// identify the parameterized package (e.g., "name:version"). This method is
+// safe for concurrent use and ensures each Context registers its own package
+// reference, which is required because package references are scoped to the
+// engine/monitor connection and cannot be shared across contexts.
+func (ctx *Context) GetOrRegisterPackageRef(
+	key string,
+	req func() (*pulumirpc.RegisterPackageRequest, error),
+) (string, error) {
+	entry, _ := ctx.state.packageRefs.LoadOrStore(key, &packageRefEntry{})
+	entry.once.Do(func() {
+		r, err := req()
+		if err != nil {
+			entry.err = err
+			return
+		}
+		resp, err := ctx.RegisterPackage(r)
+		if err != nil {
+			entry.err = err
+			return
+		}
+		entry.ref = resp.Ref
+	})
+	return entry.ref, entry.err
 }
 
 // resourceState contains the results of a resource registration operation.
@@ -2258,6 +2393,7 @@ type resourceInputs struct {
 	hideDiffs               []string
 	replaceWith             []string
 	replacementTrigger      *structpb.Value
+	envVarMappings          map[string]string
 }
 
 func (ctx *Context) resolveAliasParent(alias Alias, spec *pulumirpc.Alias_Spec) error {
@@ -2499,7 +2635,7 @@ func (ctx *Context) prepareResourceInputs(res Resource, props Input, t string, o
 			if err != nil {
 				return nil, fmt.Errorf("expanding replacementTrigger dependencies: %w", err)
 			}
-			replacementTriggerDeps = maps.Keys(depMap)
+			replacementTriggerDeps = slices.Collect(maps.Keys(depMap))
 		}
 
 		if !rtValue.IsNull() {
@@ -2582,6 +2718,7 @@ func (ctx *Context) prepareResourceInputs(res Resource, props Input, t string, o
 		deletedWith:             string(deletedWithURN),
 		replaceWith:             replaceWithURNs,
 		replacementTrigger:      replacementTriggerValue,
+		envVarMappings:          opts.EnvVarMappings,
 	}, nil
 }
 
@@ -2642,7 +2779,7 @@ func (ctx *Context) getOpts(
 				return resourceOpts{}, err
 			}
 		}
-		depURNs = maps.Keys(depSet)
+		depURNs = slices.Collect(maps.Keys(depSet))
 	}
 
 	var providerRef string
@@ -2849,13 +2986,16 @@ func (ctx *Context) RegisterResourceHook(
 			return
 		}
 		onDryRun := false
+		ignoreErrors := false
 		if opts != nil {
 			onDryRun = opts.OnDryRun
+			ignoreErrors = opts.IgnoreErrors
 		}
 		req := &pulumirpc.RegisterResourceHookRequest{
-			Name:     name,
-			Callback: cb,
-			OnDryRun: onDryRun,
+			Name:         name,
+			Callback:     cb,
+			OnDryRun:     onDryRun,
+			IgnoreErrors: ignoreErrors,
 		}
 		_, err = ctx.state.monitor.RegisterResourceHook(ctx.ctx, req)
 		if err != nil {
@@ -2865,6 +3005,35 @@ func (ctx *Context) RegisterResourceHook(
 		}
 	}()
 	hook := &ResourceHook{
+		Name:       name,
+		Callback:   callback,
+		registered: registered.Promise(),
+	}
+	return hook, nil
+}
+
+func (ctx *Context) RegisterErrorHook(
+	name string, callback ErrorHookFunction,
+) (*ErrorHook, error) {
+	registered := &promise.CompletionSource[struct{}]{}
+	go func() {
+		cb, err := ctx.registerErrorHook(callback)
+		if err != nil {
+			registered.Reject(err)
+			return
+		}
+		req := &pulumirpc.RegisterErrorHookRequest{
+			Name:     name,
+			Callback: cb,
+		}
+		_, err = ctx.state.monitor.RegisterErrorHook(ctx.ctx, req)
+		if err != nil {
+			registered.Reject(err)
+		} else {
+			registered.Fulfill(struct{}{})
+		}
+	}()
+	hook := &ErrorHook{
 		Name:       name,
 		Callback:   callback,
 		registered: registered.Promise(),
@@ -2942,4 +3111,28 @@ func (ctx *Context) getSourcePosition(skip int) *pulumirpc.SourcePosition {
 	frames := runtime.CallersFrames(pcs[:])
 	frame, _ := frames.Next()
 	return ctx.getSourcePositionForFrame(frame)
+}
+
+// RequirePulumiVersion validates that the engine we are connected to is compatible with the passed in version range. If
+// the version is not compatible with the specified range, an error is returned.
+//
+// The supported syntax for the range is that of https://pkg.go.dev/github.com/blang/semver#ParseRange. For example
+// ">=3.0.0", or "!3.1.2". Ranges can be AND-ed together by concatenating with spaces ">=3.5.0 !3.7.7", meaning
+// greater-or-equal to 3.5.0 and not exactly 3.7.7. Ranges can be OR-ed with the `||` operator: "<3.4.0 || >3.8.0",
+// meaning less-than 3.4.0 or greater-than 3.8.0.
+func (ctx *Context) RequirePulumiVersion(rg string) error {
+	_, err := ctx.state.engine.RequirePulumiVersion(ctx.Context(), &pulumirpc.RequirePulumiVersionRequest{
+		PulumiVersionRange: rg,
+	})
+	if err != nil {
+		if rpcError, ok := rpcerror.FromError(err); ok {
+			if rpcError.Code() == codes.Unimplemented {
+				return errors.New("The installed version of the CLI does not support the `RequirePulumiVersion` RPC. " +
+					"Please upgrade the Pulumi CLI.")
+			}
+			return rpcError
+		}
+		return err
+	}
+	return nil
 }

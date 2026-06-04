@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/mapt-oss/cloud-importer/pkg/util"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
@@ -23,11 +22,8 @@ func (p *gcpProvider) ImageExists(imageName string) (bool, string, error) {
 
 	var opts []option.ClientOption
 	if credJSON := os.Getenv("GOOGLE_CREDENTIALS"); credJSON != "" {
-		creds, err := google.CredentialsFromJSON(ctx, []byte(credJSON), compute.CloudPlatformScope)
-		if err != nil {
-			return false, "", fmt.Errorf("failed to parse GOOGLE_CREDENTIALS: %w", err)
-		}
-		opts = append(opts, option.WithCredentials(creds))
+		// Secure, non-deprecated way to pass JSON credentials directly to the client
+		opts = append(opts, option.WithCredentialsJSON([]byte(credJSON)))
 	}
 
 	svc, err := compute.NewService(ctx, opts...)

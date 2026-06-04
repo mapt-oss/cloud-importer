@@ -1,4 +1,4 @@
-// Copyright 2016-2025, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,6 +34,8 @@ func NewEnv(s env.Store) env.Env { return env.NewEnv(s) }
 func Global() env.Env {
 	return env.NewEnv(env.Global)
 }
+
+var Home = env.String("HOME", "The directory where Pulumi stores global configuration and plugins in.")
 
 // That Pulumi is running in experimental mode.
 //
@@ -130,7 +132,8 @@ var Parallel = env.Int("PARALLEL",
 	"Allow P resource operations to run in parallel at once (1 for no parallelism)")
 
 var AccessToken = env.String("ACCESS_TOKEN",
-	"The access token used to authenticate with the Pulumi Service.")
+	"The access token used to authenticate with the Pulumi Service.",
+	env.Secret)
 
 var DisableSecretCache = env.Bool("DISABLE_SECRET_CACHE",
 	"Disable caching encryption operations for unchanged stack secrets.")
@@ -165,6 +168,9 @@ var (
 		"Disables the warning about legacy stack files mixed with project-scoped stack files.",
 		env.Alternative("SELF_MANAGED_STATE_NO_LEGACY_WARNING"))
 
+	DIYBackendIgnoreDeprecationWarning = env.Bool("DIY_BACKEND_IGNORE_DEPRECATION_WARNING",
+		"Disables the warning about legacy stack mode being deprecated.")
+
 	DIYBackendLegacyLayout = env.Bool("DIY_BACKEND_LEGACY_LAYOUT",
 		"Uses the legacy layout for new buckets, which currently default to project-scoped stacks.",
 		env.Alternative("SELF_MANAGED_STATE_LEGACY_LAYOUT"))
@@ -172,6 +178,10 @@ var (
 	DIYBackendGzip = env.Bool("DIY_BACKEND_GZIP",
 		"Enables gzip compression when writing state files.",
 		env.Alternative("SELF_MANAGED_STATE_GZIP"))
+
+	DIYBackendZstd = env.Bool("DIY_BACKEND_ZSTD",
+		"Enables zstd compression when writing state files.",
+		env.Alternative("SELF_MANAGED_STATE_ZSTD"))
 
 	DIYBackendRetainCheckpoints = env.Bool("DIY_BACKEND_RETAIN_CHECKPOINTS",
 		"If set every checkpoint will be duplicated to a timestamped file.",
@@ -213,6 +223,10 @@ var (
 	// It is used in sandboxed environments where the classic policy template folder may not be writable.
 	PolicyTemplatePath = env.String("POLICY_TEMPLATE_PATH", "Path to a writable policy template cache directory.")
 
+	// PackageTemplatePath is a path to the folder where package templates are stored.
+	// It is used in sandboxed environments where the classic package template folder may not be writable.
+	PackageTemplatePath = env.String("PACKAGE_TEMPLATE_PATH", "Path to a writable package template cache directory.")
+
 	// TemplateGitRepository is the Git URL for Pulumi program templates.
 	// If set, it overrides the compile-time default pulumiTemplateGitRepository.
 	TemplateGitRepository = env.String("TEMPLATE_GIT_REPOSITORY",
@@ -230,7 +244,37 @@ var (
 	// PolicyTemplateBranch is the branch name for the policy pack template repository.
 	// If set, it overrides the compile-time default pulumiPolicyTemplateBranch.
 	PolicyTemplateBranch = env.String("POLICY_TEMPLATE_BRANCH", "Branch name for Pulumi Policy Pack templates repository.")
+
+	// PackageTemplateGitRepository is the Git URL for Pulumi package templates.
+	// If set, it overrides the compile-time default pulumiPackageTemplateGitRepository.
+	PackageTemplateGitRepository = env.String("PACKAGE_TEMPLATE_GIT_REPOSITORY",
+		"Git URL for Pulumi package templates (overrides default).")
+
+	// PackageTemplateBranch is the branch name for the package template repository.
+	// If set, it overrides the compile-time default pulumiPackageTemplateBranch.
+	PackageTemplateBranch = env.String("PACKAGE_TEMPLATE_BRANCH",
+		"Branch name for Pulumi package templates repository.")
 )
 
-var EnableJournaling = env.Bool("ENABLE_JOURNALING",
-	"Enable journaling of engine operations to the backend (if the backend supports it)")
+var DisableJournaling = env.Bool("DISABLE_JOURNALING",
+	"Disable journaling of engine operations to the backend")
+
+var EnableAutomaticLogging = env.Bool("ENABLE_AUTOMATIC_LOGGING",
+	"Enable automatic encrypted logging of engine operations to disk")
+
+var LogRotationMaxAgeDays = env.Int("LOG_ROTATION_MAX_AGE_DAYS",
+	"Maximum age in days for automatic log files before rotation deletes them (default 7)")
+
+var LogRotationMaxTotalMB = env.Int("LOG_ROTATION_MAX_TOTAL_MB",
+	"Maximum total size in MB for automatic log files before rotation deletes oldest (default 500)")
+
+var JournalingBatchSize = env.Int("JOURNALING_BATCH_SIZE", "Maximum batch size for journal entries")
+
+var JournalingBatchPeriod = env.Int("JOURNALING_BATCH_PERIOD",
+	"Maximum period in milliseconds between batches of journal entries")
+
+var GoroutinePanicRecovery = env.Bool("GOROUTINE_PANIC_RECOVERY",
+	"Enable recovery from panics in goroutines to prevent the process from crashing.", env.Needs(Dev))
+
+var ParallelAnalyze = env.Int("PARALLEL_ANALYZE",
+	"(Experimental) Number of parallel analyze calls per resource (1 for no parallelism)")

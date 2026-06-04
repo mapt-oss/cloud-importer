@@ -1,4 +1,4 @@
-// Copyright 2016-2024, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package pulumi
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -23,7 +24,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/rpcutil"
 	pulumirpc "github.com/pulumi/pulumi/sdk/v3/proto/go"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
@@ -51,7 +51,7 @@ func newCallbackServer() (*callbackServer, error) {
 			pulumirpc.RegisterCallbacksServer(srv, callbackServer)
 			return nil
 		},
-		Options: rpcutil.OpenTracingServerInterceptorOptions(nil),
+		Options: rpcutil.TracingServerInterceptorOptions(nil),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not start resource provider service: %w", err)

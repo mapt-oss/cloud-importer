@@ -1,4 +1,4 @@
-// Copyright 2016-2025, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -34,10 +33,12 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/env"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/slice"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
+	envutil "github.com/pulumi/pulumi/sdk/v3/go/common/util/env"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/logging"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/rpcutil"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/rpcutil/rpcerror"
@@ -71,7 +72,7 @@ func NewAnalyzer(host Host, ctx *Context, name tokens.QName) (Analyzer, error) {
 	path, err := workspace.GetPluginPath(
 		ctx.baseContext,
 		ctx.Diag,
-		workspace.PluginSpec{
+		workspace.PluginDescriptor{
 			Name: strings.ReplaceAll(string(name), tokens.QNameDelimiter, "_"),
 			Kind: apitype.AnalyzerPlugin,
 		},
@@ -81,7 +82,7 @@ func NewAnalyzer(host Host, ctx *Context, name tokens.QName) (Analyzer, error) {
 	}
 	contract.Assertf(path != "", "unexpected empty path for analyzer plugin %s", name)
 
-	dialOpts := rpcutil.OpenTracingInterceptorDialOptions()
+	dialOpts := rpcutil.TracingInterceptorDialOptions()
 
 	plug, _, err := newPlugin(ctx, ctx.Pwd, path, fmt.Sprintf("%v (analyzer)", name),
 		apitype.AnalyzerPlugin, []string{host.ServerAddr(), ctx.Pwd}, nil, /*env*/
@@ -104,7 +105,7 @@ func NewAnalyzer(host Host, ctx *Context, name tokens.QName) (Analyzer, error) {
 // the plugin by path.
 func NewPolicyAnalyzer(
 	host Host, ctx *Context, name tokens.QName, policyPackPath string, opts *PolicyAnalyzerOptions,
-	hasPlugin func(workspace.PluginSpec) bool,
+	hasPlugin func(workspace.PluginDescriptor) bool,
 ) (Analyzer, error) {
 	projPath := filepath.Join(policyPackPath, "PulumiPolicy.yaml")
 	proj, err := workspace.LoadPolicyPack(projPath)
@@ -141,54 +142,36 @@ func NewPolicyAnalyzer(
 		return res, nil
 	}
 
-	// This first section is a back compatibility bit for the old way of running analyzer plugins where we would look
-	// for a plugin called "pulumi-analyzer-policy-<runtime>" and invoke that plugin with two arguments, the engine
-	// address and the policy pack path. We still do this for python and nodejs, but not for other actual "languages"
-	// (i.e. things with language plugins), but have to leave this in to ensure things like
-	// https://github.com/pulumi/pulumi-policy-opa continue to work (although in time they could probably be moved to
-	// just be language runtimes like the rest).
+	// This first section is a back compatibility bit for the old way of running analyzer plugins where we
+	// would look for a plugin called "pulumi-analyzer-policy-<runtime>" and invoke that plugin with two
+	// arguments, the engine address and the policy pack path. We don't do this for actual "languages" (i.e.
+	// things with language plugins), but have to leave this in to ensure things like
+	// https://github.com/pulumi/pulumi-policy-opa continue to work (although in time they could probably be
+	// moved to just be language runtimes like the rest).
+	if hasPlugin == nil {
+		hasPlugin = func(spec workspace.PluginDescriptor) bool {
+			path, err := workspace.GetPluginPath(
+				ctx.baseContext,
+				ctx.Diag,
+				spec,
+				host.GetProjectPlugins())
+			return err == nil && path != ""
+		}
+	}
+	foundLanguagePlugin := hasPlugin(workspace.PluginDescriptor{Name: proj.Runtime.Name(), Kind: apitype.LanguagePlugin})
 
 	var plug *Plugin
-	var foundLanguagePlugin bool
-	// Try to load the language plugin for the runtime, except for python and node that _for now_ continue using the
-	// legacy behavior.
-	if proj.Runtime.Name() != "python" && proj.Runtime.Name() != "nodejs" {
-		if hasPlugin == nil {
-			hasPlugin = func(spec workspace.PluginSpec) bool {
-				path, err := workspace.GetPluginPath(
-					ctx.baseContext,
-					ctx.Diag,
-					spec,
-					host.GetProjectPlugins())
-				return err == nil && path != ""
-			}
-		}
-
-		foundLanguagePlugin = hasPlugin(workspace.PluginSpec{Name: proj.Runtime.Name(), Kind: apitype.LanguagePlugin})
-	}
 	if !foundLanguagePlugin {
-		// Couldn't get a language plugin, fall back to the old behavior
-
-		// For historical reasons, the Node.js plugin name is just "policy".
-		// All other languages have the runtime appended, e.g. "policy-<runtime>".
-		policyAnalyzerName := "policy"
-		if !strings.EqualFold(proj.Runtime.Name(), "nodejs") {
-			policyAnalyzerName = "policy-" + proj.Runtime.Name()
-		}
+		// Couldn't get a language plugin, fall back to the old behavior, of trying to run
+		// "pulumi-analyzer-policy-<runtime>".
+		policyAnalyzerName := "policy-" + proj.Runtime.Name()
 
 		// Load the policy-booting analyzer plugin (i.e., `pulumi-analyzer-${policyAnalyzerName}`).
 		var pluginPath string
 		pluginPath, err = workspace.GetPluginPath(
 			ctx.baseContext, ctx.Diag,
-			workspace.PluginSpec{Name: policyAnalyzerName, Kind: apitype.AnalyzerPlugin}, host.GetProjectPlugins())
-
-		var e *workspace.MissingError
-		if errors.As(err, &e) {
-			return nil, fmt.Errorf("could not start policy pack %q because the built-in analyzer "+
-				"plugin that runs policy plugins is missing. This might occur when the plugin "+
-				"directory is not on your $PATH, or when the installed version of the Pulumi SDK "+
-				"does not support resource policies", string(name))
-		} else if err != nil {
+			workspace.PluginDescriptor{Name: policyAnalyzerName, Kind: apitype.AnalyzerPlugin}, host.GetProjectPlugins())
+		if err != nil {
 			return nil, err
 		}
 
@@ -207,21 +190,29 @@ func NewPolicyAnalyzer(
 		}
 
 		// Create the environment variables from the options.
-		var env []string
-		env, err = constructEnv(opts, proj.Runtime.Name())
+		var environment env.Env
+		environment, err = constructEnv(opts, proj.Runtime.Name())
 		if err != nil {
 			return nil, err
 		}
 
 		plug, _, err = newPlugin(ctx, pwd, pluginPath, fmt.Sprintf("%v (analyzer)", name),
-			apitype.AnalyzerPlugin, args, env, handshake,
+			apitype.AnalyzerPlugin, args, environment, handshake,
 			analyzerPluginDialOptions(ctx, fmt.Sprintf("%v", name)),
 			host.AttachDebugger(DebugSpec{Type: DebugTypePlugin, Name: string(name)}))
 	} else {
-		// Else we _did_ get a lanuage plugin so just use RunPlugin to invoke the policy pack.
+		// Else we _did_ get a language plugin so just use RunPlugin to invoke the policy pack.
+		analyzerEnv := env.Global()
+		if opts != nil && len(opts.AdditionalEnv) > 0 {
+			additionalStore := envutil.MapStore{}
+			for k, v := range opts.AdditionalEnv {
+				additionalStore[k] = v
+			}
+			analyzerEnv = envutil.NewEnv(envutil.JoinStore(additionalStore, env.Global().GetStore()))
+		}
 
 		plug, _, err = newPlugin(ctx, ctx.Pwd, policyPackPath, fmt.Sprintf("%v (analyzer)", name),
-			apitype.AnalyzerPlugin, []string{host.ServerAddr()}, os.Environ(),
+			apitype.AnalyzerPlugin, []string{host.ServerAddr()}, analyzerEnv,
 			handshake, analyzerPluginDialOptions(ctx, string(name)),
 			host.AttachDebugger(DebugSpec{Type: DebugTypePlugin, Name: string(name)}))
 	}
@@ -605,34 +596,26 @@ func (a *analyzer) GetAnalyzerInfo() (AnalyzerInfo, error) {
 }
 
 // GetPluginInfo returns this plugin's information.
-func (a *analyzer) GetPluginInfo() (workspace.PluginInfo, error) {
+func (a *analyzer) GetPluginInfo() (PluginInfo, error) {
 	label := a.label() + ".GetPluginInfo()"
 	logging.V(7).Infof("%s executing", label)
 	resp, err := a.client.GetPluginInfo(a.requestContext(), &emptypb.Empty{})
 	if err != nil {
 		rpcError := rpcerror.Convert(err)
 		logging.V(7).Infof("%s failed: err=%v", a.label(), rpcError)
-		return workspace.PluginInfo{}, rpcError
+		return PluginInfo{}, rpcError
 	}
 
 	var version *semver.Version
 	if v := resp.Version; v != "" {
 		sv, err := semver.ParseTolerant(v)
 		if err != nil {
-			return workspace.PluginInfo{}, err
+			return PluginInfo{}, err
 		}
 		version = &sv
 	}
 
-	path := ""
-	if a.plug != nil {
-		path = a.plug.Bin
-	}
-
-	return workspace.PluginInfo{
-		Name:    string(a.name),
-		Path:    path,
-		Kind:    apitype.AnalyzerPlugin,
+	return PluginInfo{
 		Version: version,
 	}, nil
 }
@@ -703,7 +686,14 @@ func (a *analyzer) Cancel(ctx context.Context) error {
 		rpcError := rpcerror.Convert(err)
 		logging.V(8).Infof("%s failed: err=%v", label, rpcError)
 		if rpcError.Code() == codes.Unimplemented {
+			if a.plug != nil {
+				a.plug.shutdownAcknowledged.Store(true)
+			}
 			return nil
+		}
+	} else {
+		if a.plug != nil {
+			a.plug.shutdownAcknowledged.Store(true)
 		}
 	}
 
@@ -736,7 +726,7 @@ func (a *analyzer) getPolicySeverity(policyName string) apitype.PolicySeverity {
 
 func analyzerPluginDialOptions(ctx *Context, name string) []grpc.DialOption {
 	dialOpts := append(
-		rpcutil.OpenTracingInterceptorDialOptions(),
+		rpcutil.TracingInterceptorDialOptions(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		rpcutil.GrpcChannelOptions(),
 	)
@@ -976,15 +966,15 @@ func convertNotApplicable(protoNotApplicable []*pulumirpc.PolicyNotApplicable) [
 	})
 }
 
-// constructEnv creates a slice of key/value pairs to be used as the environment for the policy pack process. Each entry
-// is of the form "key=value". Config is passed as an environment variable (including unecrypted secrets), similar to
+// constructEnv creates an Environment containing a store of key/value pairs to be used for the policy pack process.
+// Config is passed as an environment variable (including unencrypted secrets), similar to
 // how config is passed to each language runtime plugin.
-func constructEnv(opts *PolicyAnalyzerOptions, runtime string) ([]string, error) {
-	env := os.Environ()
+func constructEnv(opts *PolicyAnalyzerOptions, runtime string) (env.Env, error) {
+	store := envutil.MapStore{}
 
 	maybeAppendEnv := func(k, v string) {
 		if v != "" {
-			env = append(env, k+"="+v)
+			store[k] = v
 		}
 	}
 
@@ -1010,9 +1000,14 @@ func constructEnv(opts *PolicyAnalyzerOptions, runtime string) ([]string, error)
 		maybeAppendEnv("PULUMI_PROJECT", opts.Project)
 		maybeAppendEnv("PULUMI_STACK", opts.Stack)
 		maybeAppendEnv("PULUMI_DRY_RUN", strconv.FormatBool(opts.DryRun))
+
+		// Inject per-pack environment variables (e.g., from ESC environments).
+		for k, v := range opts.AdditionalEnv {
+			store[k] = v
+		}
 	}
 
-	return env, nil
+	return envutil.NewEnv(envutil.JoinStore(store, env.Global().GetStore())), nil
 }
 
 // constructConfig JSON-serializes the configuration data.
