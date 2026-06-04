@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 	"google.golang.org/api/storage/v1"
 
@@ -83,11 +82,7 @@ func gcsDeletePrefix(bucket, prefix string) error {
 
 	var opts []option.ClientOption
 	if credJSON := os.Getenv("GOOGLE_CREDENTIALS"); credJSON != "" {
-		creds, err := google.CredentialsFromJSON(ctx, []byte(credJSON), storage.CloudPlatformScope)
-		if err != nil {
-			return fmt.Errorf("failed to parse GOOGLE_CREDENTIALS: %w", err)
-		}
-		opts = append(opts, option.WithCredentials(creds))
+		opts = append(opts, option.WithCredentialsJSON([]byte(credJSON)))
 	}
 
 	svc, err := storage.NewService(ctx, opts...)

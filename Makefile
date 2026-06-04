@@ -53,12 +53,12 @@ fmt:
 	@gofmt -l -w $(SOURCE_DIRS)
 
 $(GOPATH)/bin/golangci-lint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v2.12.2
 
 # Run golangci-lint against code
 .PHONY: lint
 lint: $(GOPATH)/bin/golangci-lint
-	$(GOPATH)/bin/golangci-lint run
+	$(GOPATH)/bin/golangci-lint run --timeout 10m
 
 # Build for amd64 architecture only
 .PHONY: oci-build-amd64

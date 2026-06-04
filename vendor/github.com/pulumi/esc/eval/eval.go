@@ -15,6 +15,7 @@
 package eval
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -25,6 +26,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/hashicorp/hcl/v2"
 	"github.com/pulumi/esc"
 	"github.com/pulumi/esc/ast"
 	"github.com/pulumi/esc/internal/spell"
@@ -331,6 +333,17 @@ func declare[Expr exprNode](e *evalContext, path string, x Expr, base *value) *e
 	case *ast.FromBase64Expr:
 		repr := &fromBase64Expr{node: x, string: declare(e, "", x.String, nil)}
 		return newExpr(path, repr, schema.String().Schema(), base)
+	case *ast.ValidateExpr:
+		repr := &validateExpr{
+			node:       x,
+			schemaExpr: declare(e, "", x.Schema, nil),
+			value:      declare(e, "", x.Value, nil),
+		}
+		// Output schema is dynamic - will be determined during evaluation
+		return newExpr(path, repr, schema.Always().Schema(), base)
+	case *ast.FinalExpr:
+		repr := &finalExpr{node: x, value: declare(e, "", x.Value, nil)}
+		return newExpr(path, repr, schema.Always().Schema(), base)
 	case *ast.FromJSONExpr:
 		repr := &fromJSONExpr{node: x, string: declare(e, "", x.String, nil)}
 		return newExpr(path, repr, schema.Always(), base)
@@ -341,6 +354,13 @@ func declare[Expr exprNode](e *evalContext, path string, x Expr, base *value) *e
 			values:    declare(e, "", x.Values, nil),
 		}
 		return newExpr(path, repr, schema.String().Schema(), base)
+	case *ast.SplitExpr:
+		repr := &splitExpr{
+			node:      x,
+			delimiter: declare(e, "", x.Delimiter, nil),
+			string:    declare(e, "", x.String, nil),
+		}
+		return newExpr(path, repr, schema.Array().Items(schema.String()).Schema(), base)
 	case *ast.OpenExpr:
 		repr := &openExpr{
 			node:        x,
@@ -572,6 +592,17 @@ func (e *evalContext) evaluateExpr(x *expr, accept *schema.Schema) *value {
 		return val
 	}
 
+	// Check if the base value is final. If so, the child cannot override it.
+	if x.base != nil && x.base.final {
+		diag := ast.ExprError(x.repr.syntax(), "cannot override final value")
+		diag.Severity = hcl.DiagWarning
+		e.diags.Extend(diag)
+		val := x.base
+		x.schema = val.schema
+		x.value = val
+		return val
+	}
+
 	val := (*value)(nil)
 	switch repr := x.repr.(type) {
 	case *missingExpr:
@@ -595,10 +626,16 @@ func (e *evalContext) evaluateExpr(x *expr, accept *schema.Schema) *value {
 		val = e.evaluateBuiltinConcat(x, repr)
 	case *fromBase64Expr:
 		val = e.evaluateBuiltinFromBase64(x, repr)
+	case *finalExpr:
+		val = e.evaluateBuiltinFinal(x, repr)
+	case *validateExpr:
+		val = e.evaluateBuiltinValidate(x, repr)
 	case *fromJSONExpr:
 		val = e.evaluateBuiltinFromJSON(x, repr)
 	case *joinExpr:
 		val = e.evaluateBuiltinJoin(x, repr)
+	case *splitExpr:
+		val = e.evaluateBuiltinSplit(x, repr)
 	case *openExpr:
 		val = e.evaluateBuiltinOpen(x, repr)
 	case *rotateExpr:
@@ -1271,6 +1308,29 @@ func (e *evalContext) evaluateBuiltinJoin(x *expr, repr *joinExpr) *value {
 	return v
 }
 
+// evaluateBuiltinSplit evaluates a call to the fn::split builtin.
+func (e *evalContext) evaluateBuiltinSplit(x *expr, repr *splitExpr) *value {
+	v := &value{def: x, schema: x.schema}
+
+	delim, delimOk := e.evaluateTypedExpr(repr.delimiter, schema.String().Schema())
+	str, strOk := e.evaluateTypedExpr(repr.string, schema.String().Schema())
+	if !delimOk || !strOk {
+		v.unknown = true
+		return v
+	}
+
+	v.combine(delim, str)
+	if !v.unknown {
+		parts := strings.Split(str.repr.(string), delim.repr.(string))
+		result := make([]*value, len(parts))
+		for i, part := range parts {
+			result[i] = &value{def: x, schema: schema.String().Schema(), repr: part}
+		}
+		v.repr = result
+	}
+	return v
+}
+
 // evaluateBuiltinFromBase64 evaluates a call from the fn::fromBase64 builtin.
 func (e *evalContext) evaluateBuiltinFromBase64(x *expr, repr *fromBase64Expr) *value {
 	v := &value{def: x, schema: x.schema}
@@ -1291,6 +1351,103 @@ func (e *evalContext) evaluateBuiltinFromBase64(x *expr, repr *fromBase64Expr) *
 		}
 		v.repr = string(b)
 	}
+	return v
+}
+
+// evaluateBuiltinValidate evaluates a call to the fn::validate builtin.
+// It validates the value against the provided schema and emits diagnostics on failure.
+// The value is always returned (pass-through semantics).
+func (e *evalContext) evaluateBuiltinValidate(x *expr, repr *validateExpr) *value {
+	v := &value{def: x}
+
+	// Evaluate and validate the schema expression against the JSON schema schema
+	schemaVal, schemaOk := e.evaluateTypedExpr(repr.schemaExpr, schema.JSONSchemaSchema())
+	if schemaVal.containsUnknowns() {
+		// If schema is unknown, we can't validate - just return the value
+		val := e.evaluateExpr(repr.value, schema.Always())
+		v.schema = val.schema
+		v.repr = val.repr
+		v.combine(val)
+		return v
+	}
+
+	// If schema validation failed, still try to convert and use it
+	// (the error has already been reported)
+	if !schemaOk {
+		val := e.evaluateExpr(repr.value, schema.Always())
+		v.schema = val.schema
+		v.repr = val.repr
+		v.combine(val)
+		return v
+	}
+
+	// Convert the evaluated schema value to a *schema.Schema
+	validationSchema, err := e.valueToSchema(schemaVal)
+	if err != nil {
+		e.errorf(repr.schemaExpr.repr.syntax(), "invalid schema: %v", err)
+		val := e.evaluateExpr(repr.value, schema.Always())
+		v.schema = val.schema
+		v.repr = val.repr
+		v.combine(val)
+		return v
+	}
+	repr.conformSchema = validationSchema
+
+	// Compile the schema (like fn::open does with provider schemas)
+	if err := validationSchema.Compile(); err != nil {
+		e.errorf(repr.schemaExpr.repr.syntax(), "invalid schema: %v", err)
+		val := e.evaluateExpr(repr.value, schema.Always())
+		v.schema = val.schema
+		v.repr = val.repr
+		v.combine(val)
+		return v
+	}
+
+	// Validate value against the conform schema using evaluateTypedExpr
+	// This follows the same pattern as fn::open: inputs, ok := e.evaluateTypedExpr(repr.inputs, repr.inputSchema)
+	val, _ := e.evaluateTypedExpr(repr.value, validationSchema)
+
+	// Return the value with its schema (pass-through semantics)
+	v.schema = val.schema
+	v.repr = val.repr
+	v.combine(val)
+	return v
+}
+
+// valueToSchema converts an evaluated value to a *schema.Schema.
+func (e *evalContext) valueToSchema(v *value) (*schema.Schema, error) {
+	// Export the value to esc.Value
+	ev, diags := v.export("")
+	e.diags.Extend(diags...)
+
+	// Convert to JSON representation
+	jsonVal := ev.ToJSON(false)
+
+	// Marshal to JSON bytes
+	jsonBytes, err := json.Marshal(jsonVal)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal schema to JSON: %w", err)
+	}
+
+	// Unmarshal into a schema.Schema
+	var s schema.Schema
+	dec := json.NewDecoder(bytes.NewReader(jsonBytes))
+	dec.UseNumber()
+	if err := dec.Decode(&s); err != nil {
+		return nil, fmt.Errorf("failed to parse schema: %w", err)
+	}
+
+	return &s, nil
+}
+
+// evaluateBuiltinFinal evaluates a call to the fn::final builtin. The inner value is evaluated
+// normally, and the result is wrapped with the final flag to prevent overrides in child environments.
+func (e *evalContext) evaluateBuiltinFinal(x *expr, repr *finalExpr) *value {
+	val := e.evaluateExpr(repr.value, schema.Always())
+	v := &value{def: x, final: true}
+	v.schema = val.schema
+	v.repr = val.repr
+	v.combine(val)
 	return v
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2016-2018, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@ package plugin
 import (
 	"context"
 
+	"github.com/pulumi/pulumi/sdk/v3/go/common/env"
+
 	"github.com/pkg/errors"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/diag"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
@@ -26,16 +28,15 @@ import (
 
 type MockHost struct {
 	ServerAddrF         func() string
+	LoaderAddrF         func() string
 	LogF                func(sev diag.Severity, urn resource.URN, msg string, streamID int32)
 	LogStatusF          func(sev diag.Severity, urn resource.URN, msg string, streamID int32)
 	AnalyzerF           func(nm tokens.QName) (Analyzer, error)
 	PolicyAnalyzerF     func(name tokens.QName, path string, opts *PolicyAnalyzerOptions) (Analyzer, error)
-	ListAnalyzersF      func() []Analyzer
-	ProviderF           func(descriptor workspace.PackageDescriptor) (Provider, error)
-	CloseProviderF      func(provider Provider) error
-	LanguageRuntimeF    func(runtime string, info ProgramInfo) (LanguageRuntime, error)
-	EnsurePluginsF      func(plugins []workspace.PluginSpec, kinds Flags) error
-	ResolvePluginF      func(spec workspace.PluginSpec) (*workspace.PluginInfo, error)
+	ProviderF           func(descriptor workspace.PluginDescriptor, e env.Env) (Provider, error)
+	LanguageRuntimeF    func(runtime string) (LanguageRuntime, error)
+	EnsurePluginsF      func(plugins []workspace.PluginDescriptor, kinds Flags) error
+	ResolvePluginF      func(spec workspace.PluginDescriptor) (*workspace.PluginInfo, error)
 	GetProjectPluginsF  func() []workspace.ProjectPlugin
 	SignalCancellationF func() error
 	CloseF              func() error
@@ -48,6 +49,13 @@ var _ Host = (*MockHost)(nil)
 func (m *MockHost) ServerAddr() string {
 	if m.ServerAddrF != nil {
 		return m.ServerAddrF()
+	}
+	return ""
+}
+
+func (m *MockHost) LoaderAddr() string {
+	if m.LoaderAddrF != nil {
+		return m.LoaderAddrF()
 	}
 	return ""
 }
@@ -78,35 +86,21 @@ func (m *MockHost) PolicyAnalyzer(name tokens.QName, path string, opts *PolicyAn
 	return nil, errors.New("PolicyAnalyzer not implemented")
 }
 
-func (m *MockHost) ListAnalyzers() []Analyzer {
-	if m.ListAnalyzersF != nil {
-		return m.ListAnalyzersF()
-	}
-	return nil
-}
-
-func (m *MockHost) Provider(descriptor workspace.PackageDescriptor) (Provider, error) {
+func (m *MockHost) Provider(descriptor workspace.PluginDescriptor, e env.Env) (Provider, error) {
 	if m.ProviderF != nil {
-		return m.ProviderF(descriptor)
+		return m.ProviderF(descriptor, e)
 	}
 	return nil, errors.New("Provider not implemented")
 }
 
-func (m *MockHost) CloseProvider(provider Provider) error {
-	if m.CloseProviderF != nil {
-		return m.CloseProviderF(provider)
-	}
-	return nil
-}
-
-func (m *MockHost) LanguageRuntime(runtime string, info ProgramInfo) (LanguageRuntime, error) {
+func (m *MockHost) LanguageRuntime(runtime string) (LanguageRuntime, error) {
 	if m.LanguageRuntimeF != nil {
-		return m.LanguageRuntimeF(runtime, info)
+		return m.LanguageRuntimeF(runtime)
 	}
 	return nil, errors.New("LanguageRuntime not implemented")
 }
 
-func (m *MockHost) EnsurePlugins(plugins []workspace.PluginSpec, kinds Flags) error {
+func (m *MockHost) EnsurePlugins(plugins []workspace.PluginDescriptor, kinds Flags) error {
 	if m.EnsurePluginsF != nil {
 		return m.EnsurePluginsF(plugins, kinds)
 	}
@@ -114,7 +108,7 @@ func (m *MockHost) EnsurePlugins(plugins []workspace.PluginSpec, kinds Flags) er
 }
 
 func (m *MockHost) ResolvePlugin(
-	spec workspace.PluginSpec,
+	spec workspace.PluginDescriptor,
 ) (*workspace.PluginInfo, error) {
 	if m.ResolvePluginF != nil {
 		return m.ResolvePluginF(spec)
@@ -177,7 +171,7 @@ type MockProvider struct {
 	ConstructF          func(context.Context, ConstructRequest) (ConstructResponse, error)
 	InvokeF             func(context.Context, InvokeRequest) (InvokeResponse, error)
 	CallF               func(context.Context, CallRequest) (CallResponse, error)
-	GetPluginInfoF      func(context.Context) (workspace.PluginInfo, error)
+	GetPluginInfoF      func(context.Context) (PluginInfo, error)
 	SignalCancellationF func(context.Context) error
 	GetMappingF         func(context.Context, GetMappingRequest) (GetMappingResponse, error)
 	GetMappingsF        func(context.Context, GetMappingsRequest) (GetMappingsResponse, error)
@@ -306,11 +300,11 @@ func (m *MockProvider) Call(ctx context.Context, req CallRequest) (CallResponse,
 	return CallResponse{}, errors.New("Call not implemented")
 }
 
-func (m *MockProvider) GetPluginInfo(ctx context.Context) (workspace.PluginInfo, error) {
+func (m *MockProvider) GetPluginInfo(ctx context.Context) (PluginInfo, error) {
 	if m.GetPluginInfoF != nil {
 		return m.GetPluginInfoF(ctx)
 	}
-	return workspace.PluginInfo{}, errors.New("GetPluginInfo not implemented")
+	return PluginInfo{}, errors.New("GetPluginInfo not implemented")
 }
 
 func (m *MockProvider) SignalCancellation(ctx context.Context) error {

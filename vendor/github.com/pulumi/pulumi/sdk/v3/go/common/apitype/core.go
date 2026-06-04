@@ -1,4 +1,4 @@
-// Copyright 2016-2018, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -281,6 +281,8 @@ type SnapshotIntegrityErrorMetadataV1 struct {
 	Command string `json:"command,omitempty" yaml:"command,omitempty"`
 	// The error message associated with the integrity error.
 	Error string `json:"error,omitempty" yaml:"error,omitempty"`
+	// EnvVars contains the Pulumi environment variables that were set when the integrity error occurred.
+	EnvVars map[string]string `json:"env_vars,omitempty" yaml:"env_vars,omitempty"`
 }
 
 // OperationType is the type of an operation initiated by the engine. Its value indicates the type of operation

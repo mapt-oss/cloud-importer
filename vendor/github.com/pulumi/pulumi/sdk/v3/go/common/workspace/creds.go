@@ -1,4 +1,4 @@
-// Copyright 2016-2021, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,11 +17,13 @@ package workspace
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/pulumi/pulumi/sdk/v3/go/common/env"
 	"github.com/rogpeppe/go-internal/lockedfile"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/common/slice"
@@ -125,9 +127,59 @@ type Account struct {
 // Information about the token that was used to authenticate the current user. One (or none) of Team or Organization
 // will be set, but not both.
 type TokenInformation struct {
-	Name         string `json:"name"`                   // The name of the token.
-	Organization string `json:"organization,omitempty"` // If this was an organization token, the organization it was for.
-	Team         string `json:"team,omitempty"`         // If this was a team token, the team it was for.
+	Name         string     `json:"name"`                   // The name of the token.
+	Organization string     `json:"organization,omitempty"` //nolint:lll // If this was an organization token, the organization it was for.
+	Team         string     `json:"team,omitempty"`         // If this was a team token, the team it was for.
+	ExpiresAt    *time.Time `json:"expiresAt,omitempty"`    // The time when this token expires.
+}
+
+type AuthContext struct {
+	GrantType    string
+	Organization string
+	Scope        string
+	Token        string
+	TokenExpired bool
+	Expiration   time.Duration
+}
+
+//nolint:gosec // This is an OAuth grant type URN, not a credential
+const AuthContextGrantTypeTokenExchange = "urn:ietf:params:oauth:grant-type:token-exchange"
+
+func NewAuthContextForTokenExchange(organization, team, user, token, expirationDuration string) (AuthContext, error) {
+	if token == "" {
+		return AuthContext{}, errors.New("oidc token must be specified for token exchange")
+	}
+	if env.AccessToken.Value() != "" {
+		return AuthContext{}, errors.New("cannot perform token exchange when an access token is set as environment variable")
+	}
+	if organization == "" {
+		return AuthContext{}, errors.New("organization must be specified for token exchange")
+	}
+	if team != "" && user != "" {
+		return AuthContext{}, errors.New("only one of team or user may be specified for token exchange")
+	}
+	scope := ""
+	if team != "" {
+		scope = "team:" + team
+	}
+	if user != "" {
+		scope = "user:" + user
+	}
+	expiration := 2 * time.Hour
+	if expirationDuration != "" {
+		duration, err := time.ParseDuration(expirationDuration)
+		if err != nil {
+			return AuthContext{}, fmt.Errorf("could not parse expiration duration: %w", err)
+		}
+		expiration = duration
+	}
+	return AuthContext{
+		GrantType:    AuthContextGrantTypeTokenExchange,
+		Organization: organization,
+		Scope:        scope,
+		Token:        token,
+		Expiration:   expiration,
+	}, nil
 }
 
 // Credentials hold the information necessary for authenticating Pulumi Cloud API requests.  It contains
@@ -296,7 +348,7 @@ func StorePulumiConfig(config PulumiConfig) error {
 	if err != nil {
 		return err
 	}
-	err = os.Rename(tempConfigFile.Name(), configFile)
+	err = os.Rename(tempConfigFile.Name(), configFile) //nolint:forbidigo // historic usage
 	if err != nil {
 		contract.IgnoreError(os.Remove(tempConfigFile.Name()))
 		return err

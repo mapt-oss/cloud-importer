@@ -1,4 +1,4 @@
-// Copyright 2016-2022, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package plugin
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,13 +32,18 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/pulumi/pulumi/sdk/v3/go/common/env"
+
+	"github.com/blang/semver"
 	multierror "github.com/hashicorp/go-multierror"
 	opentracing "github.com/opentracing/opentracing-go"
-	"golang.org/x/net/context"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	otelcodes "go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
-	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
@@ -47,6 +53,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/logging"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/rpcutil/rpcerror"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/version"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 )
 
@@ -105,6 +112,10 @@ type Plugin struct {
 	stdoutDone <-chan bool
 	stderrDone <-chan bool
 
+	// shutdownAcknowledged is set when the plugin has acknowledged a Cancel RPC (returned success or Unimplemented). If
+	// the plugin exits after that, it's expected — not a premature crash.
+	shutdownAcknowledged atomic.Bool
+
 	// The unstructured output of the process.
 	//
 	// unstructuredOutput is only non-nil if Pulumi launched the process and is hiding
@@ -162,6 +173,7 @@ var errRunPolicyModuleNotFound = errors.New("pulumi SDK does not support policy 
 var errPluginNotFound = errors.New("plugin not found")
 
 func dialPlugin[T any](
+	ctx context.Context,
 	portNum int,
 	bin string,
 	prefix string,
@@ -185,7 +197,8 @@ func dialPlugin[T any](
 	// TODO[pulumi/pulumi#337]: in theory, this should be unnecessary.  gRPC's default WaitForReady behavior
 	//     should auto-retry appropriately.  On Linux, however, we are observing different behavior.  In the meantime
 	//     while this bug exists, we'll simply do a bit of waiting of our own up front.
-	timeout, _ := context.WithTimeout(context.Background(), pluginRPCConnectionTimeout)
+	timeout, cancel := context.WithTimeout(ctx, pluginRPCConnectionTimeout)
+	defer cancel()
 	for {
 		s := conn.GetState()
 		if s == connectivity.Ready {
@@ -219,7 +232,10 @@ func dialPlugin[T any](
 	return conn, handshakeRes, nil
 }
 
-func testConnection(ctx context.Context, bin string, prefix string, conn *grpc.ClientConn) (*struct{}, error) {
+func testConnection(ctx context.Context, bin string, prefix string, conn *grpc.ClientConn) (_ *struct{}, retErr error) {
+	ctx, span := otel.Tracer("pulumi-cli").Start(ctx, "testConnection")
+	defer span.End()
+
 	err := conn.Invoke(ctx, "", nil, nil)
 	if err != nil {
 		status, ok := status.FromError(err)
@@ -237,20 +253,20 @@ func newPlugin[T any](
 	prefix string,
 	kind apitype.PluginKind,
 	args []string,
-	env []string,
+	env env.Env,
 	handshake func(context.Context, string, string, *grpc.ClientConn) (*T, error),
 	dialOptions []grpc.DialOption,
 	attachDebugger bool,
-) (*Plugin, *T, error) {
-	if logging.V(9) {
-		var argstr string
+) (_ *Plugin, _ *T, retErr error) {
+	if logging.V(9).Enabled() {
+		var argstr strings.Builder
 		for i, arg := range args {
 			if i > 0 {
-				argstr += ","
+				argstr.WriteString(",")
 			}
-			argstr += arg
+			argstr.WriteString(arg)
 		}
-		logging.V(9).Infof("newPlugin(): Launching plugin '%v' from '%v' with args: %v", prefix, bin, argstr)
+		logging.V(9).Infof("newPlugin(): Launching plugin '%v' from '%v' with args: %v", prefix, bin, argstr.String())
 	}
 
 	// Create a span for the plugin initialization
@@ -265,6 +281,23 @@ func newPlugin[T any](
 	tracingSpan := opentracing.StartSpan("newPlugin", opts...)
 	defer tracingSpan.Finish()
 
+	tracer := otel.Tracer("pulumi-cli")
+	_, otelSpan := cmdutil.StartSpan(ctx.Base(), tracer, "newPlugin",
+		trace.WithAttributes(
+			attribute.String("prefix", prefix),
+			attribute.String("bin", bin),
+			attribute.String("kind", string(kind)),
+			attribute.Bool("attachDebugger", attachDebugger),
+			attribute.String("pulumi-decorator", prefix+":"+bin),
+		))
+	defer func() {
+		if retErr != nil {
+			otelSpan.SetStatus(otelcodes.Error, retErr.Error())
+			otelSpan.RecordError(retErr)
+		}
+		otelSpan.End()
+	}()
+
 	// Try to execute the binary.
 	plug, err := ExecPlugin(ctx, bin, prefix, kind, args, pwd, env, attachDebugger)
 	if err != nil {
@@ -275,7 +308,7 @@ func newPlugin[T any](
 	// If we did not successfully launch the plugin, we still need to wait for stderr and stdout to drain.
 	defer func() {
 		if plug.Conn == nil {
-			contract.IgnoreError(plug.Close())
+			contract.IgnoreClose(plug)
 		}
 	}()
 
@@ -399,7 +432,8 @@ func newPlugin[T any](
 	plug.stdoutDone = stdoutDone
 	go runtrace(plug.Stdout, outStreamID, stdoutDone)
 
-	conn, handshakeRes, err := dialPlugin(port, bin, prefix, handshake, dialOptions)
+	dialCtx := trace.ContextWithSpan(ctx.Base(), otelSpan)
+	conn, handshakeRes, err := dialPlugin(dialCtx, port, bin, prefix, handshake, dialOptions)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -437,7 +471,7 @@ func parsePort(portString string) (int, error) {
 
 // ExecPlugin starts a plugin executable either via a direct exec or via a language runtime.
 func ExecPlugin(ctx *Context, bin, prefix string, kind apitype.PluginKind,
-	pluginArgs []string, pwd string, env []string, attachDebugger bool,
+	pluginArgs []string, pwd string, e env.Env, attachDebugger bool,
 ) (*Plugin, error) {
 	args := buildPluginArguments(pluginArgumentOptions{
 		pluginArgs:      pluginArgs,
@@ -446,6 +480,17 @@ func ExecPlugin(ctx *Context, bin, prefix string, kind apitype.PluginKind,
 		logToStderr:     logging.LogToStderr,
 		verbose:         logging.Verbose,
 	})
+
+	environment := os.Environ()
+	if e != nil && e.GetStore() != nil {
+		for k, v := range e.GetStore().Values() {
+			environment = append(environment, k+"="+v)
+		}
+	}
+
+	if otelEndpoint := cmdutil.OTelEndpoint(); otelEndpoint != "" {
+		environment = append(environment, "PULUMI_OTEL_EXPORTER_OTLP_ENDPOINT="+otelEndpoint)
+	}
 
 	// Check to see if we have a binary we can invoke directly
 	stat, err := os.Stat(bin)
@@ -457,21 +502,28 @@ func ExecPlugin(ctx *Context, bin, prefix string, kind apitype.PluginKind,
 		}
 
 		var runtimeInfo workspace.ProjectRuntimeInfo
+		var pulumiVersionRange string
 		switch kind { //nolint:exhaustive // golangci-lint v2 upgrade
-		case apitype.ResourcePlugin, apitype.ConverterPlugin:
+		case apitype.ResourcePlugin, apitype.ConverterPlugin, apitype.ToolPlugin:
 			proj, err := workspace.LoadPluginProject(filepath.Join(pluginDir, "PulumiPlugin.yaml"))
 			if err != nil {
 				return nil, fmt.Errorf("loading PulumiPlugin.yaml: %w", err)
 			}
 			runtimeInfo = proj.Runtime
+			pulumiVersionRange = proj.RequiredPulumiVersion
 		case apitype.AnalyzerPlugin:
 			proj, err := workspace.LoadPluginProject(filepath.Join(pluginDir, "PulumiPolicy.yaml"))
 			if err != nil {
 				return nil, fmt.Errorf("loading PulumiPolicy.yaml: %w", err)
 			}
 			runtimeInfo = proj.Runtime
+			pulumiVersionRange = proj.RequiredPulumiVersion
 		default:
 			return nil, errors.New("language plugins must be executable binaries")
+		}
+
+		if err := ValidatePulumiVersionRange(pulumiVersionRange, version.Version); err != nil {
+			return nil, err
 		}
 
 		logging.V(9).Infof("Launching plugin '%v' from '%v' via runtime '%s'", prefix, pluginDir, runtimeInfo.Name())
@@ -482,30 +534,31 @@ func ExecPlugin(ctx *Context, bin, prefix string, kind apitype.PluginKind,
 			return nil, fmt.Errorf("getting absolute path for plugin directory: %w", err)
 		}
 
-		info := NewProgramInfo(pluginDir, pluginDir, ".", runtimeInfo.Options())
-		runtime, err := ctx.Host.LanguageRuntime(runtimeInfo.Name(), info)
+		runtime, err := ctx.Host.LanguageRuntime(runtimeInfo.Name())
 		if err != nil {
 			return nil, fmt.Errorf("loading runtime: %w", err)
 		}
 
-		rctx, kill := context.WithCancel(ctx.Request())
+		rctx, kill := context.WithCancel(ctx.Request()) //nolint:govet // lostcancel
 
+		info := NewProgramInfo(pluginDir, pluginDir, ".", runtimeInfo.Options())
 		stdout, stderr, done, err := runtime.RunPlugin(rctx, RunPluginInfo{
 			Info:             info,
 			WorkingDirectory: ctx.Pwd,
 			Args:             args,
-			Env:              env,
+			Env:              environment,
 			Kind:             string(kind),
 			AttachDebugger:   attachDebugger,
+			LoaderAddress:    ctx.Host.LoaderAddr(),
 		})
 		if err != nil {
-			return nil, err
+			return nil, err //nolint:govet // lostcancel
 		}
 
 		return &Plugin{
 			Bin:    bin,
 			Args:   args,
-			Env:    env,
+			Env:    environment,
 			Kill:   func() error { kill(); return nil },
 			Stdout: io.NopCloser(stdout),
 			Stderr: io.NopCloser(stderr),
@@ -522,8 +575,9 @@ func ExecPlugin(ctx *Context, bin, prefix string, kind apitype.PluginKind,
 	cmd := exec.Command(bin, args...)
 	cmdutil.RegisterProcessGroup(cmd)
 	cmd.Dir = pwd
-	if len(env) > 0 {
-		cmd.Env = env
+
+	if len(environment) > 0 {
+		cmd.Env = environment
 	}
 	in, _ := cmd.StdinPipe()
 	outr, outw := io.Pipe()
@@ -596,7 +650,7 @@ func ExecPlugin(ctx *Context, bin, prefix string, kind apitype.PluginKind,
 	return &Plugin{
 		Bin:    bin,
 		Args:   args,
-		Env:    env,
+		Env:    environment,
 		Kill:   kill,
 		Stdin:  in,
 		Stdout: outr,
@@ -615,6 +669,31 @@ func ExecPlugin(ctx *Context, bin, prefix string, kind apitype.PluginKind,
 			return 0, err
 		},
 	}, nil
+}
+
+// ValidatePulumiVersionRange validates that the CLI version satisfies the passed version range. The supported syntax
+// for ranges is that of https://pkg.go.dev/github.com/blang/semver#ParseRange. For example ">=3.0.0", or "!3.1.2".
+// Ranges can be AND-ed together by concatenating with spaces ">=3.5.0 !3.7.7", meaning greater-or-equal to 3.5.0 and
+// not exactly 3.7.7. Ranges can be OR-ed with the `||` operator: "<3.4.0 || >3.8.0", meaning less-than 3.4.0 or
+// greater-than 3.8.0.
+func ValidatePulumiVersionRange(pulumiVersionRange, cliVersion string) error {
+	// The cliVersion is the build version and will usually be set when running the Pulumi CLI, however it may be empty
+	// when running non-integration tests.
+	if pulumiVersionRange != "" && cliVersion != "" {
+		rg, err := semver.ParseRange(pulumiVersionRange)
+		if err != nil {
+			return fmt.Errorf("parsing CLI version range %q: %w", pulumiVersionRange, err)
+		}
+		cliVersion, err := semver.ParseTolerant(cliVersion)
+		if err != nil {
+			return fmt.Errorf("parsing CLI version %q: %w", version.Version, err)
+		}
+		if !rg(cliVersion) {
+			return fmt.Errorf(
+				"Pulumi CLI version %s does not satisfy the version range %q", cliVersion, pulumiVersionRange)
+		}
+	}
+	return nil
 }
 
 type pluginArgumentOptions struct {
@@ -642,54 +721,7 @@ func buildPluginArguments(opts pluginArgumentOptions) []string {
 	return args
 }
 
-func (p *Plugin) healthCheck() bool {
-	if p.Conn == nil {
-		return false
-	}
-
-	// Check that the plugin looks alive by calling gRPC's Health Check service.
-	// Most plugins don't actually implement this service, which is OK as we treat
-	// an unimplemented status as OK.
-
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	defer cancel()
-
-	healthy := make(chan bool, 1)
-	go func() {
-		health := grpc_health_v1.NewHealthClient(p.Conn)
-		req := &grpc_health_v1.HealthCheckRequest{}
-
-		resp, err := health.Check(ctx, req)
-		if err != nil {
-			// Treat this as healthy as most plugins don't implement gRPC's Health
-			// Check service. An unimplemented status is enough for us to know the
-			// plugin is alive.
-			if status.Code(err) == codes.Unimplemented {
-				healthy <- true
-				return
-			}
-
-			logging.V(9).Infof("healthCheck(): failed with: %v", err)
-			healthy <- false
-			return
-		}
-
-		healthy <- resp.Status == grpc_health_v1.HealthCheckResponse_SERVING
-	}()
-
-	select {
-	case result := <-healthy:
-		return result
-	case <-ctx.Done(): // hit deadline
-		return false
-	}
-}
-
 func (p *Plugin) Close() error {
-	// Something has gone wrong with the plugin if it is not healthy and we have not yet
-	// shut it down.
-	pluginCrashed := !p.healthCheck()
-
 	if p.Conn != nil {
 		contract.IgnoreClose(p.Conn)
 	}
@@ -704,12 +736,13 @@ func (p *Plugin) Close() error {
 		<-p.stderrDone
 	}
 
-	// If the plugin has crashed and p.unstructuredOutput != nil is non-nil, then we
-	// have not displayed any unstructured output to the user - including any
-	// potential stack trace.
+	// If the plugin exited before we had a chance to shut it down, then we have not displayed any unstructured output
+	// to the user - including any potential stack trace.
 	//
 	// To help debug (and to avoid attempting to detect the stack trace), we dump the captured stdout.
-	if pluginCrashed && p.unstructuredOutput != nil && p.unstructuredOutput.done.CompareAndSwap(false, true) {
+	if !p.shutdownAcknowledged.Load() &&
+		p.unstructuredOutput != nil &&
+		p.unstructuredOutput.done.CompareAndSwap(false, true) {
 		id := atomic.AddInt32(&nextStreamID, 1)
 		d := p.unstructuredOutput.diag
 		// This outputs an error block:

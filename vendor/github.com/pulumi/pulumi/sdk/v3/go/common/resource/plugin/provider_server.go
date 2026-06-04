@@ -1,4 +1,4 @@
-// Copyright 2016-2025, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -35,21 +36,26 @@ import (
 type providerServer struct {
 	pulumirpc.UnsafeResourceProviderServer // opt out of forward compat
 
-	provider      Provider
-	keepSecrets   bool
-	keepResources bool
+	provider                       Provider
+	acceptSecrets, sendSecrets     bool
+	acceptResources, sendResources bool
 }
 
 func NewProviderServer(provider Provider) pulumirpc.ResourceProviderServer {
-	return &providerServer{provider: provider}
+	return &providerServer{
+		provider: provider,
+		// Apply defaults unless Handshake overrides
+		acceptSecrets: true, sendSecrets: true,
+		acceptResources: true, sendResources: true,
+	}
 }
 
 func (p *providerServer) unmarshalOptions(label string, keepOutputValues bool) MarshalOptions {
 	return MarshalOptions{
 		Label:            label,
 		KeepUnknowns:     true,
-		KeepSecrets:      true,
-		KeepResources:    true,
+		KeepSecrets:      p.acceptSecrets,
+		KeepResources:    p.acceptResources,
 		KeepOutputValues: keepOutputValues,
 		PropagateNil:     true,
 	}
@@ -59,8 +65,8 @@ func (p *providerServer) marshalOptions(label string) MarshalOptions {
 	return MarshalOptions{
 		Label:         label,
 		KeepUnknowns:  true,
-		KeepSecrets:   p.keepSecrets,
-		KeepResources: p.keepResources,
+		KeepSecrets:   p.sendSecrets,
+		KeepResources: p.sendResources,
 		PropagateNil:  true,
 	}
 }
@@ -151,14 +157,13 @@ func (p *providerServer) Handshake(
 		return nil, err
 	}
 
-	return &pulumirpc.ProviderHandshakeResponse{
-		// providerServer can shim support for all these features, so we always set them to true. Note that we do the same
-		// in Configure.
-		AcceptSecrets:   true,
-		AcceptResources: true,
-		AcceptOutputs:   true,
+	p.acceptSecrets = res.AcceptSecrets
+	p.acceptResources = res.AcceptResources
 
-		// For features we don't shim, we just pass through the response from the provider as expected.
+	return &pulumirpc.ProviderHandshakeResponse{
+		AcceptSecrets:                   res.AcceptSecrets,
+		AcceptResources:                 res.AcceptResources,
+		AcceptOutputs:                   res.AcceptOutputs,
 		SupportsAutonamingConfiguration: res.SupportsAutonamingConfiguration,
 	}, nil
 }
@@ -403,14 +408,14 @@ func (p *providerServer) Configure(ctx context.Context,
 		return nil, err
 	}
 
-	p.keepSecrets = req.GetAcceptSecrets()
-	p.keepResources = req.GetAcceptResources()
+	p.sendSecrets = req.GetAcceptSecrets()
+	p.sendResources = req.GetAcceptResources()
 	return &pulumirpc.ConfigureResponse{
+		AcceptSecrets:   p.acceptSecrets,
+		AcceptResources: p.acceptResources,
 		// providerServer can shim support for all these features, so we always set them to true. Note that we do the same
 		// in Handshake (though Handshake implies SupportsPreview, so we don't shim that there).
-		AcceptSecrets:   true,
 		SupportsPreview: true,
-		AcceptResources: true,
 		AcceptOutputs:   true,
 	}, nil
 }
@@ -642,6 +647,15 @@ func (p *providerServer) Read(ctx context.Context, req *pulumirpc.ReadRequest) (
 	}, nil
 }
 
+func (p *providerServer) List(
+	req *pulumirpc.ListRequest,
+	stream grpc.ServerStreamingServer[pulumirpc.ListResponse],
+) error {
+	_ = req
+	_ = stream
+	return status.Error(codes.Unimplemented, "List is not yet implemented")
+}
+
 func (p *providerServer) Update(ctx context.Context, req *pulumirpc.UpdateRequest) (*pulumirpc.UpdateResponse, error) {
 	urn, id := resource.URN(req.GetUrn()), resource.ID(req.GetId())
 
@@ -794,6 +808,7 @@ func (p *providerServer) Construct(ctx context.Context,
 	info := ConstructInfo{
 		Project:          req.GetProject(),
 		Stack:            req.GetStack(),
+		Organization:     req.GetOrganization(),
 		Config:           cfg,
 		ConfigSecretKeys: cfgSecretKeys,
 		DryRun:           req.GetDryRun(),
@@ -803,8 +818,26 @@ func (p *providerServer) Construct(ctx context.Context,
 	}
 
 	aliases := make([]resource.Alias, len(req.GetAliases()))
-	for i, urn := range req.GetAliases() {
-		aliases[i] = resource.Alias{URN: resource.URN(urn)}
+	for i, alias := range req.GetAliases() {
+		var result resource.Alias
+		switch a := alias.Alias.(type) {
+		case *pulumirpc.Alias_Spec_:
+			result = resource.Alias{
+				Name:    a.Spec.Name,
+				Type:    a.Spec.Type,
+				Project: a.Spec.Project,
+				Stack:   a.Spec.Stack,
+			}
+			switch p := a.Spec.Parent.(type) {
+			case *pulumirpc.Alias_Spec_ParentUrn:
+				result.Parent = resource.URN(p.ParentUrn)
+			case *pulumirpc.Alias_Spec_NoParent:
+				result.NoParent = p.NoParent
+			}
+		case *pulumirpc.Alias_Urn:
+			result = resource.Alias{URN: resource.URN(a.Urn)}
+		}
+		aliases[i] = result
 	}
 	dependencies := make([]resource.URN, len(req.GetDependencies()))
 	for i, urn := range req.GetDependencies() {
@@ -829,11 +862,24 @@ func (p *providerServer) Construct(ctx context.Context,
 		hooks[resource.AfterUpdate] = binding.GetAfterUpdate()
 		hooks[resource.BeforeDelete] = binding.GetBeforeDelete()
 		hooks[resource.AfterDelete] = binding.GetAfterDelete()
+		hooks[resource.OnError] = binding.GetOnError()
 	}
 
 	replaceWith := make([]resource.URN, len(req.GetReplaceWith()))
 	for i, urn := range req.GetReplaceWith() {
 		replaceWith[i] = resource.URN(urn)
+	}
+
+	var replacementTrigger resource.PropertyValue
+	if trigger := req.GetReplacementTrigger(); trigger != nil {
+		rt, err := UnmarshalPropertyValue("replacementTrigger", trigger, p.unmarshalOptions(
+			"replacementTrigger", true /* keepOutputValues */))
+		if err != nil {
+			return nil, err
+		}
+		if rt != nil {
+			replacementTrigger = *rt
+		}
 	}
 
 	options := ConstructOptions{
@@ -845,6 +891,9 @@ func (p *providerServer) Construct(ctx context.Context,
 		ResourceHooks:        hooks,
 		DeletedWith:          resource.URN(req.DeletedWith),
 		ReplaceWith:          replaceWith,
+		ReplacementTrigger:   replacementTrigger,
+		IgnoreChanges:        req.GetIgnoreChanges(),
+		ReplaceOnChanges:     req.GetReplaceOnChanges(),
 	}
 
 	resp, err := p.provider.Construct(ctx, ConstructRequest{

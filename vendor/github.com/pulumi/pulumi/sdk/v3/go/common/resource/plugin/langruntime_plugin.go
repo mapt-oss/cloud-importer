@@ -1,4 +1,4 @@
-// Copyright 2016-2018, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ type langhost struct {
 
 // NewLanguageRuntime binds to a language's runtime plugin and then creates a gRPC connection to it.  If the
 // plugin could not be found, or an error occurs while creating the child process, an error is returned.
-func NewLanguageRuntime(host Host, ctx *Context, runtime, workingDirectory string, info ProgramInfo,
+func NewLanguageRuntime(host Host, ctx *Context, runtime, workingDirectory string,
 ) (LanguageRuntime, error) {
 	attachPort, err := GetLanguageAttachPort(runtime)
 	if err != nil {
@@ -81,6 +81,7 @@ func NewLanguageRuntime(host Host, ctx *Context, runtime, workingDirectory strin
 		}
 
 		conn, handshakeResponse, err := dialPlugin(
+			ctx.Base(),
 			port,
 			"pulumi-language-"+runtime,
 			runtime+" (Language Plugin)",
@@ -108,7 +109,7 @@ func NewLanguageRuntime(host Host, ctx *Context, runtime, workingDirectory strin
 	} else {
 		path, err := workspace.GetPluginPath(
 			ctx.baseContext, ctx.Diag,
-			workspace.PluginSpec{
+			workspace.PluginDescriptor{
 				Name: strings.ReplaceAll(runtime, tokens.QNameDelimiter, "_"),
 				Kind: apitype.LanguagePlugin,
 			},
@@ -120,7 +121,7 @@ func NewLanguageRuntime(host Host, ctx *Context, runtime, workingDirectory strin
 
 		contract.Assertf(path != "", "unexpected empty path for language plugin %s", runtime)
 
-		args, err := buildArgsForNewPlugin(host, info.RootDirectory(), info.Options())
+		args, err := buildArgsForNewPlugin(host)
 		if err != nil {
 			return nil, err
 		}
@@ -187,7 +188,7 @@ func GetLanguageAttachPort(runtime string) (*int, error) {
 
 func langRuntimePluginDialOptions(ctx *Context, runtime string) []grpc.DialOption {
 	dialOpts := append(
-		rpcutil.OpenTracingInterceptorDialOptions(),
+		rpcutil.TracingInterceptorDialOptions(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		rpcutil.GrpcChannelOptions(),
 	)
@@ -206,22 +207,9 @@ func langRuntimePluginDialOptions(ctx *Context, runtime string) []grpc.DialOptio
 	return dialOpts
 }
 
-func buildArgsForNewPlugin(host Host, root string, options map[string]any) ([]string, error) {
-	root, err := filepath.Abs(root)
-	if err != nil {
-		return nil, err
-	}
-	args := slice.Prealloc[string](len(options))
-
-	for k, v := range options {
-		args = append(args, fmt.Sprintf("-%s=%v", k, v))
-	}
-
-	args = append(args, "-root="+filepath.Clean(root))
-
-	// NOTE: positional argument for the server addresss must come last
-	args = append(args, host.ServerAddr())
-
+func buildArgsForNewPlugin(host Host) ([]string, error) {
+	// NOTE: positional argument for the server address must come last
+	args := []string{host.ServerAddr()}
 	return args, nil
 }
 
@@ -261,7 +249,7 @@ func (h *langhost) GetRequiredPackages(info ProgramInfo) ([]workspace.PackageDes
 			packages := make([]workspace.PackageDescriptor, len(plugins))
 			for i, plugin := range plugins {
 				packages[i] = workspace.PackageDescriptor{
-					PluginSpec: plugin,
+					PluginDescriptor: plugin,
 				}
 			}
 			return packages, nil
@@ -300,7 +288,7 @@ func (h *langhost) GetRequiredPackages(info ProgramInfo) ([]workspace.PackageDes
 		}
 
 		results = append(results, workspace.PackageDescriptor{
-			PluginSpec: workspace.PluginSpec{
+			PluginDescriptor: workspace.PluginDescriptor{
 				Name:              info.Name,
 				Kind:              apitype.PluginKind(info.Kind),
 				Version:           version,
@@ -317,7 +305,7 @@ func (h *langhost) GetRequiredPackages(info ProgramInfo) ([]workspace.PackageDes
 }
 
 // getRequiredPlugins computes the complete set of anticipated plugins required by a program.
-func (h *langhost) getRequiredPlugins(info ProgramInfo) ([]workspace.PluginSpec, error) {
+func (h *langhost) getRequiredPlugins(info ProgramInfo) ([]workspace.PluginDescriptor, error) {
 	logging.V(7).Infof("langhost[%v].GetRequiredPlugins(%s) executing",
 		h.runtime, info)
 
@@ -348,7 +336,7 @@ func (h *langhost) getRequiredPlugins(info ProgramInfo) ([]workspace.PluginSpec,
 		return nil, rpcError
 	}
 
-	results := slice.Prealloc[workspace.PluginSpec](len(resp.GetPlugins()))
+	results := slice.Prealloc[workspace.PluginDescriptor](len(resp.GetPlugins()))
 	for _, info := range resp.GetPlugins() {
 		var version *semver.Version
 		if v := info.GetVersion(); v != "" {
@@ -361,7 +349,7 @@ func (h *langhost) getRequiredPlugins(info ProgramInfo) ([]workspace.PluginSpec,
 		if !apitype.IsPluginKind(info.Kind) {
 			return nil, fmt.Errorf("unrecognized plugin kind: %s", info.Kind)
 		}
-		results = append(results, workspace.PluginSpec{
+		results = append(results, workspace.PluginDescriptor{
 			Name:              info.Name,
 			Kind:              apitype.PluginKind(info.Kind),
 			Version:           version,
@@ -428,30 +416,23 @@ func (h *langhost) Run(info RunInfo) (string, bool, error) {
 }
 
 // GetPluginInfo returns this plugin's information.
-func (h *langhost) GetPluginInfo() (workspace.PluginInfo, error) {
+func (h *langhost) GetPluginInfo() (PluginInfo, error) {
 	logging.V(7).Infof("langhost[%v].GetPluginInfo() executing", h.runtime)
-
-	plugInfo := workspace.PluginInfo{
-		Name: h.runtime,
-		Kind: apitype.LanguagePlugin,
-	}
-
-	if h.plug != nil {
-		plugInfo.Path = h.plug.Bin
-	}
 
 	resp, err := h.client.GetPluginInfo(h.ctx.Request(), &emptypb.Empty{})
 	if err != nil {
 		rpcError := rpcerror.Convert(err)
 		logging.V(7).Infof("langhost[%v].GetPluginInfo() failed: err=%v", h.runtime, rpcError)
-		return workspace.PluginInfo{}, rpcError
+		return PluginInfo{}, rpcError
 	}
 	vers := resp.Version
+
+	plugInfo := PluginInfo{}
 
 	if vers != "" {
 		sv, err := semver.ParseTolerant(vers)
 		if err != nil {
-			return workspace.PluginInfo{}, err
+			return PluginInfo{}, err
 		}
 		plugInfo.Version = &sv
 	}
@@ -518,8 +499,8 @@ func (h *langhost) InstallDependencies(request InstallDependenciesRequest) (
 			msg, err := resp.Recv()
 			if err != nil {
 				if err == io.EOF {
-					contract.IgnoreError(outw.Close())
-					contract.IgnoreError(errw.Close())
+					contract.IgnoreClose(outw)
+					contract.IgnoreClose(errw)
 
 					done <- nil
 					break
@@ -594,6 +575,32 @@ func (h *langhost) RuntimeOptionsPrompts(info ProgramInfo) ([]RuntimeOptionPromp
 
 	logging.V(7).Infof("langhost[%v].RuntimeOptionsPrompts() success", h.runtime)
 	return prompts, nil
+}
+
+func (h *langhost) Template(info ProgramInfo, projectName tokens.PackageName) error {
+	logging.V(7).Infof("langhost[%v].Template() executing", h.runtime)
+
+	minfo, err := info.Marshal()
+	if err != nil {
+		return err
+	}
+
+	_, err = h.client.Template(h.ctx.Request(), &pulumirpc.TemplateRequest{
+		Info:        minfo,
+		ProjectName: string(projectName),
+	})
+	if err != nil {
+		if status.Code(err) == codes.Unimplemented {
+			logging.V(7).Infof("langhost[%v].Template() not implemented", h.runtime)
+			return nil
+		}
+		rpcError := rpcerror.Convert(err)
+		logging.V(7).Infof("langhost[%v].Template() failed: err=%v", h.runtime, rpcError)
+		return rpcError
+	}
+
+	logging.V(7).Infof("langhost[%v].Template() success", h.runtime)
+	return nil
 }
 
 func (h *langhost) About(info ProgramInfo) (AboutInfo, error) {
@@ -673,6 +680,7 @@ func (h *langhost) RunPlugin(ctx context.Context, info RunPluginInfo) (
 		Info:           minfo,
 		Kind:           info.Kind,
 		AttachDebugger: info.AttachDebugger,
+		LoaderTarget:   info.LoaderAddress,
 	})
 	if err != nil {
 		// If there was an error starting the plugin kill the context for this request to ensure any lingering
@@ -944,6 +952,9 @@ func (h *langhost) Cancel() error {
 	if err != nil {
 		status, ok := status.FromError(err)
 		if ok && status.Code() == codes.Unimplemented {
+			if h.plug != nil {
+				h.plug.shutdownAcknowledged.Store(true)
+			}
 			logging.V(7).Infof("%s not implemented by language runtime, skipping", label)
 			return nil
 		}
@@ -951,6 +962,9 @@ func (h *langhost) Cancel() error {
 		return fmt.Errorf("failed to cancel language runtime: %w", err)
 	}
 
+	if h.plug != nil {
+		h.plug.shutdownAcknowledged.Store(true)
+	}
 	logging.V(7).Infof("%s success", label)
 	return nil
 }

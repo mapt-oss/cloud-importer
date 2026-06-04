@@ -1,4 +1,4 @@
-// Copyright 2016-2022, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,9 @@ import (
 
 	"github.com/pulumi/pulumi/sdk/v3/go/common/diag"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/encoding"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/env"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/fsutil"
 )
 
@@ -52,6 +54,8 @@ const (
 	TemplateDir = "templates"
 	// TemplatePolicyDir is the name of the directory containing templates for Policy Packs.
 	TemplatePolicyDir = "templates-policy"
+	// TemplatePackageDir is the name of the directory containing templates for Pulumi packages.
+	TemplatePackageDir = "templates-packages"
 	// WorkspaceDir is the name of the directory that holds workspace information for projects.
 	WorkspaceDir = "workspaces"
 
@@ -72,6 +76,8 @@ const (
 	// PulumiHomeEnvVar is a path to the '.pulumi' folder with plugins, access token, etc.
 	// The folder can have any name, not necessarily '.pulumi'.
 	// It defaults to the '<user's home>/.pulumi' if not specified.
+	//
+	// Deprecated: use [github.com/pulumi/pulumi/sdk/v3/go/common/env.Home] instead.
 	PulumiHomeEnvVar = "PULUMI_HOME"
 
 	// PolicyPackFile is the base name of a Pulumi policy pack file.
@@ -128,10 +134,14 @@ func DetectProjectStackDeploymentPath(stackName tokens.QName) (string, error) {
 	return filepath.Join(filepath.Dir(projPath), fileName), nil
 }
 
-var ErrProjectNotFound = errors.New("no project file found")
+var (
+	ErrProjectNotFound     = errors.New("no project file found")
+	ErrPluginNotFound      = errors.New("no plugin file found")
+	ErrBaseProjectNotFound = fmt.Errorf("%w and %w", ErrProjectNotFound, ErrPluginNotFound)
+)
 
 // DetectProjectPathFrom locates the closest project from the given path, searching "upwards" in the directory
-// hierarchy.  If no project is found, an empty path is returned.
+// hierarchy.  If no project is found, ErrProjectNotFound is returned.
 func DetectProjectPathFrom(dir string) (string, error) {
 	var path string
 	_, err := fsutil.WalkUpDirs(dir, func(dir string) bool {
@@ -169,7 +179,7 @@ func DetectPolicyPackPathFrom(path string) (string, error) {
 }
 
 // DetectPluginPathFrom locates the closest plugin from the given path, searching "upwards" in the directory
-// hierarchy.  If no project is found, an empty path is returned.
+// hierarchy.  If no project is found, ErrPluginNotFound is returned.
 func DetectPluginPathFrom(dir string) (string, error) {
 	var path string
 	_, err := fsutil.WalkUpDirs(dir, func(dir string) bool {
@@ -178,7 +188,7 @@ func DetectPluginPathFrom(dir string) (string, error) {
 		return ok
 	})
 
-	// We special case permission errors to cause ErrProjectNotFound to return from this function. This is so
+	// We special case permission errors to cause ErrPluginNotFound to return from this function. This is so
 	// users can run pulumi with unreadable root directories.
 	if errors.Is(err, fs.ErrPermission) {
 		err = nil
@@ -188,7 +198,22 @@ func DetectPluginPathFrom(dir string) (string, error) {
 		return "", fmt.Errorf("failed to locate PulumiPlugin.yaml file: %w", err)
 	}
 
+	if path == "" {
+		return "", ErrPluginNotFound
+	}
+
 	return path, nil
+}
+
+// DetectPluginPathAt locates the PulumiPlugin file in the given directory. If no project
+// is found, [ErrPluginNotFound]. Unlike [DetectPluginPathFrom], this function does not
+// search upwards in the directory hierarchy.
+func DetectPluginPathAt(dir string) (string, error) {
+	path, ok := findPluginInDir(dir)
+	if ok {
+		return path, nil
+	}
+	return "", ErrPluginNotFound
 }
 
 // DetectPolicyPackPathAt locates the PulumiPolicy file at the given path. If no project is found, an empty path is
@@ -241,10 +266,8 @@ func DetectProjectAndPath() (*Project, string, error) {
 	path, err := DetectProjectPath()
 	if err != nil {
 		return nil, "", err
-	} else if path == "" {
-		return nil, "", errors.New("no Pulumi project found in the current working directory. " +
-			"Move to a directory with a Pulumi project or try creating a project first with `pulumi new`.")
 	}
+	contract.Assertf(path != "", "path was unexpectedly empty")
 
 	proj, err := LoadProject(path)
 	return proj, path, err
@@ -355,7 +378,7 @@ func GetCachedVersionFilePath() (string, error) {
 // GetPulumiHomeDir returns the path of the '.pulumi' folder where Pulumi puts its artifacts.
 func GetPulumiHomeDir() (string, error) {
 	// Allow the folder we use to be overridden by an environment variable
-	dir := os.Getenv(PulumiHomeEnvVar)
+	dir := env.Home.Value()
 	if dir != "" {
 		return dir, nil
 	}
@@ -367,7 +390,7 @@ func GetPulumiHomeDir() (string, error) {
 	}
 
 	if user == nil || user.HomeDir == "" {
-		return "", fmt.Errorf("could not find user home directory, set %s", PulumiHomeEnvVar)
+		return "", fmt.Errorf("could not find user home directory, set %s", env.Home.Var().Name())
 	}
 
 	return filepath.Join(user.HomeDir, BookkeepingDir), nil

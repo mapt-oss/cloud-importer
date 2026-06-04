@@ -1,4 +1,4 @@
-// Copyright 2016-2019, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -92,6 +92,9 @@ type RequiredPolicy struct {
 	// mapped to their configuration. Each individual configuration must comply with the
 	// JSON schema for each Policy within the Policy Pack.
 	Config map[string]*json.RawMessage `json:"config,omitempty"`
+
+	// ESC environment references to resolve for this policy pack.
+	Environments []string `json:"environments,omitempty"`
 }
 
 // Policy defines the metadata for an individual Policy within a Policy Pack.
@@ -206,6 +209,28 @@ func (et EntityType) IsValid() bool {
 	return false
 }
 
+// PolicyGroupMode indicates the enforcement mode of a policy group
+type PolicyGroupMode string
+
+const (
+	// PolicyGroupModePreventative enforces policies during pulumi up/preview operations,
+	// potentially blocking resource changes when mandatory policies fail
+	PolicyGroupModePreventative PolicyGroupMode = "preventative"
+
+	// PolicyGroupModeAudit monitors resource compliance without blocking operations,
+	// reporting policy violations for continuous compliance monitoring
+	PolicyGroupModeAudit PolicyGroupMode = "audit"
+)
+
+// IsValid returns true if the PolicyGroupMode is a valid value.
+func (m PolicyGroupMode) IsValid() bool {
+	switch m {
+	case PolicyGroupModePreventative, PolicyGroupModeAudit:
+		return true
+	}
+	return false
+}
+
 // GetPolicyPackResponse is the response to get a specific Policy Pack's
 // metadata and policies.
 type GetPolicyPackResponse struct {
@@ -225,7 +250,31 @@ type GetStackPolicyPacksResponse struct {
 	RequiredPolicies []RequiredPolicy `json:"requiredPolicies,omitempty"`
 }
 
-// UpdatePolicyGroupRequest modifies a Policy Group.
+// CreatePolicyGroupRequest defines the request body for creating a new Policy
+// Group in an organization.
+type CreatePolicyGroupRequest struct {
+	// Name is the name of the new Policy Group.
+	Name string `json:"name"`
+	// EntityType is the type of entities this policy group applies to:
+	// "stacks" or "accounts".
+	EntityType string `json:"entityType"`
+	// Mode is the enforcement mode: "audit" or "preventative".
+	// If empty, defaults to "audit" for accounts and "preventative" for stacks.
+	Mode string `json:"mode,omitempty"`
+	// AgentPoolID is the optional agent pool to use for policy evaluation.
+	AgentPoolID string `json:"agentPoolId,omitempty"`
+}
+
+// UpdatePolicyGroupRequest modifies a Policy Group. Callers may set:
+//
+//   - NewName to rename the group.
+//   - A singular AddX/RemoveX field for a single per-PATCH membership change.
+//   - A list field (Stacks, PolicyPacks, InsightsAccounts) to replace the
+//     corresponding list outright; the values sent become the new full list.
+//     Use the pointer-to-slice indirection to distinguish "leave list
+//     unchanged" (nil pointer) from "set list to empty" (non-nil empty slice).
+//
+// Multiple of these may be combined in a single request to batch changes.
 type UpdatePolicyGroupRequest struct {
 	NewName *string `json:"newName,omitempty"`
 
@@ -234,24 +283,45 @@ type UpdatePolicyGroupRequest struct {
 
 	AddPolicyPack    *PolicyPackMetadata `json:"addPolicyPack,omitempty"`
 	RemovePolicyPack *PolicyPackMetadata `json:"removePolicyPack,omitempty"`
+
+	AddInsightsAccount    *InsightsAccountReference `json:"addInsightsAccount,omitempty"`
+	RemoveInsightsAccount *InsightsAccountReference `json:"removeInsightsAccount,omitempty"`
+
+	// Stacks, when non-nil, replaces the full list of stacks in the group.
+	Stacks *[]PulumiStackReference `json:"stacks,omitempty"`
+	// PolicyPacks, when non-nil, replaces the full list of Policy Packs
+	// applied to the group.
+	PolicyPacks *[]PolicyPackMetadata `json:"policyPacks,omitempty"`
+	// InsightsAccounts, when non-nil, replaces the full list of Insights
+	// accounts in the group.
+	InsightsAccounts *[]string `json:"insightsAccounts,omitempty"`
+}
+
+// InsightsAccountReference identifies an Insights account for policy group
+// membership. The server requires at least the Name field.
+type InsightsAccountReference struct {
+	Name string `json:"name"`
 }
 
 // PulumiStackReference contains the StackName and ProjectName of the stack.
 type PulumiStackReference struct {
 	Name           string `json:"name"`
-	RoutingProject string `json:"routingProject"`
+	RoutingProject string `json:"routingProject,omitempty"`
 }
 
 // PolicyPackMetadata is the metadata of a Policy Pack.
 type PolicyPackMetadata struct {
 	Name        string `json:"name"`
-	DisplayName string `json:"displayName"`
-	Version     int    `json:"version"`
-	VersionTag  string `json:"versionTag"`
+	DisplayName string `json:"displayName,omitempty"`
+	Version     int    `json:"version,omitempty"`
+	VersionTag  string `json:"versionTag,omitempty"`
 
 	// The configuration that is to be passed to the Policy Pack. This
 	// map ties Policies with their configuration.
 	Config map[string]*json.RawMessage `json:"config,omitempty"`
+
+	// ESC environment references to resolve for this policy pack.
+	Environments []string `json:"environments,omitempty"`
 }
 
 // ListPolicyPacksResponse is the response to list an organization's
@@ -276,12 +346,46 @@ type ListPolicyGroupsResponse struct {
 // PolicyGroupSummary details the name, applicable stacks and the applied Policy
 // Packs for an organization's Policy Group.
 type PolicyGroupSummary struct {
-	Name                  string     `json:"name"`
-	IsOrgDefault          bool       `json:"isOrgDefault"`
-	NumStacks             int        `json:"numStacks"`
-	NumAccounts           int        `json:"numAccounts,omitempty"`
-	EntityType            EntityType `json:"entityType"`
-	NumEnabledPolicyPacks int        `json:"numEnabledPolicyPacks"`
+	Name                  string          `json:"name"`
+	IsOrgDefault          bool            `json:"isOrgDefault"`
+	NumStacks             int             `json:"numStacks"`
+	NumAccounts           int             `json:"numAccounts,omitempty"`
+	EntityType            EntityType      `json:"entityType"`
+	Mode                  PolicyGroupMode `json:"mode"`
+	NumEnabledPolicyPacks int             `json:"numEnabledPolicyPacks"`
+}
+
+// GetPolicyGroupResponse is the response to get a specific Policy Group's
+// metadata, applied Policy Packs, and member stacks or accounts.
+type GetPolicyGroupResponse struct {
+	// Name is the name of the Policy Group.
+	Name string `json:"name"`
+
+	// IsOrgDefault is true if this is either the default stacks or default
+	// accounts Policy Group for the organization.
+	IsOrgDefault bool `json:"isOrgDefault"`
+
+	// EntityType is the type of entities this Policy Group applies to
+	// (stacks or accounts).
+	EntityType EntityType `json:"entityType"`
+
+	// Mode is the enforcement mode for the Policy Group (audit or preventative).
+	Mode PolicyGroupMode `json:"mode"`
+
+	// Stacks lists the stacks that are members of this Policy Group.
+	Stacks []PulumiStackReference `json:"stacks"`
+
+	// AppliedPolicyPacks lists the Policy Packs that are applied to this
+	// Policy Group.
+	AppliedPolicyPacks []PolicyPackMetadata `json:"appliedPolicyPacks"`
+
+	// Accounts lists the Insights account names that are members of this
+	// Policy Group.
+	Accounts []string `json:"accounts"`
+
+	// AgentPoolID is the agent pool ID used for audit policy evaluation.
+	// Defaults to the Pulumi hosted pool if not specified.
+	AgentPoolID string `json:"agentPoolId,omitempty"`
 }
 
 // GetPolicyPackConfigSchemaResponse is the response that includes the JSON
@@ -301,4 +405,90 @@ type PolicyComplianceFramework struct {
 	Reference string `json:"reference,omitempty"`
 	// The compliance framework specification.
 	Specification string `json:"specification,omitempty"`
+}
+
+// ListPolicyIssuesRequest is the request body for the ListPolicyIssues endpoint
+// (POST /api/orgs/{orgName}/policyresults/issues). The server expects an
+// AngularGrid-style request with startRow/endRow pagination.
+type ListPolicyIssuesRequest struct {
+	StartRow  int                    `json:"startRow"`
+	EndRow    int                    `json:"endRow"`
+	SortModel []PolicyIssueSortModel `json:"sortModel"`
+}
+
+// PolicyIssueSortModel describes a sort column for the policy issues endpoint.
+type PolicyIssueSortModel struct {
+	ColID string `json:"colId"`
+	Sort  string `json:"sort"` // "asc" or "desc"
+}
+
+// PolicyIssue is a single policy violation detected by a Policy Pack during a
+// stack update or a continuous-compliance scan. Field names match the server's
+// JSON response.
+type PolicyIssue struct {
+	ID               string         `json:"id"`
+	EntityType       string         `json:"entityType,omitempty"`
+	EntityProject    string         `json:"entityProject,omitempty"`
+	EntityID         string         `json:"entityId,omitempty"`
+	PolicyPack       string         `json:"policyPack"`
+	PolicyPackTag    string         `json:"policyPackTag,omitempty"`
+	PolicyName       string         `json:"policyName"`
+	Level            string         `json:"level"`
+	Severity         PolicySeverity `json:"severity,omitempty"`
+	ResourceURN      string         `json:"resourceURN,omitempty"`
+	ResourceProvider string         `json:"resourceProvider,omitempty"`
+	ResourceType     string         `json:"resourceType,omitempty"`
+	ResourceName     string         `json:"resourceName,omitempty"`
+	Message          string         `json:"message,omitempty"`
+	ObservedAt       string         `json:"observedAt,omitempty"`
+	LastModified     string         `json:"lastModified,omitempty"`
+	Status           string         `json:"status,omitempty"`
+	Kind             string         `json:"kind,omitempty"`
+	Priority         string         `json:"priority,omitempty"`
+}
+
+// GetPolicyIssueResponse is the response wrapper for the GetPolicyIssue
+// endpoint (GET /api/orgs/{orgName}/policyresults/issues/{issueId}).
+type GetPolicyIssueResponse struct {
+	PolicyIssue PolicyIssue `json:"policyIssue"`
+}
+
+// ListPolicyIssuesResponse is the response body for the ListPolicyIssues
+// endpoint.
+type ListPolicyIssuesResponse struct {
+	// Issues is the page of policy issues.
+	Issues []PolicyIssue `json:"policyIssues"`
+	// Total is the total number of issues across all pages.
+	Total int64 `json:"rowCount"`
+}
+
+// GetPolicyComplianceResultsRequest is the request body for the compliance
+// results endpoint (POST /api/orgs/{orgName}/policy-results/compliance).
+type GetPolicyComplianceResultsRequest struct {
+	// Entity is how to group results: "stack", "account", or "severity".
+	Entity string `json:"entity"`
+	// ContinuationToken is the pagination token from a previous response.
+	ContinuationToken *string `json:"continuationToken,omitempty"`
+	// Size is the number of results per page (max 1000).
+	Size *int `json:"size,omitempty"`
+}
+
+// GetPolicyComplianceResultsResponse is the response from the compliance
+// results endpoint.
+type GetPolicyComplianceResultsResponse struct {
+	// Columns lists the policy group/pack identifiers or severity levels.
+	Columns []string `json:"columns"`
+	// Rows contains one entry per entity (stack, account, or policy pack).
+	Rows []PolicyComplianceResult `json:"rows"`
+	// ContinuationToken is set when more pages are available.
+	ContinuationToken *string `json:"continuationToken,omitempty"`
+}
+
+// PolicyComplianceResult is a single row in the compliance results table.
+type PolicyComplianceResult struct {
+	// EntityName identifies the entity (e.g. "project/stack" or account name).
+	EntityName string `json:"entityName"`
+	// Scores is an array correlating 1:1 with Columns. Values are 0-100
+	// (compliance %), -1 (N/A), or -2 (config error).
+	Scores []int `json:"scores"`
 }

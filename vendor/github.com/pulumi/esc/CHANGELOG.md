@@ -1,5 +1,83 @@
 # CHANGELOG
 
+## 0.24.0
+
+### Improvements
+
+- Add `esc env webhook` to manage environment webhooks
+  [#647](https://github.com/pulumi/esc/pull/647)
+
+- Add `esc env schedule` to manage environment scheduled actions
+  [#646](https://github.com/pulumi/esc/pull/646)
+
+- Add `new` as an alias for `esc env init`
+  [#644](https://github.com/pulumi/esc/pull/644)
+
+- Surface warnings when editing environments with the CLI
+  [#631](https://github.com/pulumi/esc/pull/631)
+
+- Add `esc env referrer list` (alias `ls`) to list entities that reference an environment
+  [#645](https://github.com/pulumi/esc/pull/645)
+
+- Migrate golangci-lint to v2 and enable `staticcheck`; minor reword of
+  a handful of CLI error messages as a result
+  [#648](https://github.com/pulumi/esc/pull/648)
+
+- Add `--output {text,json}` to the read-mostly `esc env` commands
+  (`env ls`, `env version history`, `env version tag ls`,
+  `env tag ls/get`, `env schedule list/get/history`, `env referrer list`,
+  `env webhook list/get`, `env webhook delivery list`, `env open-request`,
+  `env settings get`) for piping into `jq` / scripts; the default `text`
+  rendering is unchanged
+  [#656](https://github.com/pulumi/esc/pull/656)
+
+- Consolidate `SilenceUsage` / `SilenceErrors` on the `esc` root command,
+  matching the `pulumi/pulumi` pattern; the CLI now prints errors itself
+  rather than relying on cobra
+  [#654](https://github.com/pulumi/esc/pull/654)
+
+- Add `esc env provider {aws-login,azure-login,gcp-login} {static,oidc}`
+  commands to add login providers to an environment. `static` writes a
+  static-credentials block; `oidc` writes a federated-identity block that
+  references cloud-side OIDC resources you provision separately (e.g.
+  with Pulumi). Each supports `--create` to create the target environment
+  if it does not already exist
+  [#649](https://github.com/pulumi/esc/pull/649)
+
+- Render `esc env schedule list`, `esc env schedule history`,
+  `esc env referrer list`, and `esc env version tag ls` as tables for
+  consistency with the other `esc env ... list` commands and with
+  `pulumi/pulumi`
+  [#655](https://github.com/pulumi/esc/pull/655)
+
+## 0.23.0
+
+### Improvements
+
+- Add warning in CLI when using an ambiguous 2-part environment ref
+  [#622](https://github.com/pulumi/esc/pull/622)
+
+- Add support for `fn::final` built-in function that marks values as final and unable to be overwritten.
+  [#621](https://github.com/pulumi/esc/pull/621)
+
+## 0.22.0
+
+### Improvements
+
+- Add warning when an environment has duplicate top-level keys
+  [#615](https://github.com/pulumi/esc/issues/615)
+- Add support for `fn::validate` built-in function that validates an input against a json schema.
+  [#618](https://github.com/pulumi/esc/pulls/618)
+
+## 0.21.0
+
+### Improvements
+
+- Added support for `fn::split` built-in function to split strings into arrays.
+  [#281](https://github.com/pulumi/esc/issues/281)
+- Add native support for OIDC token exchange when logging into Pulumi Cloud. Run `esc login --help` for more
+  information. [#607](https://github.com/pulumi/esc/pull/607)
+
 ## 0.20.0
 
 ### Improvements
@@ -75,14 +153,14 @@
 ### Bug Fixes
 
 - Fix `esc version`
- [#541](https://github.com/pulumi/esc/pull/541)
+  [#541](https://github.com/pulumi/esc/pull/541)
 
 ## 0.13.2
 
 ### Bug Fixes
 
 - handle nil in MakeSecret
- [#518](https://github.com/pulumi/esc/pull/518)
+  [#518](https://github.com/pulumi/esc/pull/518)
 
 ## 0.13.1
 
@@ -224,7 +302,6 @@
 
 - Add support for displaying changed between environment revisions.
   [#295](https://github.com/pulumi/esc/pull/295)
-  
 - Finalize command tree for version management.
   [#304](https://github.com/pulumi/esc/pull/304)
 
@@ -295,7 +372,7 @@
 
 - Add support for execution context interpolation.
   [#239](https://github.com/pulumi/esc/pull/239)
-  
+
 ## 0.7.0
 
 ### Bug Fixes
@@ -326,7 +403,6 @@
 
 - Include paths in diagnostics.
   [#157](https://github.com/pulumi/esc/pull/157)
-  
 - Support secret elision in definitions via encryption and decryption
   [#155](https://github.com/pulumi/esc/pull/155)
 
@@ -352,7 +428,6 @@
 
 - Do not panic when `env set` is passed an empty value.
   [#110](https://github.com/pulumi/esc/pull/110)
-  
 - Fix behavior for `esc login` when no existing credentials are present
   [#111](https://github.com/pulumi/esc/pull/111)
 

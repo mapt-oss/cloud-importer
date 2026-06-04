@@ -1,4 +1,4 @@
-// Copyright 2016-2022, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	ResourceMonitor_GetDeploymentInfo_FullMethodName            = "/pulumirpc.ResourceMonitor/GetDeploymentInfo"
 	ResourceMonitor_SupportsFeature_FullMethodName              = "/pulumirpc.ResourceMonitor/SupportsFeature"
 	ResourceMonitor_Invoke_FullMethodName                       = "/pulumirpc.ResourceMonitor/Invoke"
 	ResourceMonitor_Call_FullMethodName                         = "/pulumirpc.ResourceMonitor/Call"
@@ -43,6 +44,7 @@ const (
 	ResourceMonitor_RegisterStackTransform_FullMethodName       = "/pulumirpc.ResourceMonitor/RegisterStackTransform"
 	ResourceMonitor_RegisterStackInvokeTransform_FullMethodName = "/pulumirpc.ResourceMonitor/RegisterStackInvokeTransform"
 	ResourceMonitor_RegisterResourceHook_FullMethodName         = "/pulumirpc.ResourceMonitor/RegisterResourceHook"
+	ResourceMonitor_RegisterErrorHook_FullMethodName            = "/pulumirpc.ResourceMonitor/RegisterErrorHook"
 	ResourceMonitor_RegisterPackage_FullMethodName              = "/pulumirpc.ResourceMonitor/RegisterPackage"
 	ResourceMonitor_SignalAndWaitForShutdown_FullMethodName     = "/pulumirpc.ResourceMonitor/SignalAndWaitForShutdown"
 )
@@ -53,6 +55,16 @@ const (
 //
 // ResourceMonitor is the interface a source uses to talk back to the planning monitor orchestrating the execution.
 type ResourceMonitorClient interface {
+	// GetDeploymentInfo returns the execution context associated with this monitor instance.
+	//
+	// This is an additive API intended to reduce duplicated state passed through
+	// environment variables and per-request protobuf fields. New clients should
+	// prefer this over piecemeal feature probing via SupportsFeature.
+	//
+	// Backward compatibility:
+	// - Older monitors may not implement this RPC and will return UNIMPLEMENTED.
+	// - Clients should fall back to existing request fields/env vars/SupportsFeature.
+	GetDeploymentInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DeploymentInfo, error)
 	SupportsFeature(ctx context.Context, in *SupportsFeatureRequest, opts ...grpc.CallOption) (*SupportsFeatureResponse, error)
 	Invoke(ctx context.Context, in *ResourceInvokeRequest, opts ...grpc.CallOption) (*InvokeResponse, error)
 	Call(ctx context.Context, in *ResourceCallRequest, opts ...grpc.CallOption) (*CallResponse, error)
@@ -66,6 +78,10 @@ type ResourceMonitorClient interface {
 	// Register a resource hook that can be called by the engine during certain
 	// steps of a resource's lifecycle.
 	RegisterResourceHook(ctx context.Context, in *RegisterResourceHookRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Register an error hook that can be called by the engine when an operation fails and is retryable.
+	//
+	// Error hooks are a separate type of hook to other life cycle hooks as they have different inputs and outputs.
+	RegisterErrorHook(ctx context.Context, in *RegisterErrorHookRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Registers a package and allocates a packageRef. The same package can be registered multiple times in Pulumi.
 	// Multiple requests are idempotent and guaranteed to return the same result.
 	RegisterPackage(ctx context.Context, in *RegisterPackageRequest, opts ...grpc.CallOption) (*RegisterPackageResponse, error)
@@ -84,6 +100,16 @@ type resourceMonitorClient struct {
 
 func NewResourceMonitorClient(cc grpc.ClientConnInterface) ResourceMonitorClient {
 	return &resourceMonitorClient{cc}
+}
+
+func (c *resourceMonitorClient) GetDeploymentInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DeploymentInfo, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeploymentInfo)
+	err := c.cc.Invoke(ctx, ResourceMonitor_GetDeploymentInfo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *resourceMonitorClient) SupportsFeature(ctx context.Context, in *SupportsFeatureRequest, opts ...grpc.CallOption) (*SupportsFeatureResponse, error) {
@@ -176,6 +202,16 @@ func (c *resourceMonitorClient) RegisterResourceHook(ctx context.Context, in *Re
 	return out, nil
 }
 
+func (c *resourceMonitorClient) RegisterErrorHook(ctx context.Context, in *RegisterErrorHookRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ResourceMonitor_RegisterErrorHook_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *resourceMonitorClient) RegisterPackage(ctx context.Context, in *RegisterPackageRequest, opts ...grpc.CallOption) (*RegisterPackageResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RegisterPackageResponse)
@@ -202,6 +238,16 @@ func (c *resourceMonitorClient) SignalAndWaitForShutdown(ctx context.Context, in
 //
 // ResourceMonitor is the interface a source uses to talk back to the planning monitor orchestrating the execution.
 type ResourceMonitorServer interface {
+	// GetDeploymentInfo returns the execution context associated with this monitor instance.
+	//
+	// This is an additive API intended to reduce duplicated state passed through
+	// environment variables and per-request protobuf fields. New clients should
+	// prefer this over piecemeal feature probing via SupportsFeature.
+	//
+	// Backward compatibility:
+	// - Older monitors may not implement this RPC and will return UNIMPLEMENTED.
+	// - Clients should fall back to existing request fields/env vars/SupportsFeature.
+	GetDeploymentInfo(context.Context, *emptypb.Empty) (*DeploymentInfo, error)
 	SupportsFeature(context.Context, *SupportsFeatureRequest) (*SupportsFeatureResponse, error)
 	Invoke(context.Context, *ResourceInvokeRequest) (*InvokeResponse, error)
 	Call(context.Context, *ResourceCallRequest) (*CallResponse, error)
@@ -215,6 +261,10 @@ type ResourceMonitorServer interface {
 	// Register a resource hook that can be called by the engine during certain
 	// steps of a resource's lifecycle.
 	RegisterResourceHook(context.Context, *RegisterResourceHookRequest) (*emptypb.Empty, error)
+	// Register an error hook that can be called by the engine when an operation fails and is retryable.
+	//
+	// Error hooks are a separate type of hook to other life cycle hooks as they have different inputs and outputs.
+	RegisterErrorHook(context.Context, *RegisterErrorHookRequest) (*emptypb.Empty, error)
 	// Registers a package and allocates a packageRef. The same package can be registered multiple times in Pulumi.
 	// Multiple requests are idempotent and guaranteed to return the same result.
 	RegisterPackage(context.Context, *RegisterPackageRequest) (*RegisterPackageResponse, error)
@@ -235,6 +285,9 @@ type ResourceMonitorServer interface {
 // pointer dereference when methods are called.
 type UnimplementedResourceMonitorServer struct{}
 
+func (UnimplementedResourceMonitorServer) GetDeploymentInfo(context.Context, *emptypb.Empty) (*DeploymentInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetDeploymentInfo not implemented")
+}
 func (UnimplementedResourceMonitorServer) SupportsFeature(context.Context, *SupportsFeatureRequest) (*SupportsFeatureResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SupportsFeature not implemented")
 }
@@ -262,6 +315,9 @@ func (UnimplementedResourceMonitorServer) RegisterStackInvokeTransform(context.C
 func (UnimplementedResourceMonitorServer) RegisterResourceHook(context.Context, *RegisterResourceHookRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterResourceHook not implemented")
 }
+func (UnimplementedResourceMonitorServer) RegisterErrorHook(context.Context, *RegisterErrorHookRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterErrorHook not implemented")
+}
 func (UnimplementedResourceMonitorServer) RegisterPackage(context.Context, *RegisterPackageRequest) (*RegisterPackageResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterPackage not implemented")
 }
@@ -287,6 +343,24 @@ func RegisterResourceMonitorServer(s grpc.ServiceRegistrar, srv ResourceMonitorS
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&ResourceMonitor_ServiceDesc, srv)
+}
+
+func _ResourceMonitor_GetDeploymentInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ResourceMonitorServer).GetDeploymentInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ResourceMonitor_GetDeploymentInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ResourceMonitorServer).GetDeploymentInfo(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _ResourceMonitor_SupportsFeature_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -451,6 +525,24 @@ func _ResourceMonitor_RegisterResourceHook_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ResourceMonitor_RegisterErrorHook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterErrorHookRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ResourceMonitorServer).RegisterErrorHook(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ResourceMonitor_RegisterErrorHook_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ResourceMonitorServer).RegisterErrorHook(ctx, req.(*RegisterErrorHookRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ResourceMonitor_RegisterPackage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RegisterPackageRequest)
 	if err := dec(in); err != nil {
@@ -495,6 +587,10 @@ var ResourceMonitor_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ResourceMonitorServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "GetDeploymentInfo",
+			Handler:    _ResourceMonitor_GetDeploymentInfo_Handler,
+		},
+		{
 			MethodName: "SupportsFeature",
 			Handler:    _ResourceMonitor_SupportsFeature_Handler,
 		},
@@ -529,6 +625,10 @@ var ResourceMonitor_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RegisterResourceHook",
 			Handler:    _ResourceMonitor_RegisterResourceHook_Handler,
+		},
+		{
+			MethodName: "RegisterErrorHook",
+			Handler:    _ResourceMonitor_RegisterErrorHook_Handler,
 		},
 		{
 			MethodName: "RegisterPackage",

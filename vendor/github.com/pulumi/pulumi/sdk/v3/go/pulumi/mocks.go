@@ -1,4 +1,4 @@
-// Copyright 2020-2024, Pulumi Corporation.
+// Copyright 2020, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,12 +15,12 @@
 package pulumi
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"reflect"
 	"sync"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -137,6 +137,30 @@ func (m *mockMonitor) SupportsFeature(ctx context.Context, in *pulumirpc.Support
 
 	return &pulumirpc.SupportsFeatureResponse{
 		HasSupport: hasSupport,
+	}, nil
+}
+
+func (m *mockMonitor) GetDeploymentInfo(ctx context.Context, in *emptypb.Empty,
+	opts ...grpc.CallOption,
+) (*pulumirpc.DeploymentInfo, error) {
+	features := []pulumirpc.ResourceMonitorFeature{
+		pulumirpc.ResourceMonitorFeature_RESOURCE_MONITOR_FEATURE_SECRETS,
+		pulumirpc.ResourceMonitorFeature_RESOURCE_MONITOR_FEATURE_RESOURCE_REFERENCES,
+		pulumirpc.ResourceMonitorFeature_RESOURCE_MONITOR_FEATURE_ALIAS_SPECS,
+		pulumirpc.ResourceMonitorFeature_RESOURCE_MONITOR_FEATURE_REPLACEMENT_TRIGGER,
+		pulumirpc.ResourceMonitorFeature_RESOURCE_MONITOR_FEATURE_DELETED_WITH,
+		pulumirpc.ResourceMonitorFeature_RESOURCE_MONITOR_FEATURE_REPLACE_WITH,
+		pulumirpc.ResourceMonitorFeature_RESOURCE_MONITOR_FEATURE_TRANSFORMS,
+		pulumirpc.ResourceMonitorFeature_RESOURCE_MONITOR_FEATURE_INVOKE_TRANSFORMS,
+		pulumirpc.ResourceMonitorFeature_RESOURCE_MONITOR_FEATURE_PARAMETERIZATION,
+		pulumirpc.ResourceMonitorFeature_RESOURCE_MONITOR_FEATURE_RESOURCE_HOOKS,
+		pulumirpc.ResourceMonitorFeature_RESOURCE_MONITOR_FEATURE_ERROR_HOOKS,
+	}
+
+	return &pulumirpc.DeploymentInfo{
+		Project:           m.project,
+		Stack:             m.stack,
+		SupportedFeatures: features,
 	}, nil
 }
 
@@ -373,6 +397,12 @@ func (m *mockMonitor) RegisterResourceHook(ctx context.Context, in *pulumirpc.Re
 	panic("not implemented")
 }
 
+func (m *mockMonitor) RegisterErrorHook(ctx context.Context, in *pulumirpc.RegisterErrorHookRequest,
+	opts ...grpc.CallOption,
+) (*emptypb.Empty, error) {
+	panic("not implemented")
+}
+
 func (m *mockMonitor) RegisterPackage(ctx context.Context, in *pulumirpc.RegisterPackageRequest,
 	opts ...grpc.CallOption,
 ) (*pulumirpc.RegisterPackageResponse, error) {
@@ -429,4 +459,10 @@ func (m *mockEngine) StartDebugging(ctx context.Context, in *pulumirpc.StartDebu
 	opts ...grpc.CallOption,
 ) (*emptypb.Empty, error) {
 	return &emptypb.Empty{}, nil
+}
+
+func (e *mockEngine) RequirePulumiVersion(ctx context.Context, req *pulumirpc.RequirePulumiVersionRequest,
+	opts ...grpc.CallOption,
+) (*pulumirpc.RequirePulumiVersionResponse, error) {
+	return &pulumirpc.RequirePulumiVersionResponse{}, nil
 }

@@ -1,4 +1,4 @@
-// Copyright 2016-2018, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,10 +15,10 @@
 package pulumi
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
-	"golang.org/x/net/context"
 )
 
 // AssetOrArchive represents either an Asset or an Archive.

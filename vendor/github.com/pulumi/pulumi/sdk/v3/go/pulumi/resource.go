@@ -1,4 +1,4 @@
-// Copyright 2016-2021, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -331,7 +331,8 @@ type CustomTimeouts struct {
 
 // ResourceHookOptions are the options for registering a resource hook.
 type ResourceHookOptions struct {
-	OnDryRun bool // Run the hook during dry run (preview) operations. Defaults to false.
+	OnDryRun     bool // Run the hook during dry run (preview) operations. Defaults to false.
+	IgnoreErrors bool // If true, errors are logged as warnings instead of failing the program.
 }
 
 // ResourceHookArgs represents the arguments passed to a resource hook.
@@ -357,8 +358,32 @@ type ResourceHookArgs struct {
 	OldOutputs resource.PropertyMap // The old outputs of the resource that triggered the hook.
 }
 
+// ErrorHookArgs represents the arguments passed to an error hook.
+//
+// Depending on the failed operation, only some of the new/old inputs/outputs are set.
+//
+// | Failed Operation | old_inputs | new_inputs | old_outputs |
+// | ---------------- | ---------- | ---------- | ----------- |
+// | create           |            | ✓          |             |
+// | update           | ✓          | ✓          | ✓           |
+// | delete           | ✓          |            | ✓           |
+type ErrorHookArgs struct {
+	URN             URN                  // The URN of the resource that triggered the hook.
+	ID              ID                   // The ID of the resource that triggered the hook.
+	Name            string               // The name of the resource that triggered the hook.
+	Type            tokens.Type          // The type of the resource that triggered the hook.
+	NewInputs       resource.PropertyMap // The new inputs of the resource that triggered the hook.
+	OldInputs       resource.PropertyMap // The old inputs of the resource that triggered the hook.
+	OldOutputs      resource.PropertyMap // The old outputs of the resource that triggered the hook.
+	FailedOperation string               // The operation that failed (create, update, or delete).
+	Errors          []string             // The errors that have been seen so far (newest first).
+}
+
 // ResourceHookFunction is a function that can be registered as a resource hook
 type ResourceHookFunction func(args *ResourceHookArgs) error
+
+// ErrorHookFunction is a function that can be registered as an error hook
+type ErrorHookFunction func(args *ErrorHookArgs) (bool, error)
 
 // ResourceHook is a named hook that can be registered as a resource hook.
 type ResourceHook struct {
@@ -367,6 +392,15 @@ type ResourceHook struct {
 	Opts     ResourceOptions      // The options for the resource hook.
 	// Tracks the registration of the resource hook. The future will resolve
 	// once the hook has been registered, or reject if any error
+	registered *promise.Promise[struct{}]
+}
+
+// ErrorHook is a named hook that can be registered as an error hook.
+type ErrorHook struct {
+	Name     string            // The unqiue name of the error hook.
+	Callback ErrorHookFunction // The function that will be called when the error hook is triggered.
+	// Tracks the registration of the error hook. The future will resolve
+	// once the hook has been registered, or reject if any error occurs.
 	registered *promise.Promise[struct{}]
 }
 
@@ -396,6 +430,8 @@ type ResourceHookBinding struct {
 	// Note that delete hooks require that destroy operations are run with
 	// `--run-program`.
 	AfterDelete []*ResourceHook
+	// Hooks to be invoked when an operation fails and is retryable.
+	OnError []*ErrorHook
 }
 
 // ResourceOptions is a snapshot of one or more [ResourceOption]s.
@@ -510,6 +546,10 @@ type ResourceOptions struct {
 	// Hooks are the optional resource hooks to bind to this resource. The hooks
 	// will be invoked during the lifecycle of the resource.
 	Hooks *ResourceHookBinding
+
+	// EnvVarMappings specifies environment variable mappings for provider resources.
+	// Keys are the source environment variable names, values are the target names.
+	EnvVarMappings map[string]string
 }
 
 // NewResourceOptions builds a preview of the effect of the provided options.
@@ -550,6 +590,7 @@ type resourceOptions struct {
 	ReplaceWith             []Resource
 	Parameterization        []byte
 	Hooks                   *ResourceHookBinding
+	EnvVarMappings          map[string]string
 }
 
 func resourceOptionsSnapshot(ro *resourceOptions) *ResourceOptions {
@@ -617,6 +658,7 @@ func resourceOptionsSnapshot(ro *resourceOptions) *ResourceOptions {
 		DeletedWith:             ro.DeletedWith,
 		ReplaceWith:             ro.ReplaceWith,
 		Hooks:                   ro.Hooks,
+		EnvVarMappings:          ro.EnvVarMappings,
 	}
 }
 
@@ -944,6 +986,7 @@ func ResourceHooks(hooks *ResourceHookBinding) ResourceOption {
 		ro.Hooks.AfterUpdate = append(ro.Hooks.AfterUpdate, hooks.AfterUpdate...)
 		ro.Hooks.BeforeDelete = append(ro.Hooks.BeforeDelete, hooks.BeforeDelete...)
 		ro.Hooks.AfterDelete = append(ro.Hooks.AfterDelete, hooks.AfterDelete...)
+		ro.Hooks.OnError = append(ro.Hooks.OnError, hooks.OnError...)
 	})
 }
 
@@ -1135,6 +1178,25 @@ func Parameterization(parameter []byte) ResourceOrInvokeOption {
 			ro.Parameterization = parameter
 		case io != nil:
 			io.Parameterization = parameter
+		}
+	})
+}
+
+// EnvVarMappings sets environment variable remappings for provider resources.
+// The map should contain NEW_KEY -> OLD_KEY pairs. If NEW_KEY exists in the environment,
+// the provider will see OLD_KEY with that value.
+// For example, {"MY_SPECIAL_AZ_LOGIN": "AZ_LOGIN"} means if MY_SPECIAL_AZ_LOGIN exists,
+// the provider will see AZ_LOGIN=value(MY_SPECIAL_AZ_LOGIN).
+// This option only applies to provider resources (pulumi:providers:*).
+func EnvVarMappings(mappings map[string]string) ResourceOption {
+	return resourceOption(func(ro *resourceOptions) {
+		if mappings != nil {
+			if ro.EnvVarMappings == nil {
+				ro.EnvVarMappings = make(map[string]string)
+			}
+			for k, v := range mappings {
+				ro.EnvVarMappings[k] = v
+			}
 		}
 	})
 }

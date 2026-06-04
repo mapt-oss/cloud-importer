@@ -1,4 +1,4 @@
-// Copyright 2016-2025, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/blang/semver"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
@@ -37,6 +38,7 @@ import (
 
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/diag"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/env"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/promise"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource/archive"
@@ -45,6 +47,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/cmdutil"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
+	envutil "github.com/pulumi/pulumi/sdk/v3/go/common/util/env"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/logging"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/rpcutil"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/rpcutil/rpcerror"
@@ -166,9 +169,9 @@ func GetProviderAttachPort(pkg tokens.Package) (*int, error) {
 
 // NewProvider attempts to bind to a given package's resource plugin and then creates a gRPC connection to it.  If the
 // plugin could not be found, or an error occurs while creating the child process, an error is returned.
-func NewProvider(host Host, ctx *Context, spec workspace.PluginSpec,
+func NewProvider(host Host, ctx *Context, spec workspace.PluginDescriptor,
 	options map[string]any, disableProviderPreview bool, jsonConfig string,
-	projectName tokens.PackageName,
+	projectName tokens.PackageName, e env.Env,
 ) (Provider, error) {
 	// See if this is a provider we just want to attach to
 	var plug *Plugin
@@ -203,7 +206,7 @@ func NewProvider(host Host, ctx *Context, spec workspace.PluginSpec,
 		}
 
 		var conn *grpc.ClientConn
-		conn, handshakeRes, err = dialPlugin(port, pkg.String(), prefix,
+		conn, handshakeRes, err = dialPlugin(ctx.Base(), port, pkg.String(), prefix,
 			handshake, providerPluginDialOptions(ctx, pkg, ""))
 		if err != nil {
 			return nil, err
@@ -226,22 +229,28 @@ func NewProvider(host Host, ctx *Context, spec workspace.PluginSpec,
 
 		// Runtime options are passed as environment variables to the provider, this is _currently_ used by
 		// dynamic providers to do things like lookup the virtual environment to use.
-		env := os.Environ()
+
+		optionsStore := env.MapStore{}
+
 		for k, v := range options {
-			env = append(env, fmt.Sprintf("PULUMI_RUNTIME_%s=%v", strings.ToUpper(k), v))
+			optionsStore["PULUMI_RUNTIME_"+strings.ToUpper(k)] = fmt.Sprintf("%v", v)
 		}
 		if projectName != "" {
 			if pkg == tokens.Package(nodejsDynamicProviderPackage) {
 				// The Node.js SDK uses PULUMI_NODEJS_PROJECT to set the project name.
 				// Eventually, we should standardize on PULUMI_PROJECT for all SDKs.
 				// Also see `constructEnv` in sdk/go/common/resource/plugin/analyzer_plugin.go
-				env = append(env, fmt.Sprintf("PULUMI_NODEJS_PROJECT=%s", projectName))
+				optionsStore["PULUMI_NODEJS_PROJECT"] = projectName.String()
 			}
-			env = append(env, fmt.Sprintf("PULUMI_PROJECT=%s", projectName))
+			optionsStore["PULUMI_PROJECT"] = projectName.String()
 		}
 		if jsonConfig != "" {
-			env = append(env, "PULUMI_CONFIG="+jsonConfig)
+			optionsStore["PULUMI_CONFIG"] = jsonConfig
 		}
+
+		// Get existing environment and add options
+		baseStore := e.GetStore()
+		e = envutil.NewEnv(envutil.JoinStore(optionsStore, baseStore))
 
 		handshake := func(
 			ctx context.Context, bin string, prefix string, conn *grpc.ClientConn,
@@ -260,7 +269,7 @@ func NewProvider(host Host, ctx *Context, spec workspace.PluginSpec,
 		}
 
 		plug, handshakeRes, err = newPlugin(ctx, ctx.Pwd, path, prefix,
-			apitype.ResourcePlugin, []string{host.ServerAddr()}, env,
+			apitype.ResourcePlugin, []string{host.ServerAddr()}, e,
 			handshake, providerPluginDialOptions(ctx, pkg, ""),
 			host.AttachDebugger(DebugSpec{Type: DebugTypePlugin, Name: spec.Name}))
 		if err != nil {
@@ -347,7 +356,7 @@ func handshake(
 
 func providerPluginDialOptions(ctx *Context, pkg tokens.Package, path string) []grpc.DialOption {
 	dialOpts := append(
-		rpcutil.OpenTracingInterceptorDialOptions(otgrpc.SpanDecorator(decorateProviderSpans)),
+		rpcutil.TracingInterceptorDialOptions(otgrpc.SpanDecorator(decorateProviderSpans)),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		rpcutil.GrpcChannelOptions(),
 	)
@@ -370,9 +379,7 @@ func providerPluginDialOptions(ctx *Context, pkg tokens.Package, path string) []
 }
 
 // NewProviderFromPath creates a new provider by loading the plugin binary located at `path`.
-func NewProviderFromPath(host Host, ctx *Context, path string) (Provider, error) {
-	env := os.Environ()
-
+func NewProviderFromPath(host Host, ctx *Context, pkg tokens.Package, path string) (Provider, error) {
 	handshake := func(
 		ctx context.Context, bin string, prefix string, conn *grpc.ClientConn,
 	) (*ProviderHandshakeResponse, error) {
@@ -390,7 +397,7 @@ func NewProviderFromPath(host Host, ctx *Context, path string) (Provider, error)
 	}
 
 	plug, handshakeRes, err := newPlugin(ctx, ctx.Pwd, path, "",
-		apitype.ResourcePlugin, []string{host.ServerAddr()}, env,
+		apitype.ResourcePlugin, []string{host.ServerAddr()}, env.Global(),
 		handshake, providerPluginDialOptions(ctx, "", path),
 		host.AttachDebugger(DebugSpec{Type: DebugTypePlugin, Name: path}))
 	if err != nil {
@@ -406,6 +413,7 @@ func NewProviderFromPath(host Host, ctx *Context, path string) (Provider, error)
 		clientRaw:     pulumirpc.NewResourceProviderClient(plug.Conn),
 		legacyPreview: legacyPreview,
 		configSource:  &promise.CompletionSource[pluginConfig]{},
+		pkg:           pkg,
 	}
 
 	if handshakeRes != nil {
@@ -425,7 +433,21 @@ func NewProviderFromPath(host Host, ctx *Context, path string) (Provider, error)
 			return nil, err
 		}
 	}
-	return p, nil
+	return &cancelOnCloseProvider{Provider: p}, nil
+}
+
+// cancelOnCloseProvider wraps a Provider so that Close sends a Cancel RPC before shutting down the plugin process. This
+// is used for providers created via NewProviderFromPath, which are not managed by a Host and therefore don't get Cancel
+// via the host's close sequence.
+type cancelOnCloseProvider struct {
+	Provider
+}
+
+func (p *cancelOnCloseProvider) Close() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	contract.IgnoreError(p.SignalCancellation(ctx))
+	return p.Provider.Close()
 }
 
 func NewProviderWithClient(ctx *Context, pkg tokens.Package, client pulumirpc.ResourceProviderClient,
@@ -1892,6 +1914,22 @@ func (p *provider) Construct(ctx context.Context, req ConstructRequest) (Constru
 		replaceWithURNs[i] = string(urn)
 	}
 
+	// Marshal the replacement trigger.
+	var replacementTrigger *structpb.Value
+	if !req.Options.ReplacementTrigger.IsNull() {
+		trigger, err := MarshalPropertyValue("replacementTrigger", req.Options.ReplacementTrigger, MarshalOptions{
+			Label:            label + ".replacementTrigger",
+			KeepUnknowns:     req.Info.DryRun,
+			KeepSecrets:      true,
+			KeepResources:    true,
+			KeepOutputValues: true,
+		})
+		if err != nil {
+			return ConstructResult{}, err
+		}
+		replacementTrigger = trigger
+	}
+
 	// Marshal the resource hook bindings.
 	var resourceHook *pulumirpc.ConstructRequest_ResourceHooksBinding
 	if len(req.Options.ResourceHooks) > 0 {
@@ -1904,9 +1942,35 @@ func (p *provider) Construct(ctx context.Context, req ConstructRequest) (Constru
 		resourceHook.AfterDelete = req.Options.ResourceHooks[resource.AfterDelete]
 	}
 
+	aliases := make([]*pulumirpc.Alias, len(req.Options.Aliases))
+	for i, alias := range req.Options.Aliases {
+		var result *pulumirpc.Alias
+		if alias.URN != "" {
+			result = &pulumirpc.Alias{Alias: &pulumirpc.Alias_Urn{Urn: string(alias.URN)}}
+		} else {
+			spec := &pulumirpc.Alias_Spec{
+				Type:    alias.Type,
+				Name:    alias.Name,
+				Stack:   alias.Stack,
+				Project: alias.Project,
+			}
+			if alias.NoParent {
+				spec.Parent = &pulumirpc.Alias_Spec_NoParent{NoParent: true}
+			} else if alias.Parent != "" {
+				spec.Parent = &pulumirpc.Alias_Spec_ParentUrn{ParentUrn: string(alias.Parent)}
+			}
+
+			result = &pulumirpc.Alias{Alias: &pulumirpc.Alias_Spec_{
+				Spec: spec,
+			}}
+		}
+		aliases[i] = result
+	}
+
 	rpcReq := &pulumirpc.ConstructRequest{
 		Project:                 req.Info.Project,
 		Stack:                   req.Info.Stack,
+		Organization:            req.Info.Organization,
 		Config:                  config,
 		ConfigSecretKeys:        configSecretKeys,
 		DryRun:                  req.Info.DryRun,
@@ -1919,7 +1983,7 @@ func (p *provider) Construct(ctx context.Context, req ConstructRequest) (Constru
 		Protect:                 req.Options.Protect,
 		Providers:               req.Options.Providers,
 		InputDependencies:       inputDependencies,
-		Aliases:                 aliasURNs,
+		Aliases:                 aliases,
 		Dependencies:            dependencies,
 		AdditionalSecretOutputs: req.Options.AdditionalSecretOutputs,
 		DeletedWith:             string(req.Options.DeletedWith),
@@ -1931,6 +1995,7 @@ func (p *provider) Construct(ctx context.Context, req ConstructRequest) (Constru
 		AcceptsOutputValues:     true,
 		ResourceHooks:           resourceHook,
 		StackTraceHandle:        req.Info.StackTraceHandle,
+		ReplacementTrigger:      replacementTrigger,
 	}
 	if ct := req.Options.CustomTimeouts; ct != nil {
 		rpcReq.CustomTimeouts = &pulumirpc.ConstructRequest_CustomTimeouts{
@@ -2030,6 +2095,15 @@ func (p *provider) Invoke(ctx context.Context, req InvokeRequest) (InvokeRespons
 	failures := slice.Prealloc[CheckFailure](len(resp.GetFailures()))
 	for _, failure := range resp.GetFailures() {
 		failures = append(failures, CheckFailure{resource.PropertyKey(failure.Property), failure.Reason})
+	}
+
+	if req.Args.ContainsSecrets() && !protocol.acceptSecrets {
+		for k, v := range ret {
+			if v.IsSecret() || (v.IsOutput() && v.OutputValue().Secret) {
+				continue
+			}
+			ret[k] = resource.MakeSecret(v)
+		}
 	}
 
 	logging.V(7).Infof("%s success (#ret=%d,#failures=%d) success", label, len(ret), len(failures))
@@ -2140,7 +2214,7 @@ func (p *provider) Call(_ context.Context, req CallRequest) (CallResponse, error
 }
 
 // GetPluginInfo returns this plugin's information.
-func (p *provider) GetPluginInfo(ctx context.Context) (workspace.PluginInfo, error) {
+func (p *provider) GetPluginInfo(ctx context.Context) (PluginInfo, error) {
 	label := p.label() + ".GetPluginInfo()"
 	logging.V(7).Infof("%s executing", label)
 
@@ -2154,28 +2228,20 @@ func (p *provider) GetPluginInfo(ctx context.Context) (workspace.PluginInfo, err
 		if err != nil {
 			rpcError := rpcerror.Convert(err)
 			logging.V(7).Infof("%s failed: err=%v", label, rpcError.Message())
-			return workspace.PluginInfo{}, rpcError
+			return PluginInfo{}, rpcError
 		}
 
 		if v := resp.Version; v != "" {
 			sv, err := semver.ParseTolerant(v)
 			if err != nil {
-				return workspace.PluginInfo{}, err
+				return PluginInfo{}, err
 			}
 			version = &sv
 		}
 	}
 
-	path := ""
-	if p.plug != nil {
-		path = p.plug.Bin
-	}
-
 	logging.V(7).Infof("%s success (#version=%v) success", label, version)
-	return workspace.PluginInfo{
-		Name:    string(p.pkg),
-		Path:    path,
-		Kind:    apitype.ResourcePlugin,
+	return PluginInfo{
 		Version: version,
 	}, nil
 }
@@ -2198,14 +2264,21 @@ func (p *provider) Attach(address string) error {
 }
 
 func (p *provider) SignalCancellation(ctx context.Context) error {
-	_, err := p.clientRaw.Cancel(p.requestContext(), &emptypb.Empty{})
+	_, err := p.clientRaw.Cancel(ctx, &emptypb.Empty{})
 	if err != nil {
 		rpcError := rpcerror.Convert(err)
 		logging.V(8).Infof("provider received rpc error `%s`: `%s`", rpcError.Code(),
 			rpcError.Message())
 		if rpcError.Code() == codes.Unimplemented {
 			// For backwards compatibility, do nothing if it's not implemented.
+			if p.plug != nil {
+				p.plug.shutdownAcknowledged.Store(true)
+			}
 			return nil
+		}
+	} else {
+		if p.plug != nil {
+			p.plug.shutdownAcknowledged.Store(true)
 		}
 	}
 

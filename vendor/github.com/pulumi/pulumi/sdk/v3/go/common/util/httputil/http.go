@@ -1,4 +1,4 @@
-// Copyright 2016-2018, Pulumi Corporation.
+// Copyright 2016, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -99,7 +99,7 @@ func doWithRetry(req *http.Request, client *http.Client, opts RetryOpts) (*http.
 
 			// Close the response body, if present, since our caller can't.
 			if resErr == nil {
-				contract.IgnoreError(res.Body.Close())
+				contract.IgnoreClose(res.Body)
 			}
 			return false, nil, nil
 		},
