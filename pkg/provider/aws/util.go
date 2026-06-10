@@ -60,25 +60,20 @@ func stableBucketName(imageName string) *string {
 
 // https://docs.aws.amazon.com/vm-import/latest/userguide/required-permissions.html
 func createVMIEmportExportRole(ctx *pulumi.Context,
-	roleName *string) (*iam.Role, pulumi.Resource, error) {
-	role, err := iam.NewRole(ctx,
+	roleName *string) (*iam.Role, error) {
+	return iam.NewRole(ctx,
 		"role",
 		&iam.RoleArgs{
 			RoleName:                 pulumi.String(*roleName),
 			AssumeRolePolicyDocument: pulumi.Any(trustPolicyContent()),
-			Tags:                     getTags(),
+			Policies: iam.RolePolicyTypeArray{
+				iam.RolePolicyTypeArgs{
+					PolicyName:     pulumi.String("vmimport-policy"),
+					PolicyDocument: pulumi.Any(rolePolicyContent(*roleName)),
+				},
+			},
+			Tags: getTags(),
 		})
-	if err != nil {
-		return nil, nil, err
-	}
-	rolePolicyAttachment, err := iam.NewRolePolicy(ctx,
-		"rolePolicy",
-		&iam.RolePolicyArgs{
-			RoleName: role.ID(),
-			PolicyDocument: pulumi.Any(
-				rolePolicyContent(*roleName)),
-		})
-	return role, rolePolicyAttachment, err
 }
 
 func uploadDisk(ctx *pulumi.Context, rawImageFilePath, bucketName *string,
