@@ -368,6 +368,7 @@ export GOOGLE_CREDENTIALS=$(bw get notes "GCP_SA_KEY" | jq -c .)  # compact mult
 
 ### Run with local Pulumi state
 
+**AWS:**
 ```bash
 podman run --rm --name import-rhelai -d \
     --user 0 \
@@ -386,7 +387,47 @@ podman run --rm --name import-rhelai -d \
 podman logs -f import-rhelai
 ```
 
-Replace `aws` with `az` or `gcp` and swap the `-e` flags to match the provider. Pulumi state is written to `${PWD}/rhelai-dev-test/` — delete it when done.
+**GCP:**
+```bash
+podman run --rm --name import-rhelai-gcp -d \
+    --user 0 \
+    -v ${PWD}:/workspace:z \
+    -e GOOGLE_PROJECT \
+    -e GOOGLE_CREDENTIALS \
+    -e GOOGLE_REGION \
+    quay.io/aipcc-cicd/cloud-importer:latest rhelai gcp \
+        --project-name "rhelai-dev-test" \
+        --backed-url "file:///workspace" \
+        --image-name "rhelai-dev-test" \
+        --image-path "/workspace/disk.raw" \
+        --debug \
+        --debug-level 9
+
+podman logs -f import-rhelai-gcp
+```
+
+**Azure:**
+```bash
+podman run --rm --name import-rhelai-azure -d \
+    --user 0 \
+    -v ${PWD}:/workspace:z \
+    -e ARM_TENANT_ID \
+    -e ARM_CLIENT_ID \
+    -e ARM_CLIENT_SECRET \
+    -e ARM_SUBSCRIPTION_ID \
+    -e ARM_LOCATION_NAME \
+    quay.io/aipcc-cicd/cloud-importer:latest rhelai az \
+        --project-name "rhelai-dev-test" \
+        --backed-url "file:///workspace" \
+        --image-name "rhelai-dev-test" \
+        --image-path "/workspace/rhel-ai-nvidia-aws-1.5-x86_64.vhd" \
+        --debug \
+        --debug-level 9
+
+podman logs -f import-rhelai-azure
+```
+
+Pulumi state is written to `${PWD}/rhelai-dev-test/` — you can delete it when you are done, after you have cleaned up any images you uploaded as part of the test.
 
 ### Run with a cloud Pulumi state backend
 
@@ -410,7 +451,7 @@ PULUMI_CONFIG_PASSPHRASE="" /path/to/importer rhelai gcp \
 
 ## Testing VMs
 
-After a successful import, launch a short-lived test VM to confirm the image boots correctly and is the expected OS/version. Remember to delete the test VM when done.
+After a successful import, the following commands show how to launch a short-lived test VM to confirm the image boots correctly and is the expected OS/version. The region you run the VM in must have access to the image and will benefit from having default networking already established — if it doesn't, you will need to create or configure the necessary networking yourself. Remember to delete the test VM when done.
 
 ### AWS
 

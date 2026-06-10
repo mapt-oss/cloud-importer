@@ -54,7 +54,7 @@ func (r rhelaiEphemeralRequest) rhelaiEphemeralRunFunc(ctx *pulumi.Context) erro
 	if err != nil {
 		return err
 	}
-	ro, _, err := createVMIEmportExportRole(ctx, bucketName)
+	ro, err := createVMIEmportExportRole(ctx, bucketName)
 	if err != nil {
 		return err
 	}
