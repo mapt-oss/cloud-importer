@@ -37,7 +37,7 @@ spec:
       mountPath: /opt/aws-credentials
   steps:
     - name: run-cloud-importer
-      image: quay.io/mapt-oss/cloud-importer:v1.0.0-dev
+      image: quay.io/aipcc-cicd/cloud-importer:v1.0.0-dev
       script: |
         #!/bin/sh
 

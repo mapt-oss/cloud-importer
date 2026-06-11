@@ -525,14 +525,32 @@ Versioned images are published to `quay.io/aipcc-cicd/cloud-importer` on every t
 
 To trigger a release:
 
-1. Ensure your changes are merged to `main` or a `release-*` branch
-2. Push a tag matching `v*.*.*` (e.g. `v1.0.0`)
-3. The release workflow will:
-   - Copy the image from ghcr to `quay.io/aipcc-cicd/cloud-importer:v1.0.0`
+1. Create a release branch:
+   ```bash
+   git checkout -b release-9.9.9
+   ```
+2. Update `VERSION` in the Makefile:
+   ```makefile
+   VERSION ?= 9.9.9
+   ```
+3. Regenerate Tekton tasks:
+   ```bash
+   make tkn-update
+   ```
+4. Commit and tag:
+   ```bash
+   git add Makefile tkn/
+   git commit -m "release v9.9.9"
+   git tag v9.9.9
+   ```
+5. Push the tag:
+   ```bash
+   git push upstream v9.9.9
+   ```
+6. The release workflow will:
+   - Build and push `quay.io/aipcc-cicd/cloud-importer:v9.9.9`
    - Also tag it as `quay.io/aipcc-cicd/cloud-importer:latest`
    - Create a GitHub Release with auto-generated notes
-
-Tags must point to a commit on `main` or a `release-*` branch, otherwise the workflow will fail.
 
 ---
 

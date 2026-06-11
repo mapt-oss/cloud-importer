@@ -1,8 +1,7 @@
 VERSION ?= 1.0.0-dev
 CONTAINER_MANAGER ?= podman
 # Image URL to use all building/pushing image targets
-IMG ?= quay.io/mapt-oss/cloud-importer:v${VERSION}
-TKN_IMG ?= quay.io/mapt-oss/mapt:v${VERSION}-tkn
+IMG ?= quay.io/aipcc-cicd/cloud-importer:v${VERSION}
 
 # Go and compilation related variables
 GOPATH ?= $(shell go env GOPATH)
@@ -109,12 +108,3 @@ endef
 .PHONY: tkn-update
 tkn-update:
 	$(call tkn_update,$(IMG),$(VERSION))
-
-# Create tekton task bundle
-.PHONY: tkn-push
-tkn-push: install-out-of-tree-tools
-	$(TOOLS_BINDIR)/tkn bundle push $(TKN_IMG) \
-		-f tkn/rhelai-aws.yaml \
-		-f tkn/rhelai-azure.yaml \
-		-f tkn/snc-aws.yaml \
-		-f tkn/snc-azure.yaml
