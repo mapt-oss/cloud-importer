@@ -115,6 +115,6 @@ tkn-update:
 tkn-push: install-out-of-tree-tools
 	$(TOOLS_BINDIR)/tkn bundle push $(TKN_IMG) \
 		-f tkn/rhelai-aws.yaml \
-		-f tkn/rehlai-azure.yaml \
+		-f tkn/rhelai-azure.yaml \
 		-f tkn/snc-aws.yaml \
 		-f tkn/snc-azure.yaml
