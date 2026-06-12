@@ -540,7 +540,7 @@ To trigger a release:
 4. Commit and tag:
    ```bash
    git add Makefile tkn/
-   git commit -m "release v9.9.9"
+   git commit -m "chore(cut) v9.9.9"
    git tag v9.9.9
    ```
 5. Push the tag:
