@@ -1,18 +1,18 @@
 apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
-  name: cloud-importer-azure
+  name: cloud-importer-rhelai-gcp
   labels:
     app.kubernetes.io/version: "<VERSION>"
   annotations:
     tekton.dev/pipelines.minVersion: "0.44.x"
     tekton.dev/categories: infrastructure
-    tekton.dev/tags: infrastructure, azure, rhelai
-    tekton.dev/displayName: "CloudImporter Azure"
+    tekton.dev/tags: infrastructure, gcp, rhelai
+    tekton.dev/displayName: "CloudImporter RHEL-AI GCP"
     tekton.dev/platforms: "linux/amd64"
 spec:
   description: >-
-    This Task imports a RAW image to Azure using the cloud-importer tool.
+    This Task imports a RAW image to GCP using the cloud-importer tool.
   params:
     # general
     - name: debug
@@ -22,32 +22,28 @@ spec:
     - name: operation
       description: operation to perform (create or destroy)
       default: create
-    - name: secret-az-credentials
+    - name: secret-gcp-credentials
       description: |
-        K8S secret holding the Azure credentials. Secret should be accessible to this task.
+        K8S secret holding the GCP credentials. Secret should be accessible to this task.
 
         ---
         apiVersion: v1
         kind: Secret
         metadata:
-          name: azure-${name}
+          name: gcp-${name}
         type: Opaque
         data:
-          blob: ${blob}
-          client-id: ${client_id}
-          client-secret: ${client_secret}
-          location: ${location}
-          storage-account: ${storage_account}
-          storage-key: ${storage_key}
-          subscription-id: ${subscription_id}
-          tenant-id: ${tenant_id}
+          bucket: ${bucket}
+          credentials: ${credentials}
+          project: ${project}
+          region: ${region}
 
     # uploading of images
     - name: image-name
-      description: The name for the image in Azure.
+      description: The name of the image to be created.
       default: ""
     - name: image-path
-      description: Local path to the vhd image.
+      description: Local path to the raw image.
       default: ""
     - name: replicate
       description: "A comma-separated list of regions to replicate the image to."
@@ -64,11 +60,11 @@ spec:
       description: destroy even if there is a lock
       default: "false"
     - name: keep-state
-      description: keep the Pulumi state in the Azure Blob backend after successful destroy
+      description: keep the Pulumi state in the GCS backend after successful destroy
       default: "false"
   workspaces:
     - name: data
-      description: A workspace for the vhd image.
+      description: A workspace for the raw image.
       mountPath: /data
       optional: true
   steps:
@@ -91,25 +87,17 @@ spec:
         }
 
         # Credentials - set these BEFORE enabling debug mode
-        export AZURE_STORAGE_ACCOUNT=$(cat /opt/azure-credentials/storage-account)
-        export AZURE_STORAGE_KEY=$(cat /opt/azure-credentials/storage-key)
-        export ARM_CLIENT_ID=$(cat /opt/azure-credentials/client-id)
-        export ARM_CLIENT_SECRET=$(cat /opt/azure-credentials/client-secret)
-        export ARM_LOCATION_NAME=$(cat /opt/azure-credentials/location)
-        export ARM_SUBSCRIPTION_ID=$(cat /opt/azure-credentials/subscription-id)
-        export ARM_TENANT_ID=$(cat /opt/azure-credentials/tenant-id)
-        BLOB=$(cat /opt/azure-credentials/blob)
+        BUCKET=$(cat /opt/gcp-credentials/bucket)
+        export GOOGLE_CREDENTIALS=$(cat /opt/gcp-credentials/credentials)
+        export GOOGLE_PROJECT=$(cat /opt/gcp-credentials/project)
+        export GOOGLE_REGION=$(cat /opt/gcp-credentials/region)
 
         # If debug add verbosity and print masked credentials
         if [[ "$(params.debug)" == "true" ]]; then
-          echo "AZURE_STORAGE_ACCOUNT"=$(mask_credential "$AZURE_STORAGE_ACCOUNT")
-          echo "AZURE_STORAGE_KEY=$(mask_credential "$AZURE_STORAGE_KEY")"
-          echo "ARM_CLIENT_ID=$(mask_credential "$ARM_CLIENT_ID")"
-          echo "ARM_CLIENT_SECRET=$(mask_credential "$ARM_CLIENT_SECRET")"
-          echo "ARM_LOCATION_NAME"=$ARM_LOCATION_NAME
-          echo "ARM_SUBSCRIPTION_ID"=$(mask_credential "$ARM_SUBSCRIPTION_ID")
-          echo "ARM_TENANT_ID"=$(mask_credential "$ARM_TENANT_ID")
-          echo "BLOB"=$BLOB
+          echo "BUCKET"=$BUCKET
+          echo "GOOGLE_CREDENTIALS=$(mask_credential "$GOOGLE_CREDENTIALS")"
+          echo "GOOGLE_PROJECT=$(mask_credential "$GOOGLE_PROJECT")"
+          echo "GOOGLE_REGION=$GOOGLE_REGION"
           set -xeuo pipefail
         fi
 
@@ -119,7 +107,7 @@ spec:
             echo "ERROR: workspace 'data' must be bound for create operation"
             exit 1
           fi
-          cmd+="rhelai az "
+          cmd+="rhelai gcp "
           cmd+="--image-path /data/$(params.image-path) "
           cmd+="--image-name $(params.image-name) "
 
@@ -147,7 +135,7 @@ spec:
         fi
 
         cmd+="--project-name $(params.id) "
-        cmd+="--backed-url azblob://${BLOB}/cloud-importer "
+        cmd+="--backed-url gs://${BUCKET}/cloud-importer "
 
         if [[ "$(params.debug)" == "true" ]]; then
           cmd+="--debug "
@@ -156,9 +144,9 @@ spec:
         eval ${cmd}
 
       volumeMounts:
-        - name: az-credentials
-          mountPath: /opt/az-credentials
+        - name: gcp-credentials
+          mountPath: /opt/gcp-credentials
   volumes:
-    - name: az-credentials
+    - name: gcp-credentials
       secret:
-        secretName: $(params.secret-az-credentials)
+        secretName: $(params.secret-gcp-credentials)

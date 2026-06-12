@@ -14,30 +14,59 @@ spec:
   description: >-
     This Task imports a RAW image to AWS using the cloud-importer tool.
   params:
-    - name: raw-image-path
-      description: Local path to the raw image.
-    - name: ami-name
+    # general
+    - name: debug
+      description: run with deug logs
+    - name: id
+      description: identifier for the taskrun
+    - name: operation
+      description: operation to perform (create or destroy)
+      default: create
+    - name: secret-aws-credentials
+      description: |
+        K8S secret holding the AWS credentials. Secret should be accessible to this task.
+
+        ---
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: aws-${name}
+        type: Opaque
+        data:
+          access-key: ${access_key}
+          secret-key: ${secret_key}
+          region: ${region}
+          bucket: ${bucket}
+
+    # uploading of images
+    - name: image-name
       description: The name of the AMI to be created.
-    - name: share-with-account-ids
-      description: "A comma-separated list of account IDs to share the AMI with."
       default: ""
+    - name: image-path
+      description: Local path to the raw image.
+      default: ""
+    - name: replicate
+      description: "A comma-separated list of regions to replicate the AMI to."
+      default: "all"
     - name: share-orgs-ids
       description: "A comma-separated list of organization ARNs to share the AMI with."
       default: ""
-    - name: replicate-to-regions
-      description: "A comma-separated list of regions to replicate the AMI to."
-      default: "all"
-    - name: id
-      description: identifier for the taskrun
-    - name: debug
-      description: run with deug logs
+    - name: tags
+      description: "A comma-separated list of tags to add to the AMI."
+      default: ""
+
+    # removal of images
+    - name: force-destroy
+      description: destroy even if there is a lock
+      default: "false"
+    - name: keep-state
+      description: keep the Pulumi state in the S3 backend after successful destroy
+      default: "false"
   workspaces:
-    - name: credentials
-      description: A workspace containing the cloud provider credentials.
-      mountPath: /opt/aws-credentials
     - name: data
       description: A workspace for the raw image.
       mountPath: /data
+      optional: true
   steps:
     - name: run-cloud-importer
       image: quay.io/aipcc-cicd/cloud-importer:v1.0.0-dev
@@ -72,19 +101,52 @@ spec:
           set -xeuo pipefail
         fi
 
-        cmd="cloud-importer rhelai aws --output /data/output.json --image-path /data/$(params.raw-image-path) "
-        cmd+="--image-name $(params.ami-name) "
-        cmd+="--backed-url s3://${BUCKET}/cloud-importer/$(params.id) "
-        if [[ "$(params.debug)" == "true" ]]; then
-          cmd+="--debug"
-        fi
-        if [ -n "$(params.share-orgs-ids)" ]; then
-          cmd+=" --share-orgs-ids=$(params.share-orgs-ids)"
+        cmd="cloud-importer "
+        if [[ "$(params.operation)" == "create" ]]; then
+          if [[ "$(workspaces.data.bound)" != "true" ]]; then
+            echo "ERROR: workspace 'data' must be bound for create operation"
+            exit 1
+          fi
+          cmd+="rhelai aws "
+          cmd+="--image-path /data/$(params.image-path) "
+          cmd+="--image-name $(params.image-name) "
+
+          if [ -n "$(params.share-orgs-ids)" ]; then
+            cmd+="--share-orgs-ids=$(params.share-orgs-ids) "
+          fi
+
+          if [ -n "$(params.replicate)" ]; then
+            cmd+="--replicate=$(params.replicate) "
+          fi
+
+          if [ -n "$(params.tags)" ]; then
+            cmd+="--tags=$(params.tags) "
+          fi
+        else
+          cmd+="destroy "
+
+          if [[ "$(params.force-destroy)" == "true" ]]; then
+            cmd+="--force-destroy "
+          fi
+
+          if [[ "$(params.keep-state)" == "true" ]]; then
+            cmd+="--keep-state "
+          fi
         fi
 
-        if [ -n "$(params.replicate-to-regions)" ]; then
-          cmd+=" --replicate=$(params.replicate-to-regions)"
+        cmd+="--project-name $(params.id) "
+        cmd+="--backed-url s3://${BUCKET}/cloud-importer "
+
+        if [[ "$(params.debug)" == "true" ]]; then
+          cmd+="--debug "
         fi
 
         eval ${cmd}
 
+      volumeMounts:
+        - name: aws-credentials
+          mountPath: /opt/aws-credentials
+  volumes:
+    - name: aws-credentials
+      secret:
+        secretName: $(params.secret-aws-credentials)
