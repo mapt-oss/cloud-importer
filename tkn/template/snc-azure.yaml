@@ -14,27 +14,61 @@ spec:
   description: >-
     This Task imports an OpenShift Local bundle to Azure using the cloud-importer tool.
   params:
-    - name: bundle-uri
-      description: Accessible URL to get the bundle.
-    - name: shasum-uri
-      description: Accessible URL to get the shasum file to check bundle.
+    # general
+    - name: debug
+      description: run with deug logs
+    - name: id
+      description: identifier for the taskrun
+    - name: operation
+      description: operation to perform (create or destroy)
+      default: create
+    - name: secret-az-credentials
+      description: |
+        K8S secret holding the Azure credentials. Secret should be accessible to this task.
+
+        ---
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: azure-${name}
+        type: Opaque
+        data:
+          blob: ${blob}
+          client-id: ${client_id}
+          client-secret: ${client_secret}
+          location: ${location}
+          storage-account: ${storage_account}
+          storage-key: ${storage_key}
+          subscription-id: ${subscription_id}
+          tenant-id: ${tenant_id}
+
+    # uploading of images
     - name: arch
       description: Architecture for the machine (x86_64 or arm64).
       default: "x86_64"
-    - name: share-orgs-ids
-      description: "A comma-separated list of organization ARNs to share the AMI with."
+    - name: bundle-uri
+      description: Accessible URL to get the bundle.
       default: ""
-    - name: replicate-to-regions
-      description: "A comma-separated list of regions to replicate the AMI to."
+    - name: replicate
+      description: "A comma-separated list of regions to replicate the image to."
       default: "all"
-    - name: id
-      description: identifier for the taskrun
-    - name: debug
-      description: run with deug logs
-  workspaces:
-    - name: credentials
-      description: A workspace containing the cloud provider credentials.
-      mountPath: /opt/az-credentials
+    - name: share-orgs-ids
+      description: "A comma-separated list of organization tenant IDs to share the image with."
+      default: ""
+    - name: shasum-uri
+      description: Accessible URL to get the shasum file to check bundle.
+      default: ""
+    - name: tags
+      description: "A comma-separated list of tags to add to the image."
+      default: ""
+
+    # removal of images
+    - name: force-destroy
+      description: destroy even if there is a lock
+      default: "false"
+    - name: keep-state
+      description: keep the Pulumi state in the S3 backend after successful destroy
+      default: "false"
   steps:
     - name: run-cloud-importer
       image: <IMAGE>
@@ -55,40 +89,70 @@ spec:
         }
 
         # Credentials - set these BEFORE enabling debug mode
-        export ARM_TENANT_ID=$(cat /opt/az-credentials/tenant_id)
-        export ARM_SUBSCRIPTION_ID=$(cat /opt/az-credentials/subscription_id)
-        export ARM_CLIENT_ID=$(cat /opt/az-credentials/client_id)
-        export ARM_CLIENT_SECRET=$(cat /opt/az-credentials/client_secret)
-        export AZURE_STORAGE_ACCOUNT=$(cat /opt/az-credentials/storage_account)
-        export AZURE_STORAGE_KEY=$(cat /opt/az-credentials/storage_key)
-        BLOB=$(cat /opt/az-credentials/blob)
+        export AZURE_STORAGE_ACCOUNT=$(cat /opt/azure-credentials/storage-account)
+        export AZURE_STORAGE_KEY=$(cat /opt/azure-credentials/storage-key)
+        export ARM_CLIENT_ID=$(cat /opt/azure-credentials/client-id)
+        export ARM_CLIENT_SECRET=$(cat /opt/azure-credentials/client-secret)
+        export ARM_LOCATION_NAME=$(cat /opt/azure-credentials/location)
+        export ARM_SUBSCRIPTION_ID=$(cat /opt/azure-credentials/subscription-id)
+        export ARM_TENANT_ID=$(cat /opt/azure-credentials/tenant-id)
+        BLOB=$(cat /opt/azure-credentials/blob)
 
         # If debug add verbosity and print masked credentials
         if [[ "$(params.debug)" == "true" ]]; then
-          echo "ARM_TENANT_ID=$(mask_credential "$ARM_TENANT_ID")"
-          echo "ARM_SUBSCRIPTION_ID=$(mask_credential "$ARM_SUBSCRIPTION_ID")"
+          echo "AZURE_STORAGE_ACCOUNT"=$(mask_credential "$AZURE_STORAGE_ACCOUNT")
+          echo "AZURE_STORAGE_KEY=$(mask_credential "$AZURE_STORAGE_KEY")"
           echo "ARM_CLIENT_ID=$(mask_credential "$ARM_CLIENT_ID")"
           echo "ARM_CLIENT_SECRET=$(mask_credential "$ARM_CLIENT_SECRET")"
-          echo "AZURE_STORAGE_ACCOUNT=$(mask_credential "$AZURE_STORAGE_ACCOUNT")"
-          echo "AZURE_STORAGE_KEY=$(mask_credential "$AZURE_STORAGE_KEY")"
-          echo "BLOB=$BLOB"
+          echo "ARM_LOCATION_NAME"=$ARM_LOCATION_NAME
+          echo "ARM_SUBSCRIPTION_ID"=$(mask_credential "$ARM_SUBSCRIPTION_ID")
+          echo "ARM_TENANT_ID"=$(mask_credential "$ARM_TENANT_ID")
+          echo "BLOB"=$BLOB
           set -xeuo pipefail
         fi
 
-        cmd="cloud-importer snc az --arch $(params.arch) "
-        cmd+="--bundle-uri \"$(params.bundle-uri)\" --shasum-uri \"$(params.shasum-uri)\" "
-        cmd+="--backed-url azblob://${BLOB}/cloud-importer-crc-bundle-$(params.id) "
+        cmd="cloud-importer "
+        if [[ "$(params.operation)" == "create" ]]; then
+          cmd+="snc az "
+          cmd+="--arch $(params.arch) "
+          cmd+="--bundle-uri \"$(params.bundle-uri)\" --shasum-uri \"$(params.shasum-uri)\" "
 
-        if [ -n "$(params.share-orgs-ids)" ]; then
-          cmd+="--share-orgs-ids=$(params.share-orgs-ids) "
+          if [ -n "$(params.share-orgs-ids)" ]; then
+            cmd+="--share-orgs-ids=$(params.share-orgs-ids) "
+          fi
+
+          if [ -n "$(params.replicate)" ]; then
+            cmd+="--replicate=$(params.replicate) "
+          fi
+
+          if [ -n "$(params.tags)" ]; then
+            cmd+="--tags=$(params.tags) "
+          fi
+        else
+          cmd+="destroy "
+
+          if [[ "$(params.force-destroy)" == "true" ]]; then
+            cmd+="--force-destroy "
+          fi
+
+          if [[ "$(params.keep-state)" == "true" ]]; then
+            cmd+="--keep-state "
+          fi
         fi
 
-        if [ -n "$(params.replicate-to-regions)" ]; then
-          cmd+="--replicate=$(params.replicate-to-regions) "
-        fi
+        cmd+="--project-name $(params.id) "
+        cmd+="--backed-url azblob://${BLOB}/cloud-importer "
 
         if [[ "$(params.debug)" == "true" ]]; then
           cmd+="--debug"
         fi
 
         eval ${cmd}
+
+      volumeMounts:
+        - name: az-credentials
+          mountPath: /opt/az-credentials
+  volumes:
+    - name: az-credentials
+      secret:
+        secretName: $(params.secret-az-credentials)
