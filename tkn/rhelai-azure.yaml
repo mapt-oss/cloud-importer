@@ -3,7 +3,7 @@ kind: Task
 metadata:
   name: cloud-importer-azure
   labels:
-    app.kubernetes.io/version: "1.0.0-dev"
+    app.kubernetes.io/version: "0.0.2"
   annotations:
     tekton.dev/pipelines.minVersion: "0.44.x"
     tekton.dev/categories: infrastructure
@@ -37,7 +37,7 @@ spec:
       mountPath: /data
   steps:
     - name: run-cloud-importer
-      image: quay.io/aipcc-cicd/cloud-importer:v1.0.0-dev
+      image: quay.io/aipcc-cicd/cloud-importer:v0.0.2
       script: |
         #!/bin/sh
 
