@@ -100,6 +100,7 @@ define tkn_update
 	rm -f tkn/*.yaml
 	sed -e 's%<IMAGE>%$(1)%g' -e 's%<VERSION>%$(2)%g' tkn/template/rhelai-aws.yaml > tkn/rhelai-aws.yaml
 	sed -e 's%<IMAGE>%$(1)%g' -e 's%<VERSION>%$(2)%g' tkn/template/rhelai-azure.yaml > tkn/rhelai-azure.yaml
+	sed -e 's%<IMAGE>%$(1)%g' -e 's%<VERSION>%$(2)%g' tkn/template/rhelai-gcp.yaml > tkn/rhelai-gcp.yaml
 	sed -e 's%<IMAGE>%$(1)%g' -e 's%<VERSION>%$(2)%g' tkn/template/snc-aws.yaml > tkn/snc-aws.yaml
 	sed -e 's%<IMAGE>%$(1)%g' -e 's%<VERSION>%$(2)%g' tkn/template/snc-azure.yaml > tkn/snc-azure.yaml
 endef
