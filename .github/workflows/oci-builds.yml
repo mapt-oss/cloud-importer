@@ -150,8 +150,17 @@ jobs:
           skopeo copy -a \
             docker://quay.io/aipcc-cicd/cloud-importer:v${{ env.VERSION }} \
             docker://quay.io/aipcc-cicd/cloud-importer:latest
+      - name: Get previous release tag
+        id: prev
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "tag=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --json tagName --jq '.[0].tagName')" >> "$GITHUB_OUTPUT"
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create v${{ env.VERSION }} --title "Release v${{ env.VERSION }}" --generate-notes
+          ARGS="--generate-notes"
+          if [ -n "${{ steps.prev.outputs.tag }}" ]; then
+            ARGS="$ARGS --notes-start-tag ${{ steps.prev.outputs.tag }}"
+          fi
+          gh release create "v${{ env.VERSION }}" --title "Release v${{ env.VERSION }}" $ARGS
