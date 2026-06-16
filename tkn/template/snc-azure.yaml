@@ -89,14 +89,14 @@ spec:
         }
 
         # Credentials - set these BEFORE enabling debug mode
-        export AZURE_STORAGE_ACCOUNT=$(cat /opt/azure-credentials/storage-account)
-        export AZURE_STORAGE_KEY=$(cat /opt/azure-credentials/storage-key)
-        export ARM_CLIENT_ID=$(cat /opt/azure-credentials/client-id)
-        export ARM_CLIENT_SECRET=$(cat /opt/azure-credentials/client-secret)
-        export ARM_LOCATION_NAME=$(cat /opt/azure-credentials/location)
-        export ARM_SUBSCRIPTION_ID=$(cat /opt/azure-credentials/subscription-id)
-        export ARM_TENANT_ID=$(cat /opt/azure-credentials/tenant-id)
-        BLOB=$(cat /opt/azure-credentials/blob)
+        export AZURE_STORAGE_ACCOUNT=$(cat /opt/az-credentials/storage-account)
+        export AZURE_STORAGE_KEY=$(cat /opt/az-credentials/storage-key)
+        export ARM_CLIENT_ID=$(cat /opt/az-credentials/client-id)
+        export ARM_CLIENT_SECRET=$(cat /opt/az-credentials/client-secret)
+        export ARM_LOCATION_NAME=$(cat /opt/az-credentials/location)
+        export ARM_SUBSCRIPTION_ID=$(cat /opt/az-credentials/subscription-id)
+        export ARM_TENANT_ID=$(cat /opt/az-credentials/tenant-id)
+        BLOB=$(cat /opt/az-credentials/blob)
 
         # If debug add verbosity and print masked credentials
         if [[ "$(params.debug)" == "true" ]]; then
