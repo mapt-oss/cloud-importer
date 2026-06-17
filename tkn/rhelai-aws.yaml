@@ -3,7 +3,7 @@ kind: Task
 metadata:
   name: cloud-importer-rhelai-aws
   labels:
-    app.kubernetes.io/version: "1.0.0-dev"
+    app.kubernetes.io/version: "0.0.4"
   annotations:
     tekton.dev/pipelines.minVersion: "0.44.x"
     tekton.dev/categories: infrastructure
@@ -69,7 +69,7 @@ spec:
       optional: true
   steps:
     - name: run-cloud-importer
-      image: quay.io/aipcc-cicd/cloud-importer:v1.0.0-dev
+      image: quay.io/aipcc-cicd/cloud-importer:v0.0.4
       script: |
         #!/bin/sh
 
