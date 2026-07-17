@@ -4,9 +4,14 @@ import (
 	gocontext "context"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/aws/aws-sdk-go-v2/config"
+	awsec2 "github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2Types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/mapt-oss/cloud-importer/pkg/manager/context"
 	hostingPlaces "github.com/mapt-oss/cloud-importer/pkg/util/hosting-place"
+	"github.com/mapt-oss/cloud-importer/pkg/util/logging"
 	"github.com/pulumi/pulumi-aws/sdk/v7/go/aws/ebs"
 	"github.com/pulumi/pulumi-aws/sdk/v7/go/aws/ec2"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
@@ -53,7 +58,7 @@ func (a *aws) ImageRegister(ephemeralResults auto.UpResult, replicate bool, shar
 		replicate:    replicate,
 		shareorgARNs: shareOrgIds,
 	}
-	return r.registerFunc, nil, nil
+	return r.registerFunc, r.monitorSnapshotImportProgress, nil
 }
 
 type registerRequest struct {
@@ -148,6 +153,129 @@ func (r *registerRequest) newAMI(ctx *pulumi.Context) (*ec2.Ami, error) {
 		}
 	}
 	return ami, nil
+}
+
+func (r *registerRequest) monitorSnapshotImportProgress(ctx gocontext.Context) {
+	time.Sleep(30 * time.Second)
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		logging.Debugf("snapshot import progress monitor: failed to load AWS config: %v", err)
+		return
+	}
+	client := awsec2.NewFromConfig(cfg)
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	lastLog := ""
+	snapshotDone := false
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if !snapshotDone {
+				snapshotDone = r.pollSnapshotImport(ctx, client, &lastLog)
+			}
+			if snapshotDone && r.replicate {
+				r.pollAMIReplication(ctx, &lastLog)
+			}
+		}
+	}
+}
+
+func (r *registerRequest) pollSnapshotImport(ctx gocontext.Context, client *awsec2.Client, lastLog *string) bool {
+	resp, err := client.DescribeImportSnapshotTasks(ctx, &awsec2.DescribeImportSnapshotTasksInput{})
+	if err != nil {
+		logging.Debugf("snapshot import progress poll: %v", err)
+		return false
+	}
+	for _, task := range resp.ImportSnapshotTasks {
+		if task.Description == nil || *task.Description != r.name {
+			continue
+		}
+		if task.SnapshotTaskDetail == nil {
+			continue
+		}
+		detail := task.SnapshotTaskDetail
+		status := ""
+		if detail.Status != nil {
+			status = *detail.Status
+		}
+		statusMsg := ""
+		if detail.StatusMessage != nil {
+			statusMsg = *detail.StatusMessage
+		}
+		progress := ""
+		if detail.Progress != nil {
+			progress = *detail.Progress
+		}
+		if status == "completed" {
+			progress = "100"
+		}
+		var msg string
+		if progress != "" {
+			msg = fmt.Sprintf("Snapshot import progress: status=%s, %s%% completed", status, progress)
+		} else if statusMsg != "" {
+			msg = fmt.Sprintf("Snapshot import progress: status=%s, %s", status, statusMsg)
+		} else {
+			msg = fmt.Sprintf("Snapshot import progress: status=%s", status)
+		}
+		if msg != *lastLog {
+			*lastLog = msg
+			logging.Info(msg)
+		}
+		return status == "completed"
+	}
+	return false
+}
+
+func (r *registerRequest) pollAMIReplication(ctx gocontext.Context, lastLog *string) {
+	regions, err := getOtherRegions()
+	if err != nil {
+		logging.Debugf("AMI replication progress: failed to get regions: %v", err)
+		return
+	}
+	tagFilterName := "tag:Name"
+	available := 0
+	pending := []string{}
+	for _, region := range regions {
+		cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
+		if err != nil {
+			logging.Debugf("AMI replication progress poll (%s): %v", region, err)
+			continue
+		}
+		client := awsec2.NewFromConfig(cfg)
+		resp, err := client.DescribeImages(ctx, &awsec2.DescribeImagesInput{
+			Filters: []ec2Types.Filter{
+				{
+					Name:   &tagFilterName,
+					Values: []string{r.name},
+				},
+			},
+			Owners: []string{"self"},
+		})
+		if err != nil {
+			logging.Debugf("AMI replication progress poll (%s): %v", region, err)
+			pending = append(pending, region)
+			continue
+		}
+		if len(resp.Images) == 0 || resp.Images[0].State != ec2Types.ImageStateAvailable {
+			pending = append(pending, region)
+		} else {
+			available++
+		}
+	}
+	total := len(regions)
+	var msg string
+	if len(pending) == 0 {
+		msg = fmt.Sprintf("AMI replication progress: %d/%d regions completed", available, total)
+	} else {
+		msg = fmt.Sprintf("AMI replication progress: %d/%d regions completed, pending: %s",
+			available, total, strings.Join(pending, ", "))
+	}
+	if msg != *lastLog {
+		*lastLog = msg
+		logging.Info(msg)
+	}
 }
 
 type replicateArgs struct {
