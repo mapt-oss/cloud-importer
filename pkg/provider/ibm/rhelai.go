@@ -4,15 +4,14 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/pulumi/pulumi-command/sdk/go/command/local"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
 const rhelaiArch = "x86_64"
 
 type rhelaiEphemeralRequest struct {
-	rawImageFilePath string
-	imageName        string
+	qcow2ImageFilePath string
+	imageName          string
 }
 
 func (p *ibmProvider) RHELAIEphemeral(imageFilePath, imageName string) pulumi.RunFunc {
@@ -21,8 +20,8 @@ func (p *ibmProvider) RHELAIEphemeral(imageFilePath, imageName string) pulumi.Ru
 }
 
 func (r rhelaiEphemeralRequest) rhelaiEphemeralRunFunc(ctx *pulumi.Context) error {
-	if filepath.Ext(r.rawImageFilePath) != ".raw" {
-		return fmt.Errorf("--image-path must be a raw disk image (*.raw); got %q", r.rawImageFilePath)
+	if filepath.Ext(r.qcow2ImageFilePath) != ".qcow2" {
+		return fmt.Errorf("--image-path must be a qcow2 disk image (*.qcow2); got %q", r.qcow2ImageFilePath)
 	}
 
 	region, err := sourceRegion()
@@ -54,22 +53,7 @@ func (r rhelaiEphemeralRequest) rhelaiEphemeralRunFunc(ctx *pulumi.Context) erro
 		return err
 	}
 
-	// IBM VPC does not support raw format; convert to qcow2 beside the source
-	// image to avoid filling the container overlay filesystem.
-	qcow2Path := filepath.Join(filepath.Dir(r.rawImageFilePath),
-		bucketName+"-disk.qcow2")
-	convert, err := local.NewCommand(ctx, "convertToQcow2", &local.CommandArgs{
-		Create: pulumi.String(fmt.Sprintf(
-			"qemu-img convert -p -f raw -O qcow2 %s %s",
-			r.rawImageFilePath, qcow2Path)),
-		Delete: pulumi.String(fmt.Sprintf("rm -f %s", qcow2Path)),
-	}, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "2h", Delete: "5m"}),
-		pulumi.DependsOn([]pulumi.Resource{bucket}))
-	if err != nil {
-		return err
-	}
-
-	_, err = uploadDisk(ctx, qcow2Path, "disk.qcow2", bucketName, region,
-		[]pulumi.Resource{bucket, convert})
+	_, err = uploadDisk(ctx, r.qcow2ImageFilePath, "disk.qcow2", bucketName, region,
+		[]pulumi.Resource{bucket})
 	return err
 }
