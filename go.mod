@@ -18,6 +18,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.1
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.274.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.88.4
+	github.com/mapt-oss/pulumi-ibmcloud/sdk v0.0.12
 	github.com/pulumi/pulumi-aws-native/sdk v1.38.0
 	github.com/pulumi/pulumi-aws/sdk/v7 v7.12.0
 	github.com/pulumi/pulumi-azure-native-sdk/compute/v3 v3.10.1
@@ -28,7 +29,6 @@ require (
 	github.com/pulumi/pulumi/sdk/v3 v3.242.0
 	github.com/redhat-developer/mapt v0.9.9
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/oauth2 v0.35.0
 	google.golang.org/api v0.169.0
 )
 
@@ -168,6 +168,7 @@ require (
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
 	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/net v0.53.0 // indirect
+	golang.org/x/oauth2 v0.35.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
 	golang.org/x/term v0.42.0 // indirect

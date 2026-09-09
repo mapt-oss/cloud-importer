@@ -57,7 +57,7 @@ Before you begin, ensure you have the following:
 
 | Flag | Description |
 |---|---|
-| `--image-path` | Local path to the image file (`.raw` for AWS/GCP, `.vhd` for Azure) |
+| `--image-path` | Local path to the image file (`.raw` for AWS/GCP, `.vhd` for Azure, `.qcow2` for IBM) |
 | `--image-name` | Name to register the image under in the cloud provider |
 
 ### SNC (OpenShift Local) specific
@@ -167,6 +167,43 @@ podman logs -f import-rhelai-gcp
 
 > **Note:** For GCP, `--replicate` creates `imagename-us`, `imagename-eu`, and `imagename-asia` copies via image-from-image (no re-upload). Consumer tooling is responsible for mapping zone prefix to image name: `us-*` → `-us`, `europe-*` → `-eu`, `asia-*` → `-asia`, all other zones → canonical image.
 
+### IBM Cloud
+
+RHEL AI provides qcow2 images natively, which is the format required by IBM VPC custom images — no conversion needed. The image is uploaded directly to IBM Cloud Object Storage and registered as a private VPC custom image.
+
+**Required environment variables:**
+
+| Variable | Description |
+|---|---|
+| `IBMCLOUD_API_KEY` | IBM Cloud API key |
+| `IC_REGION` | IBM Cloud region (e.g. `us-south`) |
+| `IC_RESOURCE_GROUP` | IBM Cloud resource group name |
+| `IBMCLOUD_COS_INSTANCE_ID` | CRN of the Cloud Object Storage instance |
+| `IBMCLOUD_COS_ACCESS_KEY` | HMAC access key for COS S3-compatible upload |
+| `IBMCLOUD_COS_SECRET_KEY` | HMAC secret key for COS S3-compatible upload |
+| `IBMCLOUD_VPC_OS` | VPC OS slug (e.g. `red-hat-enterprise-linux-9-amd64-byol`) |
+
+```bash
+podman run --rm --name import-rhelai-ibm -d \
+    -v ${PWD}:/workspace:z \
+    -e IBMCLOUD_API_KEY=${IBMCLOUD_API_KEY} \
+    -e IC_REGION=${IC_REGION} \
+    -e IC_RESOURCE_GROUP=${IC_RESOURCE_GROUP} \
+    -e IBMCLOUD_COS_INSTANCE_ID=${IBMCLOUD_COS_INSTANCE_ID} \
+    -e IBMCLOUD_COS_ACCESS_KEY=${IBMCLOUD_COS_ACCESS_KEY} \
+    -e IBMCLOUD_COS_SECRET_KEY=${IBMCLOUD_COS_SECRET_KEY} \
+    -e IBMCLOUD_VPC_OS=${IBMCLOUD_VPC_OS} \
+    quay.io/aipcc-cicd/cloud-importer:latest rhelai ibm \
+        --project-name "rhelai3-136d47d1" \
+        --backed-url cos://bucket/folder \
+        --image-name rhelai3-136d47d1 \
+        --image-path "/workspace/rhel-ai-nvidia-ibm-1.5-x86_64.qcow2" \
+        --debug \
+        --debug-level 9
+
+podman logs -f import-rhelai-ibm
+```
+
 ---
 
 ## SNC (OpenShift Local)
@@ -231,6 +268,27 @@ podman run --rm --name import-snc-gcp -d \
         --shasum-uri ${SHASUM_URL} \
         --arch ${ARCH} \
         --share-orgs-ids gcp-project-a,gcp-project-b \
+        --debug \
+        --debug-level 9
+```
+
+### IBM Cloud
+
+```bash
+podman run --rm --name import-snc-ibm -d \
+    -e IBMCLOUD_API_KEY=${IBMCLOUD_API_KEY} \
+    -e IC_REGION=${IC_REGION} \
+    -e IC_RESOURCE_GROUP=${IC_RESOURCE_GROUP} \
+    -e IBMCLOUD_COS_INSTANCE_ID=${IBMCLOUD_COS_INSTANCE_ID} \
+    -e IBMCLOUD_COS_ACCESS_KEY=${IBMCLOUD_COS_ACCESS_KEY} \
+    -e IBMCLOUD_COS_SECRET_KEY=${IBMCLOUD_COS_SECRET_KEY} \
+    -e IBMCLOUD_VPC_OS=${IBMCLOUD_VPC_OS} \
+    quay.io/aipcc-cicd/cloud-importer:latest snc ibm \
+        --project-name "snc-4.20.0" \
+        --backed-url cos://bucket/folder \
+        --bundle-uri ${BUNDLE_URL} \
+        --shasum-uri ${SHASUM_URL} \
+        --arch ${ARCH} \
         --debug \
         --debug-level 9
 ```

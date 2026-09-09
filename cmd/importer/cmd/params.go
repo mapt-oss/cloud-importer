@@ -11,6 +11,7 @@ const (
 	awsCMD                string = "aws"
 	azureCMD              string = "az"
 	gcpCMD                string = "gcp"
+	ibmCMD                string = "ibm"
 	projectName           string = "project-name"
 	projectNameDesc       string = "project name to identify the execution"
 	backedURL             string = "backed-url"
