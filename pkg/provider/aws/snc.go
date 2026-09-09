@@ -57,7 +57,7 @@ func (r sncEphemeralRequest) sncEphemeralRunFunc(ctx *pulumi.Context) error {
 		return err
 	}
 	ctx.Export(outRoleName, ro.RoleName)
-	_, err = uploadDisk(ctx, &bundle.ExtractedRAWDiskFileName, &amiName,
+	_, err = uploadDisk(ctx, &bundle.ExtractedRAWDiskFileName, bucketName,
 		[]pulumi.Resource{ro, extractExecution})
 	return err
 }
