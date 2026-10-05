@@ -53,7 +53,8 @@ func init() {
 		rhelaiCmds(),
 		destroy(),
 		checkCmds(),
-		gcsUploadCmd())
+		gcsUploadCmd(),
+		ibmCmds())
 }
 
 func Execute() {

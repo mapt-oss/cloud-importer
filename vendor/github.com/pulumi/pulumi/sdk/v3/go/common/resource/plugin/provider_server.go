@@ -39,6 +39,11 @@ type providerServer struct {
 	provider                       Provider
 	acceptSecrets, sendSecrets     bool
 	acceptResources, sendResources bool
+
+	// True if the caller accepts strings containing bytes that are not valid UTF-8. Unlike the other
+	// capabilities this defaults to false: it is only enabled when the caller advertises it via Handshake or
+	// Configure, since older engines cannot decode the encoding.
+	sendByteString bool
 }
 
 func NewProviderServer(provider Provider) pulumirpc.ResourceProviderServer {
@@ -63,11 +68,12 @@ func (p *providerServer) unmarshalOptions(label string, keepOutputValues bool) M
 
 func (p *providerServer) marshalOptions(label string) MarshalOptions {
 	return MarshalOptions{
-		Label:         label,
-		KeepUnknowns:  true,
-		KeepSecrets:   p.sendSecrets,
-		KeepResources: p.sendResources,
-		PropagateNil:  true,
+		Label:          label,
+		KeepUnknowns:   true,
+		KeepSecrets:    p.sendSecrets,
+		KeepResources:  p.sendResources,
+		KeepByteString: p.sendByteString,
+		PropagateNil:   true,
 	}
 }
 
@@ -152,6 +158,10 @@ func (p *providerServer) Handshake(
 		SupportsViews:               req.SupportsViews,
 		SupportsRefreshBeforeUpdate: req.SupportsRefreshBeforeUpdate,
 		InvokeWithPreview:           req.InvokeWithPreview,
+		MapperTarget:                req.MapperTarget,
+		LoaderTarget:                req.LoaderTarget,
+		ResolverTarget:              req.ResolverTarget,
+		AcceptsByteString:           req.AcceptsByteString,
 	})
 	if err != nil {
 		return nil, err
@@ -159,12 +169,16 @@ func (p *providerServer) Handshake(
 
 	p.acceptSecrets = res.AcceptSecrets
 	p.acceptResources = res.AcceptResources
+	p.sendByteString = req.AcceptsByteString
 
 	return &pulumirpc.ProviderHandshakeResponse{
 		AcceptSecrets:                   res.AcceptSecrets,
 		AcceptResources:                 res.AcceptResources,
 		AcceptOutputs:                   res.AcceptOutputs,
 		SupportsAutonamingConfiguration: res.SupportsAutonamingConfiguration,
+		// providerServer unmarshals byte string into plain Go strings before handing them to the wrapped
+		// provider, so it can shim support regardless of the provider's own answer.
+		AcceptsByteString: true,
 	}, nil
 }
 
@@ -365,7 +379,7 @@ func (p *providerServer) Configure(ctx context.Context,
 		inputs = args
 	} else {
 		inputs = make(resource.PropertyMap)
-		for k, v := range req.GetVariables() {
+		for k, v := range req.GetVariables() { //nolint:staticcheck // maintain backwards compatibility
 			key, err := config.ParseKey(k)
 			if err != nil {
 				return nil, err
@@ -621,6 +635,7 @@ func (p *providerServer) Read(ctx context.Context, req *pulumirpc.ReadRequest) (
 		ID:                    requestID,
 		Inputs:                inputs,
 		State:                 state,
+		Timeout:               req.GetTimeout(),
 		ResourceStatusAddress: req.GetResourceStatusAddress(),
 		ResourceStatusToken:   req.GetResourceStatusToken(),
 		OldViews:              oldViews,
@@ -651,9 +666,52 @@ func (p *providerServer) List(
 	req *pulumirpc.ListRequest,
 	stream grpc.ServerStreamingServer[pulumirpc.ListResponse],
 ) error {
-	_ = req
-	_ = stream
-	return status.Error(codes.Unimplemented, "List is not yet implemented")
+	query, err := UnmarshalProperties(req.GetQuery(), p.unmarshalOptions("list.query", false))
+	if err != nil {
+		return err
+	}
+	listStream, err := p.provider.List(stream.Context(), ListRequest{
+		Token:             tokens.Type(req.GetToken()),
+		Query:             query,
+		Limit:             req.GetLimit(),
+		PageSize:          req.GetPageSize(),
+		ContinuationToken: req.GetContinuationToken(),
+	})
+	if err != nil {
+		return err
+	}
+	for result, err := range listStream.Items {
+		if err != nil {
+			return err
+		}
+		if err := stream.Send(&pulumirpc.ListResponse{
+			Response: &pulumirpc.ListResponse_Result_{
+				Result: &pulumirpc.ListResponse_Result{
+					Id:   string(result.ID),
+					Name: result.Name,
+				},
+			},
+		}); err != nil {
+			return err
+		}
+	}
+	if listStream.Computed {
+		return stream.Send(&pulumirpc.ListResponse{
+			Response: &pulumirpc.ListResponse_Computed_{
+				Computed: &pulumirpc.ListResponse_Computed{},
+			},
+		})
+	}
+	if listStream.ContinuationToken != "" {
+		return stream.Send(&pulumirpc.ListResponse{
+			Response: &pulumirpc.ListResponse_Continuation_{
+				Continuation: &pulumirpc.ListResponse_Continuation{
+					ContinuationToken: listStream.ContinuationToken,
+				},
+			},
+		})
+	}
+	return nil
 }
 
 func (p *providerServer) Update(ctx context.Context, req *pulumirpc.UpdateRequest) (*pulumirpc.UpdateResponse, error) {
@@ -891,7 +949,7 @@ func (p *providerServer) Construct(ctx context.Context,
 		ResourceHooks:        hooks,
 		DeletedWith:          resource.URN(req.DeletedWith),
 		ReplaceWith:          replaceWith,
-		ReplacementTrigger:   replacementTrigger,
+		ReplacementTrigger:   resource.FromResourcePropertyValue(replacementTrigger),
 		IgnoreChanges:        req.GetIgnoreChanges(),
 		ReplaceOnChanges:     req.GetReplaceOnChanges(),
 	}

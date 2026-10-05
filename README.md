@@ -57,7 +57,7 @@ Before you begin, ensure you have the following:
 
 | Flag | Description |
 |---|---|
-| `--image-path` | Local path to the image file (`.raw` for AWS/GCP, `.vhd` for Azure) |
+| `--image-path` | Local path to the image file (`.raw` for AWS/GCP, `.vhd` for Azure, `.qcow2` for IBM) |
 | `--image-name` | Name to register the image under in the cloud provider |
 
 ### SNC (OpenShift Local) specific
@@ -83,13 +83,14 @@ Before you begin, ensure you have the following:
 
 ### `--backed-url` naming conventions
 
-The productization team uses the following conventions for `--backed-url`, mirrored across all three providers:
+The productization team uses the following conventions for `--backed-url`, mirrored across all four providers:
 
 | Provider | Convention |
 |---|---|
 | AWS   | `s3://aipcc-productization/cloud-importer` |
 | Azure | `azblob://aipcc-productization/cloud-importer` |
 | GCP   | `gs://aipcc-productization/cloud-importer` |
+| IBM   | `cos://aipcc-productization/cloud-importer` |
 
 For local development, use `file:///path/to/state` — no cloud bucket needed. See [Developer Testing](#developer-testing).
 
@@ -167,6 +168,39 @@ podman logs -f import-rhelai-gcp
 
 > **Note:** For GCP, `--replicate` creates `imagename-us`, `imagename-eu`, and `imagename-asia` copies via image-from-image (no re-upload). Consumer tooling is responsible for mapping zone prefix to image name: `us-*` → `-us`, `europe-*` → `-eu`, `asia-*` → `-asia`, all other zones → canonical image.
 
+### IBM Cloud
+
+RHEL AI provides qcow2 images natively, which is the format required by IBM VPC custom images — no conversion needed. The image is uploaded directly to IBM Cloud Object Storage and registered as a private VPC custom image. Catalog publishing to a private IBM Cloud catalog happens automatically in the same run when `--catalog-version` is set.
+
+**Required environment variables:**
+
+| Variable | Description |
+|---|---|
+| `IBMCLOUD_API_KEY` | IBM Cloud API key |
+| `IBMCLOUD_REGION` | IBM Cloud region (e.g. `us-south`). Legacy alias `IC_REGION` is also accepted. |
+| `IBMCLOUD_COS_ACCESS_KEY` | HMAC access key for COS S3-compatible upload and state backend |
+| `IBMCLOUD_COS_SECRET_KEY` | HMAC secret key for COS S3-compatible upload and state backend |
+
+```bash
+podman run --rm --name import-rhelai-ibm -d \
+    -v ${PWD}:/workspace:z \
+    -e IBMCLOUD_API_KEY=${IBMCLOUD_API_KEY} \
+    -e IBMCLOUD_REGION=${IBMCLOUD_REGION} \
+    -e IBMCLOUD_COS_ACCESS_KEY=${IBMCLOUD_COS_ACCESS_KEY} \
+    -e IBMCLOUD_COS_SECRET_KEY=${IBMCLOUD_COS_SECRET_KEY} \
+    quay.io/aipcc-cicd/cloud-importer:latest rhelai ibm \
+        --project-name "rhelai3-136d47d1" \
+        --backed-url cos://aipcc-productization/cloud-importer \
+        --image-name rhelai3-136d47d1 \
+        --image-path "/workspace/rhel-ai-nvidia-ibm-1.5-x86_64.qcow2" \
+        --catalog-version 1.0.0 \
+        --share-orgs-ids 403ca029ac1b44f7aa1a6a7151c86d66 \
+        --debug \
+        --debug-level 9
+
+podman logs -f import-rhelai-ibm
+```
+
 ---
 
 ## SNC (OpenShift Local)
@@ -234,6 +268,30 @@ podman run --rm --name import-snc-gcp -d \
         --debug \
         --debug-level 9
 ```
+
+### IBM Cloud
+
+The SNC bundle is converted directly to qcow2 (IBM VPC's required format) without an intermediate raw file. Catalog publishing to a private IBM Cloud catalog runs automatically when `--catalog-version` is set: the image is imported as a catalog offering version and shared with the accounts in `--share-orgs-ids`.
+
+```bash
+podman run --rm --name import-snc-ibm -d \
+    -e IBMCLOUD_API_KEY=${IBMCLOUD_API_KEY} \
+    -e IBMCLOUD_REGION=${IBMCLOUD_REGION} \
+    -e IBMCLOUD_COS_ACCESS_KEY=${IBMCLOUD_COS_ACCESS_KEY} \
+    -e IBMCLOUD_COS_SECRET_KEY=${IBMCLOUD_COS_SECRET_KEY} \
+    quay.io/aipcc-cicd/cloud-importer:latest snc ibm \
+        --project-name "snc-4.22.14" \
+        --backed-url cos://aipcc-productization/cloud-importer \
+        --bundle-uri ${BUNDLE_URL} \
+        --shasum-uri ${SHASUM_URL} \
+        --arch ${ARCH} \
+        --catalog-version 1.0.0 \
+        --share-orgs-ids 403ca029ac1b44f7aa1a6a7151c86d66 \
+        --debug \
+        --debug-level 9
+```
+
+The VPC image is named after the image (e.g. `openshift-local-4-22-14-x86-64`) and the catalog offering uses the same name. Re-running with an existing `--catalog-version` is idempotent — it resumes from the current state (already-prerelease versions just update the account access list).
 
 ---
 
@@ -316,6 +374,19 @@ podman run --rm \
     quay.io/aipcc-cicd/cloud-importer:latest destroy \
         --project-name "snc-4.20.0" \
         --backed-url gs://bucket/folder
+```
+
+### IBM Cloud
+
+```bash
+podman run --rm \
+    -e IBMCLOUD_API_KEY=${IBMCLOUD_API_KEY} \
+    -e IBMCLOUD_REGION=${IBMCLOUD_REGION} \
+    -e IBMCLOUD_COS_ACCESS_KEY=${IBMCLOUD_COS_ACCESS_KEY} \
+    -e IBMCLOUD_COS_SECRET_KEY=${IBMCLOUD_COS_SECRET_KEY} \
+    quay.io/aipcc-cicd/cloud-importer:latest destroy \
+        --project-name "rhelai3-136d47d1" \
+        --backed-url cos://bucket/folder
 ```
 
 ---
@@ -567,14 +638,14 @@ To trigger a release:
 
 **2. Disk Extraction** *(SNC only)*
 
-* Decompresses the `.xz` archive and extracts files
-* Locates the `qcow2` disk image and converts it to the provider's required format:
-  * **AWS:** `.raw`
-  * **Azure:** `.vhd`
-  * **GCP:** `disk.raw.tar.gz` (a compressed tar archive containing `disk.raw`)
+* Downloads the `.crcbundle` (zstd-compressed tar), verifies sha256, decompresses, and extracts `crc.qcow2`
+* Converts to the provider's required format:
+  * **IBM:** `bundle/crc.qcow2 → disk.qcow2` directly (no raw intermediate — avoids OOM on large images)
+  * **AWS/GCP:** `crc.qcow2 → disk.raw`
+  * **Azure:** `crc.qcow2 → disk.raw → disk.vhd`
 * **Troubleshooting:**
   * Corrupted archive: remove the local bundle and re-run
-  * Disk space: ensure ~60 GB free for the downloaded bundle and extracted image
+  * Disk space: ensure ~60 GB free (AWS/Azure/GCP need the raw intermediate; IBM only needs ~2× the qcow2 size)
 
 **3. Upload to cloud storage**
 

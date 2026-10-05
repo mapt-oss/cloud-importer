@@ -2,6 +2,7 @@ package context
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -22,6 +23,7 @@ type ContextArgs struct {
 type context struct {
 	projectName  string
 	backedURL    string
+	rawScheme    string
 	debug        bool
 	debugLevel   uint
 	keepState    bool
@@ -32,15 +34,70 @@ type context struct {
 var c *context
 
 func Init(ca *ContextArgs) {
+	url := strings.TrimSuffix(ca.BackedURL, "/")
+	rawScheme := extractScheme(url)
+	if rawScheme == "cos" {
+		url = translateCOSURL(url)
+		setupCOSBackendCredentials()
+	}
 	c = &context{
 		projectName:  ca.ProjectName,
-		backedURL:    ca.BackedURL,
+		backedURL:    url,
+		rawScheme:    rawScheme,
 		debug:        ca.Debug,
 		debugLevel:   ca.DebugLevel,
 		keepState:    ca.KeepState,
 		forceDestroy: ca.ForceDestroy,
 	}
 	addCommonTags()
+}
+
+func extractScheme(url string) string {
+	if i := strings.Index(url, "://"); i >= 0 {
+		return url[:i]
+	}
+	return ""
+}
+
+// translateCOSURL converts a cos://bucket/path URL to the s3://bucket/path?endpoint=HOST&s3ForcePathStyle=true
+// format that Pulumi's S3-compatible backend understands, using the IBM COS regional endpoint.
+func translateCOSURL(url string) string {
+	region := os.Getenv("IBMCLOUD_REGION")
+	if region == "" {
+		region = os.Getenv("IC_REGION")
+	}
+	path := strings.TrimPrefix(url, "cos://")
+	var host string
+	if ep := os.Getenv("IBMCLOUD_COS_ENDPOINT"); ep != "" {
+		host = strings.TrimPrefix(strings.TrimPrefix(ep, "https://"), "http://")
+	} else {
+		host = fmt.Sprintf("s3.%s.cloud-object-storage.appdomain.cloud", region)
+	}
+	return fmt.Sprintf("s3://%s?endpoint=%s&s3ForcePathStyle=true", path, host)
+}
+
+// setupCOSBackendCredentials maps IBM COS HMAC keys to the standard AWS SDK env vars
+// so that Pulumi's S3-compatible backend can authenticate against IBM COS.
+func setupCOSBackendCredentials() {
+	if os.Getenv("AWS_ACCESS_KEY_ID") == "" {
+		if v := os.Getenv("IBMCLOUD_COS_ACCESS_KEY"); v != "" {
+			os.Setenv("AWS_ACCESS_KEY_ID", v)
+		}
+	}
+	if os.Getenv("AWS_SECRET_ACCESS_KEY") == "" {
+		if v := os.Getenv("IBMCLOUD_COS_SECRET_KEY"); v != "" {
+			os.Setenv("AWS_SECRET_ACCESS_KEY", v)
+		}
+	}
+	if os.Getenv("AWS_DEFAULT_REGION") == "" {
+		region := os.Getenv("IBMCLOUD_REGION")
+		if region == "" {
+			region = os.Getenv("IC_REGION")
+		}
+		if region != "" {
+			os.Setenv("AWS_DEFAULT_REGION", region)
+		}
+	}
 }
 
 // SetTags sets user-provided tags
@@ -58,13 +115,19 @@ func ProjectName() string {
 	return c.projectName
 }
 
-// Backed url is composed from the base backed url / project name
-// this can help us in case we want to automate some destroy only based on
-// backed url base....it can check each folder and use it as project name
+// BackedURL returns the full Pulumi-ready backend URL: the translated base URL
+// (cos:// → s3://+endpoint) with the project name inserted before any query string.
 func BackedURL() string {
-	// Remove trailing slash from backedURL to avoid Pulumi crashes
-	baseURL := strings.TrimSuffix(c.backedURL, "/")
+	baseURL := c.backedURL
+	if i := strings.IndexByte(baseURL, '?'); i >= 0 {
+		return fmt.Sprintf("%s/%s%s", baseURL[:i], c.projectName, baseURL[i:])
+	}
 	return fmt.Sprintf("%s/%s", baseURL, c.projectName)
+}
+
+// RawScheme returns the original URL scheme provided by the user (e.g. "cos", "s3", "gs").
+func RawScheme() string {
+	return c.rawScheme
 }
 
 func Debug() bool {

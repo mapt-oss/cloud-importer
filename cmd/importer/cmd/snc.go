@@ -26,6 +26,7 @@ func sncCmds() *cobra.Command {
 	c.AddCommand(sncCreate(awsCMD, manager.AWS))
 	c.AddCommand(sncCreate(azureCMD, manager.AZURE))
 	c.AddCommand(sncCreate(gcpCMD, manager.GCP))
+	c.AddCommand(sncCreate(ibmCMD, manager.IBM))
 	return c
 }
 
@@ -52,6 +53,7 @@ func sncCreate(cmd string, provider manager.Provider) *cobra.Command {
 					BundleURI:    viper.GetString(paramBundleURL),
 					ShasumURI:    viper.GetString(paramShasumURL),
 					Arch:         viper.GetString(paramArch),
+					ImageName:    viper.GetString(paramImageName),
 					ImageControl: imageControl(),
 				},
 				provider); err != nil {
@@ -65,6 +67,7 @@ func sncCreate(cmd string, provider manager.Provider) *cobra.Command {
 	flagSet.StringP(paramBundleURL, "", "", paramBundleURLDesc)
 	flagSet.StringP(paramShasumURL, "", "", paramShasumURLDesc)
 	flagSet.StringP(paramArch, "", "x86_64", paramArchDesc)
+	flagSet.StringP(paramImageName, "", "", paramImageNameDesc)
 	c.PersistentFlags().AddFlagSet(flagSet)
 	return c
 }

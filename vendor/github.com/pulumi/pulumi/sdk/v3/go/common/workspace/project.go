@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"maps"
 	"math"
 	"os"
@@ -30,8 +31,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pulumi/esc/ast"
-	"github.com/pulumi/esc/eval"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/esc/ast"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/esc/eval"
 	"github.com/texttheater/golang-levenshtein/levenshtein"
 
 	"github.com/hashicorp/go-multierror"
@@ -41,6 +42,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource/config"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/util/httputil"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/logging"
 	"github.com/santhosh-tekuri/jsonschema/v5"
 	"gopkg.in/yaml.v3"
@@ -132,10 +134,20 @@ type PackageSpec struct {
 
 	// When marshaling, prefer to unmarshal without the <name>@<version> shorthand.
 	unmarshalledFromFull bool
+
+	// CLI args passed to the extension's Parameterize call. This must be implemented in the provider.
+	Extensions []string
+}
+
+func (p PackageSpec) LogValue() slog.Value {
+	p.Source = httputil.RedactURL(p.Source)
+	p.PluginDownloadURL = httputil.RedactURL(p.PluginDownloadURL)
+	type plain PackageSpec
+	return slog.AnyValue(plain(p))
 }
 
 func (p PackageSpec) String() string {
-	if len(p.Parameters) == 0 && len(p.Checksums) == 0 && len(p.PluginDownloadURL) == 0 {
+	if len(p.Parameters) == 0 && len(p.Checksums) == 0 && len(p.PluginDownloadURL) == 0 && len(p.Extensions) == 0 {
 		if len(p.Version) == 0 {
 			return p.Source
 		}
@@ -165,6 +177,16 @@ func (p PackageSpec) String() string {
 		b.WriteString(", PluginDownloadURL: ")
 		b.WriteString(p.PluginDownloadURL)
 	}
+
+	if len(p.Extensions) != 0 {
+		b.WriteString(", Extension: ")
+		for i, extension := range p.Extensions {
+			b.WriteString(extension)
+			if i != len(p.Extensions)-1 {
+				b.WriteRune(' ')
+			}
+		}
+	}
 	b.WriteString(" }")
 
 	return b.String()
@@ -176,10 +198,12 @@ type packageSpecMarshalled struct {
 	Parameters        []string          `json:"parameters,omitzero" yaml:"parameters,omitempty"`
 	Checksums         map[string][]byte `json:"checksums,omitzero" yaml:"checksums,omitempty"`
 	PluginDownloadURL string            `json:"pluginDownloadURL,omitzero" yaml:"pluginDownloadURL,omitempty"`
+	Extensions        []string          `json:"extensions,omitzero" yaml:"extensions,omitempty"`
 }
 
 func marshalPackageSpec[T any](ps PackageSpec, from func(any) (T, error)) (T, error) {
-	if len(ps.Parameters) == 0 && len(ps.Checksums) == 0 && ps.PluginDownloadURL == "" && !ps.unmarshalledFromFull {
+	if len(ps.Parameters) == 0 && len(ps.Checksums) == 0 && ps.PluginDownloadURL == "" &&
+		len(ps.Extensions) == 0 && !ps.unmarshalledFromFull {
 		name := ps.Source
 		if ps.Version != "" {
 			name += "@" + ps.Version
@@ -192,6 +216,7 @@ func marshalPackageSpec[T any](ps PackageSpec, from func(any) (T, error)) (T, er
 		Parameters:        ps.Parameters,
 		Checksums:         ps.Checksums,
 		PluginDownloadURL: ps.PluginDownloadURL,
+		Extensions:        ps.Extensions,
 	})
 }
 
@@ -221,6 +246,7 @@ func (ps *PackageSpec) unmarshal(from func(any) error) error {
 		Parameters:           full.Parameters,
 		Checksums:            full.Checksums,
 		PluginDownloadURL:    full.PluginDownloadURL,
+		Extensions:           full.Extensions,
 		unmarshalledFromFull: true,
 	}
 	return nil
@@ -306,8 +332,8 @@ type BaseProject interface {
 type Project struct {
 	// Name is a required fully qualified name.
 	Name tokens.PackageName `json:"name" yaml:"name"`
-	// Runtime is a required runtime that executes code.
-	Runtime ProjectRuntimeInfo `json:"runtime" yaml:"runtime"`
+	// Runtime is an optional runtime that executes code. Its name may be empty.
+	Runtime ProjectRuntimeInfo `json:"runtime,omitempty" yaml:"runtime,omitempty"`
 	// Main is an optional override for the program's main entry-point location.
 	Main string `json:"main,omitempty" yaml:"main,omitempty"`
 
@@ -574,17 +600,6 @@ func ValidateProject(raw any) error {
 		return errors.New("project is missing a non-empty string 'name' attribute")
 	}
 
-	if _, ok := project["runtime"]; !ok {
-		closest := findClosestKey("runtime", project, maxValidationAttributeDistance)
-		if closest != "" {
-			return fmt.Errorf(
-				"project is missing a 'runtime' attribute; found '%s' instead",
-				closest,
-			)
-		}
-		return errors.New("project is missing a 'runtime' attribute")
-	}
-
 	// We'll catch everything else with JSON schema, though we'll still try to
 	// suggest fixes for common mistakes.
 	if err = ProjectSchema.Validate(project); err == nil {
@@ -831,9 +846,6 @@ func configKeyIsNamespacedByProject(projectName string, configKey string) bool {
 func (proj *Project) Validate() error {
 	if proj.Name == "" {
 		return errors.New("project is missing a 'name' attribute")
-	}
-	if proj.Runtime.Name() == "" {
-		return errors.New("project is missing a 'runtime' attribute")
 	}
 
 	projectName := proj.Name.String()
@@ -1261,21 +1273,17 @@ type ProjectRuntimeInfo struct {
 	options map[string]any
 }
 
-type ProjectStackDeployment struct {
-	DeploymentSettings apitype.DeploymentSettings `json:"settings" yaml:"settings"`
-}
-
-func (psd *ProjectStackDeployment) Save(path string) error {
-	contract.Requiref(path != "", "path", "must not be empty")
-	contract.Requiref(psd != nil, "ps", "must not be nil")
-	return save(path, psd, true /*mkDirAll*/)
-}
-
 func NewProjectRuntimeInfo(name string, options map[string]any) ProjectRuntimeInfo {
+	contract.Requiref(name != "", "name", "must not be empty")
 	return ProjectRuntimeInfo{
 		name:    name,
 		options: options,
 	}
+}
+
+// Used for json/yaml marshalling so omitempty works.
+func (info ProjectRuntimeInfo) IsZero() bool {
+	return info.name == "" && len(info.options) == 0
 }
 
 func (info *ProjectRuntimeInfo) Name() string {
@@ -1410,8 +1418,6 @@ func (proj *Project) AddConfigStackTags(tags map[string]string) {
 		logging.Warningf("overwriting non-object `%s` project config", "pulumi:tags")
 		tagMap = map[string]string{}
 	}
-	for k, v := range tags {
-		tagMap[k] = v
-	}
+	maps.Copy(tagMap, tags)
 	proj.Config["pulumi:tags"] = configTags
 }

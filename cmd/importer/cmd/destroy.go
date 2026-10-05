@@ -20,8 +20,7 @@ func destroy() *cobra.Command {
 			if err := viper.BindPFlags(cmd.Flags()); err != nil {
 				return err
 			}
-			if err := manager.Destoy(
-				contextArgs()); err != nil {
+			if err := manager.Destoy(contextArgs(), viper.GetString(paramDestroyType)); err != nil {
 				return err
 			}
 			return nil
@@ -31,6 +30,7 @@ func destroy() *cobra.Command {
 	contextArgsFlags(flagSet)
 	flagSet.Bool(paramKeepState, false, paramKeepStateDesc)
 	flagSet.Bool(paramForceDestroy, false, paramForceDestroyDesc)
+	flagSet.String(paramDestroyType, "", paramDestroyTypeDesc)
 	c.PersistentFlags().AddFlagSet(flagSet)
 	return c
 }

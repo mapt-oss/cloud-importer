@@ -1,0 +1,149 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: cloud-importer-openshift-local-ibm
+  labels:
+    app.kubernetes.io/version: "1.0.0-dev"
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.44.x"
+    tekton.dev/categories: infrastructure
+    tekton.dev/tags: infrastructure, ibm, crc-bundle
+    tekton.dev/displayName: "CloudImporter OpenShift-Local IBM"
+    tekton.dev/platforms: "linux/amd64"
+spec:
+  description: >-
+    This Task imports an OpenShift Local bundle to IBM Cloud VPC using the cloud-importer tool.
+  params:
+    # general
+    - name: debug
+      description: run with debug logs
+    - name: id
+      description: identifier for the taskrun
+    - name: operation
+      description: operation to perform (create or destroy)
+      default: create
+    - name: secret-ibm-credentials
+      description: |
+        K8S secret holding the IBM Cloud credentials. Secret should be accessible to this task.
+
+        ---
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: ibm-${name}
+        type: Opaque
+        data:
+          api-key: ${ibmcloud_api_key}
+          region: ${ibmcloud_region}
+          cos-access-key: ${ibmcloud_cos_access_key}
+          cos-secret-key: ${ibmcloud_cos_secret_key}
+          bucket: ${cos_bucket}
+
+    # uploading of images
+    - name: arch
+      description: Architecture for the machine (x86_64 or arm64).
+      default: "x86_64"
+    - name: bundle-uri
+      description: Accessible URL to get the bundle.
+      default: ""
+    - name: shasum-uri
+      description: Accessible URL to get the shasum file to check bundle.
+      default: ""
+    - name: share-orgs-ids
+      description: "A comma-separated list of IBM Cloud account IDs to share the catalog offering with."
+      default: ""
+    - name: catalog-version
+      description: "Catalog version to assign when publishing the VPC image to the private catalog."
+      default: "1.0.0"
+    - name: tags
+      description: "A comma-separated list of tags to add to the image."
+      default: ""
+
+    # removal of images
+    - name: force-destroy
+      description: destroy even if there is a lock
+      default: "false"
+    - name: keep-state
+      description: keep the Pulumi state in the COS backend after successful destroy
+      default: "false"
+  steps:
+    - name: run-cloud-importer
+      image: quay.io/aipcc-cicd/cloud-importer:v1.0.0-dev
+      script: |
+        #!/bin/sh
+
+        set -euo pipefail
+
+        # Function to mask credentials (show first and last char, hide middle)
+        mask_credential() {
+          local cred="$1"
+          local len=${#cred}
+          if [ $len -le 2 ]; then
+            echo "***"
+          else
+            echo "${cred:0:1}***${cred: -1}"
+          fi
+        }
+
+        # Credentials - set these BEFORE enabling debug mode
+        export IBMCLOUD_API_KEY=$(cat /opt/ibm-credentials/api-key)
+        export IBMCLOUD_REGION=$(cat /opt/ibm-credentials/region)
+        export IBMCLOUD_COS_ACCESS_KEY=$(cat /opt/ibm-credentials/cos-access-key)
+        export IBMCLOUD_COS_SECRET_KEY=$(cat /opt/ibm-credentials/cos-secret-key)
+        BUCKET=$(cat /opt/ibm-credentials/bucket)
+
+        # If debug add verbosity and print masked credentials
+        if [[ "$(params.debug)" == "true" ]]; then
+          echo "IBMCLOUD_API_KEY=$(mask_credential "$IBMCLOUD_API_KEY")"
+          echo "IBMCLOUD_REGION=$IBMCLOUD_REGION"
+          echo "IBMCLOUD_COS_ACCESS_KEY=$(mask_credential "$IBMCLOUD_COS_ACCESS_KEY")"
+          echo "IBMCLOUD_COS_SECRET_KEY=$(mask_credential "$IBMCLOUD_COS_SECRET_KEY")"
+          echo "BUCKET=$BUCKET"
+          set -xeuo pipefail
+        fi
+
+        cmd="cloud-importer "
+        if [[ "$(params.operation)" == "create" ]]; then
+          cmd+="snc ibm "
+          cmd+="--arch $(params.arch) "
+          cmd+="--bundle-uri \"$(params.bundle-uri)\" --shasum-uri \"$(params.shasum-uri)\" "
+
+          if [ -n "$(params.catalog-version)" ]; then
+            cmd+="--catalog-version=$(params.catalog-version) "
+          fi
+
+          if [ -n "$(params.share-orgs-ids)" ]; then
+            cmd+="--share-orgs-ids=$(params.share-orgs-ids) "
+          fi
+
+          if [ -n "$(params.tags)" ]; then
+            cmd+="--tags=$(params.tags) "
+          fi
+        else
+          cmd+="destroy "
+
+          if [[ "$(params.force-destroy)" == "true" ]]; then
+            cmd+="--force-destroy "
+          fi
+
+          if [[ "$(params.keep-state)" == "true" ]]; then
+            cmd+="--keep-state "
+          fi
+        fi
+
+        cmd+="--project-name $(params.id) "
+        cmd+="--backed-url cos://${BUCKET}/cloud-importer "
+
+        if [[ "$(params.debug)" == "true" ]]; then
+          cmd+="--debug "
+        fi
+
+        eval ${cmd}
+
+      volumeMounts:
+        - name: ibm-credentials
+          mountPath: /opt/ibm-credentials
+  volumes:
+    - name: ibm-credentials
+      secret:
+        secretName: $(params.secret-ibm-credentials)

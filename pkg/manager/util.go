@@ -163,6 +163,25 @@ func getOpts(target providerAPI.Stack) []auto.LocalWorkspaceOption {
 	}
 }
 
+// stackHasOutputs returns true when the named stack exists in the backend and
+// has at least one exported output, indicating a previous successful up run.
+func stackHasOutputs(stackName, projectName, backedURL string) bool {
+	ctx := context.Background()
+	s, err := auto.SelectStackInlineSource(ctx, stackName, projectName, nil,
+		auto.Project(workspace.Project{
+			Name:    tokens.PackageName(projectName),
+			Runtime: workspace.NewProjectRuntimeInfo("go", nil),
+			Backend: &workspace.ProjectBackend{URL: backedURL},
+		}),
+		auto.WorkDir(filepath.Join(".")),
+	)
+	if err != nil {
+		return false
+	}
+	outputs, err := s.Outputs(ctx)
+	return err == nil && len(outputs) > 0
+}
+
 func postStack(ctx context.Context, target providerAPI.Stack, stack *auto.Stack) (err error) {
 	// Set credentials
 	if err = credentials.SetProviderCredentials(ctx, stack, target.ProviderCredentials); err != nil {
