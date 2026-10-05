@@ -28,6 +28,21 @@ type EphemeralDeriver interface {
 	DeriveEphemeralOutputs(imageName string) auto.OutputMap
 }
 
+// BundleImageNamer is an optional interface for providers that can derive the
+// image name from a bundle URI without downloading the bundle. When implemented,
+// the SNC manager path can detect an already-registered image and skip the
+// ephemeral upload even when --bundle-uri is passed instead of --image-name.
+type BundleImageNamer interface {
+	ImageNameFromBundle(bundleURI, shasumURI, arch string) (string, error)
+}
+
+// PostRegisterPublisher is an optional interface for providers that need a
+// post-registration publish step (e.g. IBM catalog sharing).
+// CatalogVersion may be empty, in which case the implementation should no-op.
+type PostRegisterPublisher interface {
+	PostRegisterPublish(registerOutputs auto.UpResult, catalogVersion string, shareOrgIds []string) error
+}
+
 type Provider interface {
 	// Manage ephemeral assets
 	RHELAIEphemeral(imageFilePath, imageName string) pulumi.RunFunc

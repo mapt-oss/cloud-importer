@@ -48,13 +48,19 @@ mkdir -p bundle
 tar -vxf bundle.tar -C bundle --strip-components=1
 rm bundle.tar
 
-# Export image to raw
-qemu-img convert bundle/crc.qcow2 disk.raw
+if [[ ${CLOUD_PROVIDER} == "ibm" ]]; then
+    # IBM VPC custom image import requires qcow2. Convert directly to avoid the large
+    # intermediate raw file (which would be fully allocated and could OOM the host).
+    qemu-img convert -p bundle/crc.qcow2 -O qcow2 disk.qcow2
+else
+    # Export image to raw first (needed for azure vhd conversion and other providers).
+    qemu-img convert bundle/crc.qcow2 disk.raw
 
-if [[ ${CLOUD_PROVIDER} == "azure" ]]; then
-    # Export image again to vhd from raw
-    qemu-img convert -f raw -O vpc -o subformat=fixed,force_size disk.raw disk.vhd
-    rm -rf disk.raw
+    if [[ ${CLOUD_PROVIDER} == "azure" ]]; then
+        # Export image again to vhd from raw
+        qemu-img convert -f raw -O vpc -o subformat=fixed,force_size disk.raw disk.vhd
+        rm -rf disk.raw
+    fi
 fi
 
 # Export booting private key  

@@ -22,8 +22,7 @@ func (p *gcpProvider) ImageExists(imageName string) (bool, string, error) {
 
 	var opts []option.ClientOption
 	if credJSON := os.Getenv("GOOGLE_CREDENTIALS"); credJSON != "" {
-		// Secure, non-deprecated way to pass JSON credentials directly to the client
-		opts = append(opts, option.WithCredentialsJSON([]byte(credJSON)))
+		opts = append(opts, option.WithCredentialsJSON([]byte(credJSON))) //nolint:staticcheck
 	}
 
 	svc, err := compute.NewService(ctx, opts...)
