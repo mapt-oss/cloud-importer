@@ -11,10 +11,11 @@ const (
 	awsCMD                string = "aws"
 	azureCMD              string = "az"
 	gcpCMD                string = "gcp"
+	ibmCMD                string = "ibm"
 	projectName           string = "project-name"
 	projectNameDesc       string = "project name to identify the execution"
 	backedURL             string = "backed-url"
-	backedURLDesc         string = "Backend for Pulumi stack state.\nFormat: (local) file:///path/subpath  (AWS) s3://bucket/path  (Azure) azblob://container/path  (GCP) gs://bucket/path\nProductization convention:\n  AWS:   s3://aipcc-productization/cloud-importer\n  Azure: azblob://aipcc-productization/cloud-importer\n  GCP:   gs://aipcc-productization/cloud-importer\nSee https://www.pulumi.com/docs/iac/concepts/state-and-backends/#using-a-self-managed-backend"
+	backedURLDesc         string = "Backend for Pulumi stack state.\nFormat: (local) file:///path/subpath  (AWS) s3://bucket/path  (Azure) azblob://container/path  (GCP) gs://bucket/path  (IBM) cos://bucket/path\nProductization convention:\n  AWS:   s3://aipcc-productization/cloud-importer\n  Azure: azblob://aipcc-productization/cloud-importer\n  GCP:   gs://aipcc-productization/cloud-importer\n  IBM:   cos://aipcc-productization/cloud-importer\nSee https://www.pulumi.com/docs/iac/concepts/state-and-backends/#using-a-self-managed-backend"
 	debug                 string = "debug"
 	debugDesc             string = "Enable debug traces and set verbosity to max. Typically to get information to troubleshooting an issue."
 	debugLevel            string = "debug-level"
@@ -30,7 +31,12 @@ const (
 	paramKeepStateDesc    string = "Keep Pulumi state in backend after destroy (default: false, state is deleted)"
 	paramForceDestroy     string = "force-destroy"
 	paramForceDestroyDesc string = "if force-destroy is set the command will destroy even if there is a lock."
-	paramImagePath        string = "image-path"
+	paramDestroyType      string = "type"
+	paramDestroyTypeDesc  string = "Image type to destroy: rhelai or snc"
+paramCatalogVersion        string = "catalog-version"
+	paramCatalogVersionDefault string = "1.0.0"
+	paramCatalogVersionDesc    string = "IBM Cloud Catalog version to assign when publishing the VPC image to the private catalog. Defaults to 1.0.0."
+	paramImagePath          string = "image-path"
 	paramImagePathDesc    string = "local path to the image"
 	paramImageName        string = "image-name"
 	paramImageNameDesc    string = "image name once the image is upload"
@@ -47,6 +53,7 @@ func imageControlFlags(fs *pflag.FlagSet) {
 	fs.Bool(paramReplicate, false, paramReplicateDesc)
 	fs.StringSliceP(paramOrgIds, "", []string{}, paramOrgIdsDesc)
 	fs.StringToStringP(paramTags, "", nil, paramTagsDesc)
+	fs.StringP(paramCatalogVersion, "", paramCatalogVersionDefault, paramCatalogVersionDesc)
 }
 
 func contextArgs() *context.ContextArgs {
@@ -62,8 +69,9 @@ func contextArgs() *context.ContextArgs {
 
 func imageControl() *manager.ImageControl {
 	return &manager.ImageControl{
-		Replicate:   viper.IsSet(paramReplicate),
-		ShareOrgIds: viper.GetStringSlice(paramOrgIds),
-		Tags:        viper.GetStringMapString(paramTags),
+		Replicate:      viper.IsSet(paramReplicate),
+		ShareOrgIds:    viper.GetStringSlice(paramOrgIds),
+		Tags:           viper.GetStringMapString(paramTags),
+		CatalogVersion: viper.GetString(paramCatalogVersion),
 	}
 }

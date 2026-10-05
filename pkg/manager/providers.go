@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/mapt-oss/cloud-importer/pkg/manager/context"
 	providerAPI "github.com/mapt-oss/cloud-importer/pkg/manager/provider/api"
 	"github.com/mapt-oss/cloud-importer/pkg/provider/aws"
 	"github.com/mapt-oss/cloud-importer/pkg/provider/azure"
 	"github.com/mapt-oss/cloud-importer/pkg/provider/gcp"
+	"github.com/mapt-oss/cloud-importer/pkg/provider/ibm"
 )
 
 type Provider string
@@ -16,6 +18,7 @@ const (
 	AWS   Provider = "aws"
 	AZURE Provider = "azure"
 	GCP   Provider = "gcp"
+	IBM   Provider = "ibm"
 )
 
 func getProvider(provider Provider) (providerAPI.Provider, error) {
@@ -26,6 +29,8 @@ func getProvider(provider Provider) (providerAPI.Provider, error) {
 		return azure.Provider(), nil
 	case GCP:
 		return gcp.Provider(), nil
+	case IBM:
+		return ibm.Provider(), nil
 	}
 	return nil, fmt.Errorf("%s: provider not supported", provider)
 }
@@ -33,6 +38,10 @@ func getProvider(provider Provider) (providerAPI.Provider, error) {
 func getProviderByBackedURL(backedURL string) (providerAPI.Provider, error) {
 	switch {
 	case strings.HasPrefix(backedURL, "s3://"):
+		// cos:// URLs are translated to s3:// at init time; route them to IBM.
+		if context.RawScheme() == "cos" {
+			return getProvider(IBM)
+		}
 		return getProvider(AWS)
 	case strings.HasPrefix(backedURL, "azblob://"):
 		return getProvider(AZURE)

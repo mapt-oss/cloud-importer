@@ -82,7 +82,7 @@ func gcsDeletePrefix(bucket, prefix string) error {
 
 	var opts []option.ClientOption
 	if credJSON := os.Getenv("GOOGLE_CREDENTIALS"); credJSON != "" {
-		opts = append(opts, option.WithCredentialsJSON([]byte(credJSON)))
+		opts = append(opts, option.WithCredentialsJSON([]byte(credJSON))) //nolint:staticcheck
 	}
 
 	svc, err := storage.NewService(ctx, opts...)
