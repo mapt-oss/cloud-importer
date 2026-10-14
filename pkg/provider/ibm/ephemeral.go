@@ -30,7 +30,7 @@ func createEphemeralVPC(ctx context.Context, region, token, name string) (string
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	raw, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusCreated {
 		return "", fmt.Errorf("create VPC: status %d: %s", resp.StatusCode, raw)
@@ -64,7 +64,7 @@ func createEphemeralSubnet(ctx context.Context, region, token, vpcID, zone, name
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	raw, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusCreated {
 		return "", fmt.Errorf("create subnet: status %d: %s", resp.StatusCode, raw)
@@ -90,7 +90,7 @@ func deleteEphemeralSubnet(ctx context.Context, region, token, subnetID string) 
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	if resp.StatusCode != http.StatusNoContent {
 		raw, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("delete subnet %s: status %d: %s", subnetID, resp.StatusCode, raw)
@@ -111,7 +111,7 @@ func deleteEphemeralVPC(ctx context.Context, region, token, vpcID string) error 
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	if resp.StatusCode != http.StatusNoContent {
 		raw, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("delete VPC %s: status %d: %s", vpcID, resp.StatusCode, raw)

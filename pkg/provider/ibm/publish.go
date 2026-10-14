@@ -29,13 +29,25 @@ func (e *catalogValidationInvalidError) Error() string {
 	return "catalog validation failed" + e.msg
 }
 
-// PublishVPCImage creates (or reuses) a catalog offering for the VPC image,
+// CatalogImageEntry represents a VPC custom image in one IBM Cloud region
+// for inclusion in a private catalog offering version.
+type CatalogImageEntry struct {
+	ID     string
+	Name   string
+	Region string
+}
+
+// PublishVPCImage creates (or reuses) a catalog offering for the VPC image(s),
 // drives the version through new → validated → prerelease → consumable, and
 // reconciles the per-offering account allowlist.
 //
+// images must contain at least one entry; the first entry is used as the
+// primary image for metadata fetching. When --replicate was used, images
+// contains one entry per IBM VPC region.
+//
 // Idempotent: if the version already exists in consumable state, only the
 // allowlist is updated.
-func PublishVPCImage(catalogID, offeringName, vpcImageID, vpcImageName, version, region string, shareOrgIds []string) error {
+func PublishVPCImage(catalogID, offeringName string, images []CatalogImageEntry, version string, shareOrgIds []string) error {
 	apiKey := os.Getenv("IBMCLOUD_API_KEY")
 	if apiKey == "" {
 		return fmt.Errorf("IBMCLOUD_API_KEY not set")
@@ -60,7 +72,7 @@ func PublishVPCImage(catalogID, offeringName, vpcImageID, vpcImageName, version,
 
 	// Import only if the version doesn't exist yet.
 	if versionLocator == "" {
-		versionLocator, err = importVersion(client, catalogID, offeringID, version, vpcImageID, vpcImageName, region, token)
+		versionLocator, err = importVersion(client, catalogID, offeringID, version, token, images)
 		if err != nil {
 			return fmt.Errorf("import offering version: %w", err)
 		}
@@ -185,14 +197,26 @@ func findOrCreateOffering(client *catalogmanagementv1.CatalogManagementV1, catal
 	return ptrStr(offering.ID), "", "", nil
 }
 
-// importVersion imports a VPC image as a new catalog offering version.
-// Image metadata is sent directly in the request body — no COS upload required.
-func importVersion(client *catalogmanagementv1.CatalogManagementV1, catalogID, offeringID, version, vpcImageID, vpcImageName, region, token string) (string, error) {
+// importVersion imports one or more regional VPC images as a new catalog offering version.
+// Metadata is fetched from the first (primary) image and applied to all — all images
+// originate from the same qcow2, so OS family, file size, and provisioned size are identical.
+func importVersion(client *catalogmanagementv1.CatalogManagementV1, catalogID, offeringID, version, token string, images []CatalogImageEntry) (string, error) {
+	primary := images[0]
+
 	// Fetch VPC image details — IBM requires operating_system, file.size, and
 	// minimum_provisioned_size to generate the Schematics installer template during validation.
-	imgMeta, err := fetchVPCImageMeta(context.Background(), region, token, vpcImageID)
+	imgMeta, err := fetchVPCImageMeta(context.Background(), primary.Region, token, primary.ID)
 	if err != nil {
 		return "", fmt.Errorf("fetch VPC image metadata: %w", err)
+	}
+
+	imagesItems := make([]catalogmanagementv1.ImportOfferingBodyMetadataImagesItem, 0, len(images))
+	for _, img := range images {
+		imagesItems = append(imagesItems, catalogmanagementv1.ImportOfferingBodyMetadataImagesItem{
+			ID:     core.StringPtr(img.ID),
+			Name:   core.StringPtr(img.Name),
+			Region: core.StringPtr(img.Region),
+		})
 	}
 
 	imgOS := imgMeta.OperatingSystem
@@ -209,13 +233,7 @@ func importVersion(client *catalogmanagementv1.CatalogManagementV1, catalogID, o
 		},
 		File:                   &catalogmanagementv1.ImportOfferingBodyMetadataFile{Size: core.Int64Ptr(imgMeta.File.Size)},
 		MinimumProvisionedSize: core.Int64Ptr(imgMeta.MinimumProvisionedSize),
-		Images: []catalogmanagementv1.ImportOfferingBodyMetadataImagesItem{
-			{
-				ID:     core.StringPtr(vpcImageID),
-				Name:   core.StringPtr(vpcImageName),
-				Region: core.StringPtr(region),
-			},
-		},
+		Images:                 imagesItems,
 	}
 	// IBM's API requires a sha field even for inline VPC image imports.
 	// We compute it as the SHA256 of the metadata JSON, which is deterministic

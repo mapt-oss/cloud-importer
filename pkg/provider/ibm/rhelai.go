@@ -39,7 +39,7 @@ func (r rhelaiEphemeralRequest) rhelaiEphemeralRunFunc(ctx *pulumi.Context) erro
 
 	bucketName := stableBucketName(r.imageName)
 	ctx.Export(outBucketName, pulumi.String(bucketName))
-	ctx.Export(outCOSURI, pulumi.String(fmt.Sprintf("cos://%s/%s/disk.qcow2", region, bucketName)))
+	ctx.Export(outCOSURI, pulumi.String(ibmCOSURI(region, bucketName, "disk.qcow2")))
 
 	bucket, err := bucketEphemeral(ctx, bucketName, region)
 	if err != nil {

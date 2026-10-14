@@ -32,7 +32,7 @@ func StreamUpload(src, bucket, object string) error {
 	if err != nil {
 		return fmt.Errorf("open %s: %w", src, err)
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	_, err = svc.Objects.Insert(bucket, &storage_api.Object{Name: object}).
 		Media(f).

@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/mapt-oss/cloud-importer/pkg/util"
-	"google.golang.org/api/compute/v1"
+	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
 )

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/mapt-oss/cloud-importer/pkg/manager/provider/credentials"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
@@ -90,11 +91,38 @@ func (p *ibmProvider) PostRegisterPublish(registerOutputs auto.UpResult, catalog
 	if err != nil {
 		return err
 	}
-	region, err := sourceRegion()
+	primaryRegion, err := sourceRegion()
 	if err != nil {
 		return err
 	}
-	return PublishVPCImage(catalogID, offeringName, vpcImageID, vpcImageName, catalogVersion, region, shareOrgIds)
+
+	images := []CatalogImageEntry{
+		{ID: vpcImageID, Name: vpcImageName, Region: primaryRegion},
+	}
+
+	// Collect replica images exported by replicateToRegion when --replicate was used.
+	if replicaRegionsStr, _ := getStr("replicaRegions"); replicaRegionsStr != "" {
+		for _, r := range strings.Split(replicaRegionsStr, ",") {
+			r = strings.TrimSpace(r)
+			if r == "" {
+				continue
+			}
+			idOut, hasID := registerOutputs.Outputs["vpcImageID-"+r]
+			if !hasID {
+				continue
+			}
+			id, _ := idOut.Value.(string)
+			name := vpcImageName
+			if nameOut, ok := registerOutputs.Outputs["vpcImageName-"+r]; ok {
+				if n, ok2 := nameOut.Value.(string); ok2 {
+					name = n
+				}
+			}
+			images = append(images, CatalogImageEntry{ID: id, Name: name, Region: r})
+		}
+	}
+
+	return PublishVPCImage(catalogID, offeringName, images, catalogVersion, shareOrgIds)
 }
 
 func (p *ibmProvider) DeleteLocks(backedURL string) {

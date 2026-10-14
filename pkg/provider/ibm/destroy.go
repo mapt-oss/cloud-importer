@@ -178,7 +178,7 @@ func deleteOfferingsHTTP(catalogID, tok string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	if resp.StatusCode == http.StatusNotFound {
 		return nil
 	}
@@ -217,7 +217,7 @@ func deleteOfferingsHTTP(catalogID, tok string) error {
 					logging.Warnf("pre-destroy: delete version %s: %v", ver.ID, err)
 					continue
 				}
-				delResp.Body.Close()
+				delResp.Body.Close() //nolint:errcheck
 				if delResp.StatusCode == http.StatusOK || delResp.StatusCode == http.StatusNoContent || delResp.StatusCode == http.StatusNotFound {
 					logging.Infof("pre-destroy: offering version %s deleted", ver.ID)
 				} else {
@@ -239,7 +239,7 @@ func deleteOfferingsHTTP(catalogID, tok string) error {
 			logging.Warnf("pre-destroy: delete offering %s: %v", offering.ID, err)
 			continue
 		}
-		delResp.Body.Close()
+		delResp.Body.Close() //nolint:errcheck
 		if delResp.StatusCode == http.StatusOK || delResp.StatusCode == http.StatusNoContent || delResp.StatusCode == http.StatusNotFound {
 			logging.Infof("pre-destroy: offering %s deleted", offering.ID)
 		} else {
@@ -262,7 +262,7 @@ func deleteCatalogHTTP(catalogID, tok string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	if resp.StatusCode == http.StatusNotFound {
 		return nil
 	}
@@ -291,7 +291,7 @@ func forceReclaimResource(resourceID, tok string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	body, _ := io.ReadAll(resp.Body)
 
 	var result struct {
@@ -328,7 +328,7 @@ func runReclamationAction(reclamationID, action, tok string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, body)
@@ -355,7 +355,7 @@ func waitForImageUnmanaged(region, imageID, tok string) error {
 			return fmt.Errorf("poll VPC image: %w", err)
 		}
 		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		resp.Body.Close() //nolint:errcheck
 
 		if resp.StatusCode == http.StatusNotFound {
 			return nil // image already gone

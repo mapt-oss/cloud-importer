@@ -81,12 +81,12 @@ func translateCOSURL(url string) string {
 func setupCOSBackendCredentials() {
 	if os.Getenv("AWS_ACCESS_KEY_ID") == "" {
 		if v := os.Getenv("IBMCLOUD_COS_ACCESS_KEY"); v != "" {
-			os.Setenv("AWS_ACCESS_KEY_ID", v)
+			os.Setenv("AWS_ACCESS_KEY_ID", v) //nolint:errcheck
 		}
 	}
 	if os.Getenv("AWS_SECRET_ACCESS_KEY") == "" {
 		if v := os.Getenv("IBMCLOUD_COS_SECRET_KEY"); v != "" {
-			os.Setenv("AWS_SECRET_ACCESS_KEY", v)
+			os.Setenv("AWS_SECRET_ACCESS_KEY", v) //nolint:errcheck
 		}
 	}
 	if os.Getenv("AWS_DEFAULT_REGION") == "" {
@@ -95,7 +95,7 @@ func setupCOSBackendCredentials() {
 			region = os.Getenv("IC_REGION")
 		}
 		if region != "" {
-			os.Setenv("AWS_DEFAULT_REGION", region)
+			os.Setenv("AWS_DEFAULT_REGION", region) //nolint:errcheck
 		}
 	}
 }

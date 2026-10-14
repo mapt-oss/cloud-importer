@@ -19,13 +19,13 @@ const (
 
 func iamAccessToken(apiKey string) (string, error) {
 	resp, err := http.PostForm(iamTokenURL, url.Values{
-		"grant_type": {"urn:ibm:params:oauth:grant-type:apikey"},
-		"apikey":     {apiKey},
+		"grant_type": []string{"urn:ibm:params:oauth:grant-type:apikey"},
+		"apikey":     []string{apiKey},
 	})
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	var result struct {
 		AccessToken string `json:"access_token"`
 	}
