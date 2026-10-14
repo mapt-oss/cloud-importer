@@ -39,3 +39,35 @@ func stableBucketName(imageName string) string {
 	}
 	return strings.TrimRight(name, "-")
 }
+
+// stableBucketNameForGeo derives a deterministic COS cross-region bucket name
+// for a replica disk uploaded to the given geo (us/eu/ap). The geo suffix keeps
+// the name globally unique while indicating resiliency level.
+func stableBucketNameForGeo(imageName, geo string) string {
+	suffix := "-" + geo
+	base := "tmp-" + util.SanitizeBucketName(imageName)
+	maxBase := 63 - len(suffix)
+	if maxBase < 4 {
+		maxBase = 4
+	}
+	if len(base) > maxBase {
+		base = strings.TrimRight(base[:maxBase], "-")
+	}
+	return strings.TrimRight(base+suffix, "-")
+}
+
+// stableBucketNameForRegion derives a deterministic COS bucket name for a
+// replica disk in targetRegion. IBM COS bucket names are globally unique, so
+// each region gets a distinct name by appending the region as a suffix.
+func stableBucketNameForRegion(imageName, targetRegion string) string {
+	suffix := "-" + targetRegion
+	base := "tmp-" + util.SanitizeBucketName(imageName)
+	maxBase := 63 - len(suffix)
+	if maxBase < 4 {
+		maxBase = 4
+	}
+	if len(base) > maxBase {
+		base = strings.TrimRight(base[:maxBase], "-")
+	}
+	return strings.TrimRight(base+suffix, "-")
+}

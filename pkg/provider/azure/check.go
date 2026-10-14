@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	armcompute "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 )
 
 const (
@@ -36,5 +36,5 @@ func (a *azureProvider) ImageExists(imageName string) (bool, string, error) {
 		}
 		return false, "", fmt.Errorf("error checking image: %w", err)
 	}
-	return true, *resp.GalleryImage.ID, nil
+	return true, *resp.ID, nil
 }

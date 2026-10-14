@@ -6,7 +6,7 @@ import (
 
 	"github.com/mapt-oss/cloud-importer/pkg/util"
 	"github.com/pulumi/pulumi-command/sdk/go/command/local"
-	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/storage"
+	"github.com/pulumi/pulumi-gcp/sdk/v10/go/gcp/storage"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 

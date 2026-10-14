@@ -9,7 +9,7 @@ import (
 	"github.com/mapt-oss/cloud-importer/pkg/manager/context"
 	"github.com/mapt-oss/cloud-importer/pkg/util"
 	resources "github.com/pulumi/pulumi-azure-native-sdk/resources/v3"
-	"github.com/pulumi/pulumi-azure-native-sdk/storage/v3"
+	storage "github.com/pulumi/pulumi-azure-native-sdk/storage/v3"
 	"github.com/pulumi/pulumi-command/sdk/go/command/local"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )

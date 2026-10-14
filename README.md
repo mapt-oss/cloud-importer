@@ -47,7 +47,7 @@ Before you begin, ensure you have the following:
 |---|---|
 | `--project-name` | Unique name for this import run — used to isolate Pulumi state |
 | `--backed-url` | Backend for Pulumi state: `s3://bucket/path`, `azblob://container/path`, `gs://bucket/path`, or `file:///local/path`. See [naming conventions](#backed-url-naming-conventions) below. |
-| `--replicate` | Replicate the image across regions. AWS/Azure: copies to all available regions. GCP: creates `imagename-us`, `imagename-eu`, `imagename-asia` via image-from-image (no re-upload), each stored in its respective multi-region for faster cold-start boot times. |
+| `--replicate` | Replicate the image across regions. AWS/Azure: copies to all available regions. GCP: creates `imagename-us`, `imagename-eu`, `imagename-asia` via image-from-image (no re-upload), each stored in its respective multi-region for faster cold-start boot times. IBM: creates VPC custom images in all available IBM VPC regions — see [IBM Cloud replication](#ibm-cloud-replication) below. |
 | `--share-orgs-ids` | Comma-separated list of identifiers to share the image with: AWS org ARNs, Azure tenant IDs, or GCP project IDs |
 | `--tags` | Comma-separated tags to apply: `key1=value1,key2=value2` |
 | `--debug` | Enable debug logging |
@@ -195,6 +195,7 @@ podman run --rm --name import-rhelai-ibm -d \
         --image-path "/workspace/rhel-ai-nvidia-ibm-1.5-x86_64.qcow2" \
         --catalog-version 1.0.0 \
         --share-orgs-ids 403ca029ac1b44f7aa1a6a7151c86d66 \
+        --replicate \
         --debug \
         --debug-level 9
 
@@ -287,11 +288,34 @@ podman run --rm --name import-snc-ibm -d \
         --arch ${ARCH} \
         --catalog-version 1.0.0 \
         --share-orgs-ids 403ca029ac1b44f7aa1a6a7151c86d66 \
+        --replicate \
         --debug \
         --debug-level 9
 ```
 
 The VPC image is named after the image (e.g. `openshift-local-4-22-14-x86-64`) and the catalog offering uses the same name. Re-running with an existing `--catalog-version` is idempotent — it resumes from the current state (already-prerelease versions just update the account access list).
+
+### IBM Cloud replication
+
+When `--replicate` is set for IBM, VPC custom images are created in all available IBM VPC regions. The disk is **not** re-uploaded for every region — instead IBM COS cross-region geo buckets are used to minimise copy work:
+
+| IBM COS geo | VPC regions covered |
+|---|---|
+| `us` | `us-south`, `us-east` |
+| `eu` | `eu-gb`, `eu-de`, `eu-es` |
+| `ap` | `jp-tok`, `jp-osa`, `au-syd` |
+| *(regional)* | `ca-tor`, `ca-mon`, `br-sao`, `in-che`, `in-mum` |
+
+**How it works:**
+
+1. The primary upload goes to a cross-region COS bucket (e.g. `cos://us/bucket/disk.qcow2` when `IBMCLOUD_REGION=us-south`).
+2. Regions in the **same geo as the primary** (e.g. `us-east` when primary is `us-south`) import directly from the same bucket — **no copy**.
+3. Each **other geo** (`eu`, `ap`) gets one cross-region bucket and one streaming copy of the disk — all VPC regions in that geo import from the same bucket simultaneously once the copy finishes.
+4. **No-geo regions** (`ca-tor`, `ca-mon`, `br-sao`, `in-che`, `in-mum`) each get an individual regional bucket with their own copy.
+
+All geo copies and no-geo copies run in parallel. Within each geo, the multiple VPC image creates start simultaneously as soon as that geo's single upload completes.
+
+> **Note:** IBM Cloud VPC image import takes ~30–35 minutes per region regardless of image size. With `--replicate` the full run takes 3–4 hours for a complete global deployment (upload time + parallel image import time).
 
 ---
 

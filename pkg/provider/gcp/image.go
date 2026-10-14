@@ -8,7 +8,7 @@ import (
 
 	"github.com/mapt-oss/cloud-importer/pkg/util"
 	"github.com/mapt-oss/cloud-importer/pkg/util/logging"
-	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/compute"
+	"github.com/pulumi/pulumi-gcp/sdk/v10/go/gcp/compute"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )

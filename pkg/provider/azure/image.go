@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	armauthorization "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
+	armcompute "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 	imgctx "github.com/mapt-oss/cloud-importer/pkg/manager/context"
 	"github.com/mapt-oss/cloud-importer/pkg/util/logging"
-	"github.com/pulumi/pulumi-azure-native-sdk/compute/v3"
+	compute "github.com/pulumi/pulumi-azure-native-sdk/compute/v3"
 	resources "github.com/pulumi/pulumi-azure-native-sdk/resources/v3"
 
 	// az "github.com/pulumi/pulumi-azure-native-sdk/v3"

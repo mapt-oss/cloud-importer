@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"google.golang.org/api/option"
-	"google.golang.org/api/storage/v1"
+	storage "google.golang.org/api/storage/v1"
 
 	"github.com/mapt-oss/cloud-importer/pkg/util/logging"
 )

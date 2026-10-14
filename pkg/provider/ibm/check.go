@@ -32,8 +32,8 @@ func (p *ibmProvider) ImageExists(imageName string) (bool, string, error) {
 
 func iamToken(apiKey string) (string, error) {
 	body := strings.NewReader(url.Values{
-		"grant_type": {"urn:ibm:params:oauth:grant-type:apikey"},
-		"apikey":     {apiKey},
+		"grant_type": []string{"urn:ibm:params:oauth:grant-type:apikey"},
+		"apikey":     []string{apiKey},
 	}.Encode())
 	req, err := http.NewRequestWithContext(context.Background(),
 		http.MethodPost, "https://iam.cloud.ibm.com/identity/token", body)
@@ -47,7 +47,7 @@ func iamToken(apiKey string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	raw, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("IAM token request returned %d: %s", resp.StatusCode, raw)
@@ -92,7 +92,7 @@ func fetchVPCImageMeta(ctx context.Context, region, token, imageID string) (*vpc
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("VPC images API returned %d: %s", resp.StatusCode, body)
@@ -119,7 +119,7 @@ func vpcImageByName(ctx context.Context, region, token, name string) (bool, stri
 	if err != nil {
 		return false, "", err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	raw, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		return false, "", fmt.Errorf("VPC images API returned %d: %s", resp.StatusCode, raw)

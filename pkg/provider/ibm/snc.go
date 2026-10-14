@@ -38,7 +38,7 @@ func (p *ibmProvider) DeriveEphemeralOutputs(imageName string) auto.OutputMap {
 		outArch:       auto.OutputValue{Value: arch},
 		outOSSlug:     auto.OutputValue{Value: osSlug},
 		outBucketName: auto.OutputValue{Value: bucketName},
-		outCOSURI:     auto.OutputValue{Value: fmt.Sprintf("cos://%s/%s/disk.qcow2", region, bucketName)},
+		outCOSURI:     auto.OutputValue{Value: ibmCOSURI(region, bucketName, "disk.qcow2")},
 	}
 }
 
@@ -89,7 +89,7 @@ func (r sncEphemeralRequest) sncEphemeralRunFunc(ctx *pulumi.Context) error {
 
 	bucketName := stableBucketName(imageName)
 	ctx.Export(outBucketName, pulumi.String(bucketName))
-	ctx.Export(outCOSURI, pulumi.String(fmt.Sprintf("cos://%s/%s/disk.qcow2", region, bucketName)))
+	ctx.Export(outCOSURI, pulumi.String(ibmCOSURI(region, bucketName, "disk.qcow2")))
 
 	bucket, err := bucketEphemeral(ctx, bucketName, region)
 	if err != nil {

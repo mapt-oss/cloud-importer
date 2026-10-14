@@ -58,6 +58,41 @@ Convention: `cos://aipcc-productization/cloud-importer`
 
 `IC_*` prefixed vars are legacy aliases — always prefer `IBMCLOUD_*`.
 
+### Replication (`--replicate`)
+
+IBM VPC requires a COS bucket accessible from the target region. Rather than uploading the disk once per region, the code uses IBM COS **cross-region geo buckets** to minimise copy work.
+
+**`vpcRegionGeo` map** (`cos.go`):
+- `us-south`, `us-east` → `us` geo (`s3.us.cloud-object-storage.appdomain.cloud`, constraint `us-standard`)
+- `eu-gb`, `eu-de`, `eu-es` → `eu` geo (`s3.eu.cloud-object-storage.appdomain.cloud`, constraint `eu-standard`)
+- `jp-tok`, `jp-osa`, `au-syd` → `ap` geo (`s3.ap.cloud-object-storage.appdomain.cloud`, constraint `ap-standard`)
+- `ca-tor`, `ca-mon`, `br-sao`, `in-che`, `in-mum` → no geo (individual regional buckets, constraint `<region>-standard`)
+
+**`ibmCOSSupportedRegions`** (13 regions) — all regions with IBM COS endpoints (used by `otherVPCRegions` to filter the live VPC regions list from the API).
+
+**`replicaGroup` struct** (`image.go`) — one group per geo or per no-geo region:
+- `needsCopy=false`: same geo as primary, reuses primary bucket and `cosURI`, VPC images start immediately.
+- `needsCopy=true`: different geo or no-geo, creates a new bucket then streams the disk once from the primary bucket (no temp file — piped directly between S3 endpoints).
+
+**`buildReplicaGroups`** groups replica VPC regions by `ibmVPCRegionGeo`:
+- Same-geo regions (e.g. `us-east` when primary is `us-south`) → `needsCopy=false` group.
+- Each other geo → one `needsCopy=true` group covering all VPC regions in that geo.
+- No-geo regions → one `needsCopy=true` group per region.
+
+**`replicateGroup`** (per group):
+1. If `needsCopy`: create COS bucket (`s3api create-bucket --create-bucket-configuration LocationConstraint=<constraint>`), then stream disk with retry loop.
+2. Wait for bucket propagation: 20 × 15s `head-bucket` poll before upload (IBM COS cross-region buckets have eventual consistency on creation).
+3. Create VPC `IsImage` for every region in the group, all pointing at the same `cos://geo/bucket/disk.qcow2` URI. IBM VPC confirmed to accept cross-region geo URIs.
+
+**Upload optimisations** (streaming copy in `replicateGroup`):
+- `AWS_S3_MULTIPART_CHUNKSIZE=128MB` — reduces multipart requests from ~5000 to ~312 for a 40 GB image.
+- `AWS_MAX_CONCURRENT_REQUESTS=32` — maximises TCP window utilisation on cross-region links.
+- Streaming pipe: `aws s3 cp src - | aws s3 cp - dst --expected-size $size` — no temp file, no disk usage.
+- Post-transfer size verification: compares `src_size` and `dst_size` via `head-object`; fails the loop on mismatch.
+- 3-attempt retry loop with 60s pause between attempts.
+
+**Bucket creation idempotency**: `create-bucket || head-bucket` — if the bucket already exists (e.g. from a previous run with a different LocationConstraint), the fallback `head-bucket` confirms access and the command succeeds.
+
 ### Catalog publish flow
 
 After the VPC image is registered, `PublishVPCImage` (in `publish.go`) creates or reuses a private catalog offering and drives the version through the lifecycle:
